@@ -535,7 +535,7 @@ VNA_SHELL_FUNCTION(cmd_deviceid)
   } else if (argc == 1) {
     if (argv[0][0] == '?')
       goto usage;
-    float v = my_atoui(argv[0]);
+    uint32_t v = my_atoui(argv[0]);
     config.deviceid = v;
   } else {
   usage:

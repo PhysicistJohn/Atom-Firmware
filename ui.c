@@ -8024,9 +8024,17 @@ static void sa_save_file(uint8_t format) {
   }
 
   // For screenshot need back to normal mode and redraw screen before capture!!
-  // Redraw use spi_buffer so need do it before any file ops
-  if (format == FMT_BMP_FILE && (ui_mode != UI_NORMAL || !(config._mode & _MODE_AUTO_FILENAME))){
+  // Redraw use spi_buffer so need do it before any file ops.
+  // Always redraw for BMP (including auto-filename path) to ensure:
+  //   1. trace_index_y is synced with measured[] so marker triangle position,
+  //      frequency text, and level text are all from the same data epoch.
+  //   2. If the sweep was aborted mid-way (e.g. interrupted by the screen-capture
+  //      touch), the previously completed sweep's marker indices (which may point
+  //      to a stale no-signal peak by coincidence) are not mixed with partially
+  //      updated measured[] values from the new in-progress sweep.
+  if (format == FMT_BMP_FILE) {
     ui_mode_normal();
+    plot_into_index(measured);
     draw_all(false);
   }
 //  UINT total_size = 0;
