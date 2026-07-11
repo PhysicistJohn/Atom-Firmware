@@ -3,6 +3,7 @@
 #include "modern/core/zs407_fft.h"
 #include "modern/core/zs407_measurements.h"
 #include "modern/core/zs407_protocol.h"
+#include "modern/core/zs407_rf_lab.h"
 #include "modern/core/zs407_services.h"
 #include "modern/core/zs407_ui_model.h"
 
@@ -375,6 +376,52 @@ static int test_ui_model(void)
   return 0;
 }
 
+static int test_rf_lab(void)
+{
+  zs407_si4468_hop_plan_t si;
+  CHECK(zs407_si4468_hop_plan(UINT64_C(1000000000), UINT64_C(3000000000),
+                              &si) == ZS407_CORE_OK);
+  CHECK(si.band == 0U);
+  CHECK(si.divider == 4U);
+  CHECK(si.integer == 65U);
+  CHECK(si.fraction >= 524288U && si.fraction < 1048576U);
+  CHECK(si.actual_hz >= UINT64_C(999999990));
+  CHECK(si.actual_hz <= UINT64_C(1000000010));
+  CHECK(si.vco_estimate_in_range);
+  CHECK(zs407_si4468_hop_plan(UINT64_C(200000000), UINT64_C(3000000000),
+                              &si) == ZS407_CORE_OUT_OF_RANGE);
+
+  zs407_max2871_plan_t max;
+  CHECK(zs407_max2871_plan(UINT64_C(3000000000), UINT64_C(3000000000),
+                           60U, &max) == ZS407_CORE_OK);
+  CHECK(max.divider == 1U && max.divider_code == 0U);
+  CHECK(max.integer == 100U && max.fraction == 0U);
+  CHECK(max.actual_hz == UINT64_C(3000000000));
+  CHECK((max.register0 & 7U) == 0U);
+  CHECK((max.register1 & 7U) == 1U);
+  CHECK(zs407_max2871_plan(UINT64_C(100000000), UINT64_C(3000000000),
+                           60U, &max) == ZS407_CORE_OK);
+  CHECK(max.divider == 64U && max.divider_code == 6U);
+
+  const zs407_db32_t coarse[] = {
+      -3200, -3100, -1000, -3150, -3200, -3000, -900, -2900, -3200};
+  zs407_refinement_window_t windows[4];
+  size_t window_count = 0U;
+  CHECK(zs407_select_refinement_windows(coarse, 9U, -3000, 1000, 1U,
+                                        windows, 4U, &window_count) ==
+        ZS407_CORE_OK);
+  CHECK(window_count == 2U);
+  CHECK(windows[0].first_index == 1U && windows[0].last_index == 3U &&
+        windows[0].peak_index == 2U);
+  CHECK(windows[1].first_index == 5U && windows[1].last_index == 7U &&
+        windows[1].peak_index == 6U);
+
+  CHECK(zs407_select_refinement_windows(coarse, 9U, -3000, 1000, 1U,
+                                        windows, 1U, &window_count) ==
+        ZS407_CORE_BUFFER_TOO_SMALL);
+  return 0;
+}
+
 int main(int argc, char **argv)
 {
   if (argc != 2) {
@@ -390,6 +437,7 @@ int main(int argc, char **argv)
   CHECK(test_measurements() == 0);
   CHECK(test_fft() == 0);
   CHECK(test_ui_model() == 0);
+  CHECK(test_rf_lab() == 0);
   puts("ZS407 host core: all tests passed");
   return 0;
 }

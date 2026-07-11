@@ -20,6 +20,9 @@
 #include "hal.h"
 #include "nanovna.h"
 #include "zs407_features.h"
+#if ZS407_FEATURE_RF_LAB
+#include "modern/embedded/zs407_rf_probe.h"
+#endif
 #include <math.h>
 #include "si4432.h"
 #include "spi.h"
@@ -1766,6 +1769,44 @@ uint8_t getFRR(uint8_t reg)
 
   return SI4463_read_byte(reg);
 }
+
+#if ZS407_FEATURE_RF_LAB
+static int zs407_read_si4468_property(uint8_t group, uint8_t property,
+                                      uint8_t *value)
+{
+  uint8_t command[] = {SI446X_CMD_GET_PROPERTY, group, 1U, property};
+  return SI4463_do_api(command, sizeof(command), value, 1U);
+}
+
+int zs407_si4468_probe(zs407_si4468_probe_t *probe)
+{
+  if (probe == NULL) {
+    return -1;
+  }
+  uint32_t started = DWT->CYCCNT;
+  uint8_t command[] = {
+      SI446X_CMD_GET_PROPERTY, SI446X_PROP_GROUP_FRR, 4U, 0U};
+  if (SI4463_do_api(command, sizeof(command), probe->frr_mode, 4U) != 0) {
+    return -1;
+  }
+  static const uint8_t frr_command[] = {
+      SI446X_CMD_READ_FRR_A, SI446X_CMD_READ_FRR_B,
+      SI446X_CMD_READ_FRR_C, SI446X_CMD_READ_FRR_D};
+  for (size_t i = 0U; i < 4U; ++i) {
+    probe->frr_value[i] = getFRR(frr_command[i]);
+  }
+  if (zs407_read_si4468_property(SI446X_PROP_GROUP_MODEM, 0x4c,
+                                 &probe->rssi_control) != 0 ||
+      zs407_read_si4468_property(SI446X_PROP_GROUP_MODEM, 0x4e,
+                                 &probe->rssi_compensation) != 0 ||
+      zs407_read_si4468_property(SI446X_PROP_GROUP_MODEM, 0x58,
+                                 &probe->fast_rssi_delay) != 0) {
+    return -1;
+  }
+  probe->elapsed_cycles = DWT->CYCCNT - started;
+  return 0;
+}
+#endif
 
 // Get current radio state
 static si446x_state_t SI4463_get_state(void)

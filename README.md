@@ -62,6 +62,7 @@ Read first
 - [Replacement firmware architecture](docs/REPLACEMENT_FIRMWARE.md)
 - [Performance, fixed-point DSP and FFT plan](docs/PERFORMANCE_DSP.md)
 - [Enhancement and risk register](docs/ENHANCEMENT_RISK_REGISTER.md)
+- [RF experiment qualification gates](docs/RF_EXPERIMENT_GATES.md)
 - [Cumulative phase and image plan](docs/PHASE_IMPLEMENTATION.md)
 - [Portable firmware/Mac core and generated contracts](modern/README.md)
 - [Atomic 480×320 embedded UI](docs/EMBEDDED_UI.md)

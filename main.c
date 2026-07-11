@@ -33,6 +33,10 @@
 #include "modern/core/zs407_measurements.h"
 #include "modern/core/zs407_ui_model.h"
 #endif
+#if ZS407_FEATURE_RF_LAB
+#include "modern/core/zs407_rf_lab.h"
+#include "modern/embedded/zs407_rf_probe.h"
+#endif
 
 #include <chprintf.h>
 #include <string.h>
@@ -2470,10 +2474,23 @@ VNA_SHELL_FUNCTION(cmd_modern)
   bool show_metrics = false;
   bool palette_command = false;
 #endif
+#if ZS407_FEATURE_RF_LAB
+  bool rfdiag_command = argc == 2 && strcmp(argv[0], "rfdiag") == 0;
+  bool hop_plan_command = argc == 2 && strcmp(argv[0], "hop-plan") == 0;
+  bool max_plan_command = argc == 2 && strcmp(argv[0], "max-plan") == 0;
+  bool refine_command = argc == 3 && strcmp(argv[0], "refine") == 0;
+#else
+  bool rfdiag_command = false;
+  bool hop_plan_command = false;
+  bool max_plan_command = false;
+  bool refine_command = false;
+#endif
   if (!((argc == 0) || query_radio || run_selftest || show_caps || show_plan ||
-        run_dsp_selftest || show_metrics || palette_command)) {
+        run_dsp_selftest || show_metrics || palette_command || rfdiag_command ||
+        hop_plan_command || max_plan_command || refine_command)) {
     usage_printf("modern [radio|caps|selftest|dsp-selftest|metrics|"
-                 "palette atomic|restore|status|plan START STOP POINTS]\r\n");
+                 "palette MODE|rfdiag MODE|hop-plan FREQ|max-plan FREQ|"
+                 "refine PROMINENCE_DB RADIUS|plan START STOP POINTS]\r\n");
     return;
   }
 
@@ -2606,6 +2623,100 @@ VNA_SHELL_FUNCTION(cmd_modern)
   }
   if (palette_command) {
     modern_palette_preview(argv[1]);
+  }
+#endif
+#if ZS407_FEATURE_RF_LAB
+  if (rfdiag_command) {
+    if (strcmp(argv[1], "status") == 0) {
+      shell_printf("rf_lab=probe-only frr_fast_path=off rx_hop=off "
+                   "max_manual_vco=off adaptive_rescan=off qualified=0\r\n");
+    } else if (strcmp(argv[1], "probe") == 0) {
+      zs407_si4468_probe_t probe;
+      if (zs407_si4468_probe(&probe) != 0) {
+        shell_printf("rf_probe failed (CTS/property read)\r\n");
+      } else {
+        shell_printf("frr mode=%02x,%02x,%02x,%02x value=%02x,%02x,%02x,%02x "
+                     "rssi_ctl=%02x comp=%02x fast_delay=%02x cycles=%u\r\n",
+                     probe.frr_mode[0], probe.frr_mode[1], probe.frr_mode[2],
+                     probe.frr_mode[3], probe.frr_value[0], probe.frr_value[1],
+                     probe.frr_value[2], probe.frr_value[3],
+                     probe.rssi_control, probe.rssi_compensation,
+                     probe.fast_rssi_delay, probe.elapsed_cycles);
+      }
+    } else if (strcmp(argv[1], "enable") == 0) {
+      shell_printf("refused: RF fast paths require hardware qualification\r\n");
+    } else {
+      shell_printf("rfdiag mode must be status, probe, or enable\r\n");
+    }
+  }
+  if (hop_plan_command) {
+    zs407_si4468_hop_plan_t plan;
+    zs407_core_status_t status = zs407_si4468_hop_plan(
+        my_atoui(argv[1]), config.setting_frequency_30mhz, &plan);
+    if (status != ZS407_CORE_OK) {
+      shell_printf("hop plan unavailable status=%u\r\n", (uint32_t)status);
+    } else {
+      shell_printf("hop dry-run requested=%U actual=%U band=%u div=%u "
+                   "inte=%u frac=0x%05x vco=%u vco_qualified=0\r\n",
+                   plan.requested_hz, plan.actual_hz, plan.band, plan.divider,
+                   plan.integer, plan.fraction, plan.vco_count_estimate);
+    }
+  }
+  if (max_plan_command) {
+    zs407_max2871_plan_t plan;
+    zs407_core_status_t status = zs407_max2871_plan(
+        my_atoui(argv[1]), config.setting_frequency_30mhz, 60U, &plan);
+    if (status != ZS407_CORE_OK) {
+      shell_printf("MAX2871 plan unavailable status=%u\r\n", (uint32_t)status);
+    } else {
+      shell_printf("MAX2871 dry-run requested=%U actual=%U div=%u code=%u "
+                   "N=%u FRAC=%u MOD=%u R0=%08x R1=%08x manual_vco=off\r\n",
+                   plan.requested_hz, plan.actual_hz, plan.divider,
+                   plan.divider_code, plan.integer, plan.fraction,
+                   plan.modulus, plan.register0, plan.register1);
+    }
+  }
+  if (refine_command) {
+    if (sweep_points < 3U || setting.frequency_step == 0U) {
+      shell_printf("refine requires a completed frequency sweep\r\n");
+      return;
+    }
+    uint16_t valid_points = 0U;
+    for (uint16_t i = 0U; i < sweep_points; ++i) {
+      if (zs407_db32_from_double(measured[TRACE_ACTUAL][i],
+                                 &_modern_trace[i]) != ZS407_CORE_OK) {
+        _modern_trace[i] = ZS407_TRACE_INVALID_SAMPLE;
+      } else {
+        _modern_sort[valid_points++] = _modern_trace[i];
+      }
+    }
+    zs407_db32_t noise;
+    if (zs407_quantile_db32(_modern_sort, valid_points, 13107U,
+                            _modern_sort, POINTS_COUNT, &noise) !=
+        ZS407_CORE_OK) {
+      shell_printf("refine noise estimate unavailable\r\n");
+      return;
+    }
+    int32_t prominence = (int32_t)my_atoi(argv[1]) * 32;
+    int32_t radius = (int32_t)my_atoi(argv[2]);
+    if (prominence < 0 || prominence > INT16_MAX || radius < 1 ||
+        radius > 100) {
+      shell_printf("refine requires prominence 0..1023 dB and radius 1..100\r\n");
+      return;
+    }
+    zs407_refinement_window_t windows[8];
+    size_t count = 0U;
+    zs407_core_status_t status = zs407_select_refinement_windows(
+        _modern_trace, sweep_points, noise, (zs407_db32_t)prominence,
+        (uint16_t)radius, windows, 8U, &count);
+    shell_printf("refine dry-run noise=%.2f dBm windows=%u status=%u\r\n",
+                 (double)noise / 32.0, (uint32_t)count, (uint32_t)status);
+    for (size_t i = 0U; i < count; ++i) {
+      shell_printf("%u:%U..%U peak=%U\r\n", (uint32_t)i,
+                   getFrequency(windows[i].first_index),
+                   getFrequency(windows[i].last_index),
+                   getFrequency(windows[i].peak_index));
+    }
   }
 #endif
 #endif

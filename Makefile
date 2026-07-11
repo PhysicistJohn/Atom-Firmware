@@ -163,6 +163,9 @@ MODERN_CSRC += modern/core/zs407_fft.c \
                modern/core/zs407_measurements.c \
                modern/core/zs407_ui_model.c
 endif
+ifneq ($(filter 4 5 6,$(PHASE)),)
+MODERN_CSRC += modern/core/zs407_rf_lab.c
+endif
 
 ifeq ($(TARGET),F303)
 CSRC = $(STARTUPSRC) \

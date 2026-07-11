@@ -23,6 +23,7 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
   "$ROOT/modern/core/zs407_fft.c" \
   "$ROOT/modern/core/zs407_measurements.c" \
   "$ROOT/modern/core/zs407_protocol.c" \
+  "$ROOT/modern/core/zs407_rf_lab.c" \
   "$ROOT/modern/core/zs407_services.c" \
   "$ROOT/modern/core/zs407_ui_model.c" \
   "$ROOT/tests/host/test_core.c" \
@@ -37,6 +38,7 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
   "$ROOT/modern/core/zs407_fft.c" \
   "$ROOT/modern/core/zs407_measurements.c" \
   "$ROOT/modern/core/zs407_protocol.c" \
+  "$ROOT/modern/core/zs407_rf_lab.c" \
   "$ROOT/modern/core/zs407_services.c" \
   "$ROOT/modern/core/zs407_ui_model.c" "$ROOT/tests/host/test_core.c" \
   -lm -o "$build_dir/test_core_embedded_math"
@@ -52,6 +54,7 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
   "$ROOT/modern/core/zs407_fft.c" \
   "$ROOT/modern/core/zs407_measurements.c" \
   "$ROOT/modern/core/zs407_protocol.c" \
+  "$ROOT/modern/core/zs407_rf_lab.c" \
   "$ROOT/modern/core/zs407_services.c" \
   "$ROOT/modern/core/zs407_ui_model.c" "$ROOT/tests/host/test_core.c" \
   -lm -o "$build_dir/test_core_asan"
@@ -64,7 +67,7 @@ fi
 
 gnu_bin=$($ROOT/tools/bootstrap-toolchain.sh)
 for source in zs407_core zs407_fft zs407_measurements zs407_protocol \
-              zs407_services zs407_ui_model; do
+              zs407_rf_lab zs407_services zs407_ui_model; do
   "$gnu_bin/arm-none-eabi-gcc" $common_flags -ffreestanding -fno-builtin \
     -DZS407_EMBEDDED_MATH=1 -mcpu=cortex-m4 -mthumb -I"$ROOT" \
     -c "$ROOT/modern/core/$source.c" -o "$build_dir/arm/$source.o"
