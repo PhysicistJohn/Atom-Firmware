@@ -20,3 +20,4 @@ Rubbish*
 desktop.ini
 *.xml
 .megaignore
+.artifacts/
