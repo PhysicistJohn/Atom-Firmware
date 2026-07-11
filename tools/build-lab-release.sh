@@ -50,7 +50,8 @@ sed -n '/./p' "$artifact_dir/host-tests.txt"
 sed -n '/./p' "$artifact_dir/official-reproduction.txt"
 
 make -C "$ROOT" TARGET=F072 clean >/dev/null
-make -C "$ROOT" TARGET=F072 VERSION='tinySA_f072-v0.2-regression' \
+SOURCE_DATE_EPOCH="$source_date_epoch" \
+  make -C "$ROOT" TARGET=F072 VERSION='tinySA_f072-v0.2-regression' \
   -j"$(host_jobs)" > "$artifact_dir/f072-build.txt" 2>&1
 f072_binary="$ROOT/build/tinySA.bin"
 f072_elf="$ROOT/build/tinySA.elf"
@@ -58,8 +59,16 @@ f072_elf="$ROOT/build/tinySA.elf"
   die 'F072 regression did not produce BIN and ELF'
 [ -z "$(arm-none-eabi-nm -u "$f072_elf")" ] || \
   die 'F072 regression ELF has unresolved symbols'
+f072_first_hash=$(sha256_file "$f072_binary")
+make -C "$ROOT" TARGET=F072 clean >/dev/null
+SOURCE_DATE_EPOCH="$source_date_epoch" \
+  make -C "$ROOT" TARGET=F072 VERSION='tinySA_f072-v0.2-regression' \
+  -j"$(host_jobs)" >> "$artifact_dir/f072-build.txt" 2>&1
+f072_second_hash=$(sha256_file "$f072_binary")
+[ "$f072_first_hash" = "$f072_second_hash" ] || \
+  die "clean F072 builds differ ($f072_first_hash != $f072_second_hash)"
 f072_size=$(wc -c < "$f072_binary" | tr -d ' ')
-f072_hash=$(sha256_file "$f072_binary")
+f072_hash=$f072_second_hash
 {
   printf '\nf072_regression=passed\n'
   printf 'f072_binary_size=%s\n' "$f072_size"
@@ -160,6 +169,7 @@ size_report=$(arm-none-eabi-size "$artifact_dir/$stem.elf")
   printf 'host_tests=passed\n'
   printf 'official_exact_reproduction=passed\n'
   printf 'f072_regression=passed\n'
+  printf 'f072_reproducible_clean_builds=true\n'
   printf 'output_lock_audit=passed\n'
   printf 'protocol_v2_lock_audit=passed\n'
   printf 'hardware_qualified=false\n'

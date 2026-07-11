@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+. "$ROOT/tools/lib.sh"
 repo=PhysicistJohn/TinySA_Firmware
 origin=https://github.com/PhysicistJohn/TinySA_Firmware.git
 
@@ -48,11 +49,49 @@ artifact_dir="$ROOT/.artifacts/lab-releases/$release/$commit"
 manifest="$artifact_dir/manifest.txt"
 [[ -f $manifest ]] || { printf 'error: missing release manifest\n' >&2; exit 1; }
 value() { sed -n "s/^$1=//p" "$manifest" | sed -n '1p'; }
+[[ $(value commit) == "$commit" ]] || { printf 'error: manifest commit\n' >&2; exit 1; }
+[[ $(value profile) == protocol-v2 ]] || { printf 'error: manifest profile\n' >&2; exit 1; }
+[[ $(value reproducible_clean_builds) == true ]] || { printf 'error: reproducibility flag\n' >&2; exit 1; }
+[[ $(value official_exact_reproduction) == passed ]] || { printf 'error: official regression\n' >&2; exit 1; }
+[[ $(value f072_reproducible_clean_builds) == true ]] || { printf 'error: F072 reproducibility\n' >&2; exit 1; }
 [[ $(value hardware_qualified) == false ]] || { printf 'error: qualification flag\n' >&2; exit 1; }
 [[ $(value binary_transport_enabled) == false ]] || { printf 'error: transport flag\n' >&2; exit 1; }
 [[ $(value automated_flash) == false ]] || { printf 'error: flash flag\n' >&2; exit 1; }
 
 stem="tinySA4_${release}_protocol-v2"
+[[ $(wc -c < "$artifact_dir/$stem.bin" | tr -d ' ') == $(value binary_size) ]] || {
+  printf 'error: binary size does not match manifest\n' >&2; exit 1;
+}
+[[ $(sha256_file "$artifact_dir/$stem.bin") == $(value binary_sha256) ]] || {
+  printf 'error: binary hash does not match manifest\n' >&2; exit 1;
+}
+[[ $(sha256_file "$artifact_dir/$stem.elf") == $(value elf_sha256) ]] || {
+  printf 'error: ELF hash does not match manifest\n' >&2; exit 1;
+}
+[[ $(sha256_file "$artifact_dir/$stem.hex") == $(value hex_sha256) ]] || {
+  printf 'error: HEX hash does not match manifest\n' >&2; exit 1;
+}
+[[ $(sha256_file "$artifact_dir/protocol-v2-benchmark.txt") == $(value benchmark_sha256) ]] || {
+  printf 'error: benchmark hash does not match manifest\n' >&2; exit 1;
+}
+[[ $(sha256_file "$artifact_dir/official-reproduction.txt") == $(value official_report_sha256) ]] || {
+  printf 'error: official report hash does not match manifest\n' >&2; exit 1;
+}
+[[ $(sha256_file "$artifact_dir/f072-build.txt") == $(value f072_report_sha256) ]] || {
+  printf 'error: F072 report hash does not match manifest\n' >&2; exit 1;
+}
+grep -Fq 'output_lock=passed' "$artifact_dir/output-gate-audit.txt" || {
+  printf 'error: output lock report failed\n' >&2; exit 1;
+}
+grep -Fq 'protocol_v2_lock_audit=passed' "$artifact_dir/protocol-v2-lock-audit.txt" || {
+  printf 'error: transport lock report failed\n' >&2; exit 1;
+}
+grep -Fq 'Exact official binary reproduced.' "$artifact_dir/official-reproduction.txt" || {
+  printf 'error: official reproduction report failed\n' >&2; exit 1;
+}
+grep -Fq 'f072_regression=passed' "$artifact_dir/f072-build.txt" || {
+  printf 'error: F072 build report failed\n' >&2; exit 1;
+}
 assets=(
   "$artifact_dir/$stem.bin"
   "$artifact_dir/$stem.elf"
