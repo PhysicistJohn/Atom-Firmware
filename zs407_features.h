@@ -46,4 +46,10 @@
 #define ZS407_FEATURE_CCM_FREQUENCY_CACHE 0
 #endif
 
+#if ZS407_PHASE_BUILD && ZS407_PHASE >= 3
+#define ZS407_FEATURE_DSP_UI 1
+#else
+#define ZS407_FEATURE_DSP_UI 0
+#endif
+
 #endif /* ZS407_FEATURES_H */

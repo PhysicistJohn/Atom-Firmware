@@ -28,6 +28,11 @@
 #include "modern/core/zs407_core.h"
 #include "modern/core/zs407_services.h"
 #endif
+#if ZS407_FEATURE_DSP_UI
+#include "modern/core/zs407_fft.h"
+#include "modern/core/zs407_measurements.h"
+#include "modern/core/zs407_ui_model.h"
+#endif
 
 #include <chprintf.h>
 #include <string.h>
@@ -1645,6 +1650,78 @@ static uint16_t _f_count;
 static freq_t _f_cache[POINTS_COUNT]
     __attribute__((section(".ccmram"), aligned(8)));
 #endif
+#if ZS407_FEATURE_DSP_UI
+static zs407_db32_t _modern_trace[POINTS_COUNT]
+    __attribute__((section(".ccmram"), aligned(8)));
+static zs407_db32_t _modern_sort[POINTS_COUNT]
+    __attribute__((section(".ccmram"), aligned(8)));
+static int16_t _modern_fft_real[ZS407_FFT_MAX_POINTS]
+    __attribute__((section(".ccmram"), aligned(8)));
+static int16_t _modern_fft_imag[ZS407_FFT_MAX_POINTS]
+    __attribute__((section(".ccmram"), aligned(8)));
+static uint16_t _modern_saved_palette[MAX_PALETTE];
+static bool _modern_palette_active;
+static const uint16_t _modern_atomic_palette[MAX_PALETTE] = {
+  [LCD_BG_COLOR] = RGB565(9, 11, 12),
+  [LCD_FG_COLOR] = RGB565(242, 243, 238),
+  [LCD_GRID_COLOR] = RGB565(35, 48, 45),
+  [LCD_MENU_COLOR] = RGB565(17, 21, 22),
+  [LCD_MENU_TEXT_COLOR] = RGB565(193, 199, 196),
+  [LCD_MENU_ACTIVE_COLOR] = RGB565(23, 28, 28),
+  [LCD_TRACE_1_COLOR] = RGB565(121, 242, 195),
+  [LCD_TRACE_2_COLOR] = RGB565(110, 225, 232),
+  [LCD_TRACE_3_COLOR] = RGB565(155, 140, 255),
+  [LCD_TRACE_4_COLOR] = RGB565(244, 198, 107),
+  [LCD_NORMAL_BAT_COLOR] = RGB565(121, 242, 195),
+  [LCD_LOW_BAT_COLOR] = RGB565(255, 126, 114),
+  [LCD_TRIGGER_COLOR] = RGB565(244, 198, 107),
+  [LCD_RISE_EDGE_COLOR] = RGB565(161, 255, 216),
+  [LCD_FALLEN_EDGE_COLOR] = RGB565(133, 142, 139),
+  [LCD_SWEEP_LINE_COLOR] = RGB565(121, 242, 195),
+  [LCD_BW_TEXT_COLOR] = RGB565(133, 142, 139),
+  [LCD_INPUT_TEXT_COLOR] = RGB565(242, 243, 238),
+  [LCD_INPUT_BG_COLOR] = RGB565(17, 21, 22),
+  [LCD_BRIGHT_COLOR_BLUE] = RGB565(110, 225, 232),
+  [LCD_BRIGHT_COLOR_RED] = RGB565(255, 126, 114),
+  [LCD_BRIGHT_COLOR_GREEN] = RGB565(121, 242, 195),
+  [LCD_DARK_GREY] = RGB565(23, 28, 28),
+  [LCD_LIGHT_GREY] = RGB565(193, 199, 196),
+  [LCD_HAM_COLOR] = RGB565(35, 48, 45),
+  [LCD_GRID_VALUE_COLOR] = RGB565(133, 142, 139),
+  [LCD_M_REFERENCE] = RGB565(161, 255, 216),
+  [LCD_M_DELTA] = RGB565(110, 225, 232),
+  [LCD_M_NOISE] = RGB565(155, 140, 255),
+  [LCD_M_DEFAULT] = RGB565(161, 255, 216),
+};
+
+static void modern_palette_preview(const char *mode)
+{
+  if (strcmp(mode, "status") == 0) {
+    shell_printf("atomic_palette=%s (runtime preview only)\r\n",
+                 _modern_palette_active ? "active" : "inactive");
+    return;
+  }
+  if (strcmp(mode, "atomic") == 0) {
+    if (!_modern_palette_active) {
+      memcpy(_modern_saved_palette, config.lcd_palette,
+             sizeof(_modern_saved_palette));
+    }
+    memcpy(config.lcd_palette, _modern_atomic_palette,
+           sizeof(_modern_atomic_palette));
+    _modern_palette_active = true;
+  } else if (strcmp(mode, "restore") == 0 && _modern_palette_active) {
+    memcpy(config.lcd_palette, _modern_saved_palette,
+           sizeof(_modern_saved_palette));
+    _modern_palette_active = false;
+  } else {
+    shell_printf("palette mode must be atomic, restore, or status\r\n");
+    return;
+  }
+  redraw_request |= REDRAW_AREA;
+  shell_printf("atomic_palette=%s (not saved)\r\n",
+               _modern_palette_active ? "active" : "inactive");
+}
+#endif
 
 
 #ifdef __BANDS__
@@ -2367,9 +2444,10 @@ VNA_SHELL_FUNCTION(cmd_version)
 
 #if ZS407_PHASE_BUILD
 /*
- * Read-only modernization diagnostics.  The optional radio query is kept
- * explicit because it owns the shared SPI bus long enough to issue PART_INFO
- * and FUNC_INFO; the command table therefore also takes the sweep mutex.
+ * Modernization diagnostics and explicit, non-persistent UI preview. The
+ * optional radio query is kept explicit because it owns the shared SPI bus
+ * long enough to issue PART_INFO and FUNC_INFO; the command table therefore
+ * also takes the sweep mutex.
  */
 VNA_SHELL_FUNCTION(cmd_modern)
 {
@@ -2383,8 +2461,19 @@ VNA_SHELL_FUNCTION(cmd_modern)
   bool show_caps = false;
   bool show_plan = false;
 #endif
-  if (!((argc == 0) || query_radio || run_selftest || show_caps || show_plan)) {
-    usage_printf("modern [radio|caps|selftest|plan START STOP POINTS]\r\n");
+#if ZS407_FEATURE_DSP_UI
+  bool run_dsp_selftest = argc == 1 && strcmp(argv[0], "dsp-selftest") == 0;
+  bool show_metrics = argc == 1 && strcmp(argv[0], "metrics") == 0;
+  bool palette_command = argc == 2 && strcmp(argv[0], "palette") == 0;
+#else
+  bool run_dsp_selftest = false;
+  bool show_metrics = false;
+  bool palette_command = false;
+#endif
+  if (!((argc == 0) || query_radio || run_selftest || show_caps || show_plan ||
+        run_dsp_selftest || show_metrics || palette_command)) {
+    usage_printf("modern [radio|caps|selftest|dsp-selftest|metrics|"
+                 "palette atomic|restore|status|plan START STOP POINTS]\r\n");
     return;
   }
 
@@ -2406,6 +2495,13 @@ VNA_SHELL_FUNCTION(cmd_modern)
 #if ZS407_FEATURE_DETERMINISTIC_SERVICES
   shell_printf("deterministic_services=1 ccm_frequency_cache_bytes=%u\r\n",
                (uint32_t)(POINTS_COUNT * sizeof(freq_t)));
+#endif
+#if ZS407_FEATURE_DSP_UI
+  shell_printf("dsp_ui=1 ccm_reserved_bytes=%u fft_max_points=%u\r\n",
+               (uint32_t)(sizeof(_f_cache) + sizeof(_modern_trace) +
+                          sizeof(_modern_sort) + sizeof(_modern_fft_real) +
+                          sizeof(_modern_fft_imag)),
+               (uint32_t)ZS407_FFT_MAX_POINTS);
 #endif
 
   if (query_radio) {
@@ -2456,6 +2552,62 @@ VNA_SHELL_FUNCTION(cmd_modern)
       shell_printf("%u:%U\r\n", index++, frequency);
     }
   }
+#if ZS407_FEATURE_DSP_UI
+  if (run_dsp_selftest) {
+    uint32_t fft_failures = zs407_fft_selftest(
+        _modern_fft_real, _modern_fft_imag, ZS407_FFT_MAX_POINTS);
+    uint32_t ui_failures = zs407_ui_model_selftest();
+    shell_printf("dsp_selftest fft=0x%08x ui=0x%08x %s\r\n",
+                 fft_failures, ui_failures,
+                 (fft_failures | ui_failures) == 0U ? "PASS" : "FAIL");
+  }
+  if (show_metrics) {
+    if (sweep_points < 2U || setting.frequency_step == 0U) {
+      shell_printf("metrics require a completed frequency sweep\r\n");
+      return;
+    }
+    for (uint16_t i = 0U; i < sweep_points; ++i) {
+      if (zs407_db32_from_double(measured[TRACE_ACTUAL][i],
+                                 &_modern_trace[i]) != ZS407_CORE_OK) {
+        _modern_trace[i] = ZS407_TRACE_INVALID_SAMPLE;
+      }
+    }
+    uint64_t span = getFrequency(sweep_points - 1U) - getFrequency(0U);
+    uint64_t bin_width = span / (sweep_points - 1U);
+    uint64_t enbw = (uint64_t)actual_rbw_x10 * 100U;
+    if (bin_width == 0U || bin_width > UINT32_MAX || enbw == 0U ||
+        enbw > UINT32_MAX) {
+      shell_printf("metrics axis is outside embedded range\r\n");
+      return;
+    }
+    zs407_measurement_summary_t summary;
+    zs407_core_status_t status = zs407_summarize_trace(
+        _modern_trace, sweep_points, (uint32_t)bin_width, (uint32_t)enbw,
+        9900U, _modern_sort, POINTS_COUNT, &summary);
+    if (status != ZS407_CORE_OK) {
+      shell_printf("metrics unavailable status=%u\r\n", (uint32_t)status);
+      return;
+    }
+    int64_t peak_offset_hz =
+        ((int64_t)bin_width * summary.peak_offset_q15) / 32768;
+    uint64_t peak_frequency =
+        (uint64_t)((int64_t)getFrequency(summary.peak_index) +
+                   peak_offset_hz);
+    uint64_t occupied_width =
+        getFrequency(summary.occupied_stop_index) -
+        getFrequency(summary.occupied_start_index);
+    shell_printf("metrics flags=0x%08x valid=%u/%u peak=%U %.2f dBm "
+                 "noise=%.2f dBm power=%.2f dBm obw99=%U Hz\r\n",
+                 summary.flags, summary.valid_points, sweep_points,
+                 peak_frequency, (double)summary.peak_db32 / 32.0,
+                 (double)summary.noise_db32 / 32.0,
+                 (double)summary.integrated_power_dbm32 / 32.0,
+                 occupied_width);
+  }
+  if (palette_command) {
+    modern_palette_preview(argv[1]);
+  }
+#endif
 #endif
 }
 #endif

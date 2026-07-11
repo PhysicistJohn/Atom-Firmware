@@ -1,8 +1,12 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "modern/core/zs407_core.h"
+#include "modern/core/zs407_fft.h"
+#include "modern/core/zs407_measurements.h"
 #include "modern/core/zs407_protocol.h"
 #include "modern/core/zs407_services.h"
+#include "modern/core/zs407_ui_model.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -268,6 +272,109 @@ static int test_services(void)
   return 0;
 }
 
+static int test_measurements(void)
+{
+  zs407_db32_t converted = 0;
+  CHECK(zs407_db32_from_double(-10.25, &converted) == ZS407_CORE_OK);
+  CHECK(converted == -328);
+  CHECK(zs407_db32_to_double(converted) == -10.25);
+  CHECK(zs407_db32_from_double(INFINITY, &converted) ==
+        ZS407_CORE_INVALID_ARGUMENT);
+
+  const zs407_db32_t flat[] = {-960, -960}; /* Two -30 dBm bins. */
+  zs407_db32_t scratch[8];
+  zs407_measurement_summary_t summary;
+  CHECK(zs407_summarize_trace(flat, 2U, 1000U, 1000U, 9900U,
+                              scratch, 8U, &summary) == ZS407_CORE_OK);
+  CHECK((summary.flags & ZS407_MEASUREMENT_POWER_VALID) != 0U);
+  CHECK(summary.integrated_power_dbm32 >= -865);
+  CHECK(summary.integrated_power_dbm32 <= -863);
+  CHECK(summary.noise_db32 == -960);
+
+  const zs407_db32_t peaked[] = {-3200, -3200, -640, -3200, -3200};
+  CHECK(zs407_summarize_trace(peaked, 5U, 100U, 100U, 9900U,
+                              scratch, 8U, &summary) == ZS407_CORE_OK);
+  CHECK(summary.peak_index == 2U);
+  CHECK(summary.occupied_start_index == 2U);
+  CHECK(summary.occupied_stop_index == 2U);
+  CHECK((summary.flags & ZS407_MEASUREMENT_PEAK_INTERPOLATED) != 0U);
+
+  const zs407_db32_t gaps[] = {-1000, ZS407_TRACE_INVALID_SAMPLE, -900};
+  CHECK(zs407_summarize_trace(gaps, 3U, 1U, 1U, 9000U,
+                              scratch, 8U, &summary) == ZS407_CORE_OK);
+  CHECK((summary.flags & ZS407_MEASUREMENT_HAS_GAPS) != 0U);
+  CHECK(summary.valid_points == 2U);
+  return 0;
+}
+
+static int test_fft(void)
+{
+  int16_t real[512];
+  int16_t imag[512];
+  CHECK(zs407_fft_selftest(real, imag, 512U) == 0U);
+
+  for (size_t i = 0U; i < 512U; ++i) {
+    real[i] = (i & 1U) == 0U ? 16000 : -16000;
+    imag[i] = 0;
+  }
+  CHECK(zs407_fft_q15(real, imag, 9U) == ZS407_CORE_OK);
+  uint32_t maximum = 0U;
+  size_t maximum_bin = 0U;
+  for (size_t i = 0U; i < 512U; ++i) {
+    uint32_t magnitude = zs407_fft_magnitude_squared_q30(real[i], imag[i]);
+    if (magnitude > maximum) {
+      maximum = magnitude;
+      maximum_bin = i;
+    }
+  }
+  CHECK(maximum_bin == 256U);
+  CHECK(real[256] > 15000);
+
+  for (size_t i = 0U; i < 256U; ++i) {
+    double phase = 2.0 * 3.14159265358979323846 * 37.0 * (double)i / 256.0;
+    real[i] = (int16_t)lrint(12000.0 * cos(phase));
+    imag[i] = 0;
+  }
+  CHECK(zs407_fft_q15(real, imag, 8U) == ZS407_CORE_OK);
+  maximum = 0U;
+  maximum_bin = 0U;
+  for (size_t i = 1U; i < 128U; ++i) {
+    uint32_t magnitude = zs407_fft_magnitude_squared_q30(real[i], imag[i]);
+    if (magnitude > maximum) {
+      maximum = magnitude;
+      maximum_bin = i;
+    }
+  }
+  CHECK(maximum_bin == 37U);
+  CHECK(zs407_fft_q15(real, imag, 7U) == ZS407_CORE_INVALID_ARGUMENT);
+  CHECK(zs407_q15_saturate(40000) == 32767);
+  CHECK(zs407_q15_saturate(-40000) == -32768);
+  return 0;
+}
+
+static int test_ui_model(void)
+{
+  CHECK(zs407_ui_model_selftest() == 0U);
+  zs407_dirty_tiles_t tiles;
+  zs407_dirty_tiles_all(&tiles);
+  unsigned count = 0U;
+  uint16_t tile = 0U;
+  while (zs407_dirty_tiles_pop(&tiles, &tile)) {
+    CHECK(tile < ZS407_UI_TILE_COUNT);
+    ++count;
+  }
+  CHECK(count == ZS407_UI_TILE_COUNT);
+
+  const zs407_db32_t samples[] = {
+      -100, 50, -80, ZS407_TRACE_INVALID_SAMPLE, -90, -70, 40, -60};
+  zs407_db32_t low[2];
+  zs407_db32_t high[2];
+  CHECK(zs407_trace_envelope(samples, 8U, 2U, low, high) == ZS407_CORE_OK);
+  CHECK(low[0] == -100 && high[0] == 50);
+  CHECK(low[1] == -90 && high[1] == 40);
+  return 0;
+}
+
 int main(int argc, char **argv)
 {
   if (argc != 2) {
@@ -280,6 +387,9 @@ int main(int argc, char **argv)
   CHECK(test_statistics() == 0);
   CHECK(test_protocol(argv[1]) == 0);
   CHECK(test_services() == 0);
+  CHECK(test_measurements() == 0);
+  CHECK(test_fft() == 0);
+  CHECK(test_ui_model() == 0);
   puts("ZS407 host core: all tests passed");
   return 0;
 }

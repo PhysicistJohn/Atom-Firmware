@@ -20,12 +20,28 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
 # shellcheck disable=SC2086
 "$host_cc" $common_flags $sanitizer_flags -O2 -I"$ROOT" \
   "$ROOT/modern/core/zs407_core.c" \
+  "$ROOT/modern/core/zs407_fft.c" \
+  "$ROOT/modern/core/zs407_measurements.c" \
   "$ROOT/modern/core/zs407_protocol.c" \
   "$ROOT/modern/core/zs407_services.c" \
+  "$ROOT/modern/core/zs407_ui_model.c" \
   "$ROOT/tests/host/test_core.c" \
-  -o "$build_dir/test_core"
+  -lm -o "$build_dir/test_core"
 
 "$build_dir/test_core" "$ROOT/tests/fixtures/protocol_v1_capabilities.hex"
+
+# Repeat the numerical suite with the Cortex-M single-precision policy.
+# shellcheck disable=SC2086
+"$host_cc" $common_flags $sanitizer_flags -DZS407_EMBEDDED_MATH=1 -O2 \
+  -I"$ROOT" "$ROOT/modern/core/zs407_core.c" \
+  "$ROOT/modern/core/zs407_fft.c" \
+  "$ROOT/modern/core/zs407_measurements.c" \
+  "$ROOT/modern/core/zs407_protocol.c" \
+  "$ROOT/modern/core/zs407_services.c" \
+  "$ROOT/modern/core/zs407_ui_model.c" "$ROOT/tests/host/test_core.c" \
+  -lm -o "$build_dir/test_core_embedded_math"
+"$build_dir/test_core_embedded_math" \
+  "$ROOT/tests/fixtures/protocol_v1_capabilities.hex"
 
 # Apple Clang's ASan runtime can deadlock during dyld initialization on some
 # newer macOS/toolchain combinations. Always prove the ASan-instrumented binary
@@ -33,9 +49,12 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
 # shellcheck disable=SC2086
 "$host_cc" $common_flags -fsanitize=address -fno-omit-frame-pointer -O1 \
   -I"$ROOT" "$ROOT/modern/core/zs407_core.c" \
+  "$ROOT/modern/core/zs407_fft.c" \
+  "$ROOT/modern/core/zs407_measurements.c" \
   "$ROOT/modern/core/zs407_protocol.c" \
-  "$ROOT/modern/core/zs407_services.c" "$ROOT/tests/host/test_core.c" \
-  -o "$build_dir/test_core_asan"
+  "$ROOT/modern/core/zs407_services.c" \
+  "$ROOT/modern/core/zs407_ui_model.c" "$ROOT/tests/host/test_core.c" \
+  -lm -o "$build_dir/test_core_asan"
 asan_status=linked-not-run
 if [ "${ZS407_RUN_ASAN:-0}" = 1 ]; then
   "$build_dir/test_core_asan" \
@@ -44,9 +63,10 @@ if [ "${ZS407_RUN_ASAN:-0}" = 1 ]; then
 fi
 
 gnu_bin=$($ROOT/tools/bootstrap-toolchain.sh)
-for source in zs407_core zs407_protocol zs407_services; do
+for source in zs407_core zs407_fft zs407_measurements zs407_protocol \
+              zs407_services zs407_ui_model; do
   "$gnu_bin/arm-none-eabi-gcc" $common_flags -ffreestanding -fno-builtin \
-    -mcpu=cortex-m4 -mthumb -I"$ROOT" \
+    -DZS407_EMBEDDED_MATH=1 -mcpu=cortex-m4 -mthumb -I"$ROOT" \
     -c "$ROOT/modern/core/$source.c" -o "$build_dir/arm/$source.o"
 done
 
@@ -59,6 +79,7 @@ fi
 
 printf 'Host compiler: %s\n' "$("$host_cc" --version | sed -n '1p')"
 printf 'Native UBSan tests: passed\n'
+printf 'Embedded single-precision policy tests: passed\n'
 printf 'Native ASan binary: %s\n' "$asan_status"
 printf 'Cortex-M4 freestanding compile: passed\n'
 printf 'Swift contract typecheck: %s\n' "$swift_status"

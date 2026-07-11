@@ -5,8 +5,8 @@ the PhysicistJohn Mac companion. It contains no ChibiOS or STM32 dependency.
 
 - `contracts/zs407_contract.json` is the protocol/capability source of truth.
 - `generated/` contains deterministic C, Swift and TypeScript projections.
-- `core/` contains allocation-free C11 frequency, correction, statistics and
-  framed-protocol primitives.
+- `core/` contains allocation-free C11 frequency, correction, protocol,
+  RF-state, Q15 FFT, derived-measurement and dirty-tile UI primitives.
 
 Run `tools/test-host-core.sh` on macOS to regenerate-check the contracts, build
 with Apple Clang and UndefinedBehaviorSanitizer, link an AddressSanitizer image,

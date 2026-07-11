@@ -158,6 +158,11 @@ MODERN_CSRC = modern/core/zs407_core.c \
               modern/core/zs407_protocol.c \
               modern/core/zs407_services.c
 endif
+ifneq ($(filter 3 4 5 6,$(PHASE)),)
+MODERN_CSRC += modern/core/zs407_fft.c \
+               modern/core/zs407_measurements.c \
+               modern/core/zs407_ui_model.c
+endif
 
 ifeq ($(TARGET),F303)
 CSRC = $(STARTUPSRC) \
@@ -276,6 +281,9 @@ ifeq ($(TARGET),F303)
  UDEFS = -DARM_MATH_CM4 -DVERSION=\"$(VERSION)\" -DTINYSA_F303 -D__FPU_USED -DST7796S -DTINYSA4
 ifneq ($(PHASE),)
  UDEFS+= -DZS407_PHASE_BUILD=1 -DZS407_PHASE=$(PHASE)
+endif
+ifneq ($(filter 3 4 5 6,$(PHASE)),)
+ UDEFS+= -DZS407_EMBEDDED_MATH=1
 endif
 #Enable if install external 32.768kHz clock quartz on PC14 and PC15 pins on STM32 CPU
 UDEFS+= -DVNA_USE_LSE

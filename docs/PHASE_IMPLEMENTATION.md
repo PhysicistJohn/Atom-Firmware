@@ -78,3 +78,4 @@ provide.
 - [Phase 0: reproducible build and electrical timing safety](phases/PHASE_0.md)
 - [Phase 1: portable host core and generated contracts](phases/PHASE_1.md)
 - [Phase 2: deterministic services and CCM frequency cache](phases/PHASE_2.md)
+- [Phase 3: fixed-point DSP and Atomic UI model](phases/PHASE_3.md)
