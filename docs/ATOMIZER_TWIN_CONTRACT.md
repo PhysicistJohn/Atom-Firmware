@@ -2,7 +2,7 @@
 
 Version: `1`. Owner: `TinySA_Firmware`.
 
-Trio composition: [`contracts/trio-composition-v1.json`](../contracts/trio-composition-v1.json).
+Trio composition: [`contracts/trio-composition-v2.json`](../contracts/trio-composition-v2.json).
 
 The bridge is a trusted child process using newline-delimited JSON over stdio. It boots the pinned `lab-v0.2.0-protocol` image in Renode, proves the executable boot signature, and returns only firmware-executed analyzer data, retained LCD bytes, modeled touch evidence, or generator state.
 
