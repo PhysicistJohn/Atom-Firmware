@@ -1,0 +1,44 @@
+# Post-phase release cycles
+
+The Phase 0–6 chain is immutable. Post-phase work starts at the Phase 6 tag and
+uses sequential private laboratory releases. Each release branch starts from
+the previous release tag, not from a moving default branch.
+
+| Release | Branch theme | Hardware behavior | Exit evidence |
+|---|---|---|---|
+| v0.2 | typed protocol, marshalling, async USB laboratory | binary worker and hardware CRC locked | cross-language vectors, fuzz, GNU/LLVM compile, binary lock audit |
+| v0.3 | shared SPI bus arbiter and DWT observability | timing unchanged; record-only | bus ownership stress, logic traces, sweep equivalence |
+| v0.4 | RF transaction pipeline, CTS/`nIRQ`, FRR and measured FIFO threshold | one opt-in path at a time | latency distributions, timeout/fallback tests, spectral comparison |
+| v0.5 | wider FFT/measurement pipeline and Cortex-M4 DSP kernels | analyzer math changes behind A/B switch | vector error bounds, cycle/stack/RAM budgets, captured-signal corpus |
+| v0.6 | atomic high-information display and host UI parity | presentation changes | screenshot/image regression and interaction timing |
+| v0.7 | qualified waveform/RF generation experiments | output remains default-off | load, level, spur, thermal, watchdog and emergency-off qualification |
+| v1.0 | selected hardware-qualified defaults | only proven paths on | complete ZS407 matrix and recovery image |
+
+## Commit shape inside a release
+
+Keep commits reviewable and bisectable in this order:
+
+1. contract, fixtures and failing host tests;
+2. portable implementation;
+3. target adapter, initially unreachable or fail-closed;
+4. binary/disassembly safety audit;
+5. documentation and hardware procedure;
+6. captured hardware evidence and only then the activation commit.
+
+Generated files travel in the same commit as their schema/generator. Build
+artifacts do not. The private prerelease attaches reproducible BIN/HEX/ELF,
+manifest, sections, stack report, benchmark and lock audits.
+
+## Branch and tag policy
+
+Use branches such as `physicistjohn/release-v0.2-protocol-marshalling` and tags
+such as `lab-v0.2.0-protocol`. Push only to the private
+`PhysicistJohn/TinySA_Firmware` origin. The upstream remote remains push-disabled.
+
+A tag means the source and no-flash image are reproducible. It does not mean
+hardware qualification. Release notes and manifests must say
+`hardware_qualified=false` until physical tests are committed.
+
+Upstreamable fixes are extracted as minimal patches without the personal
+roadmap, private release tooling or PhysicistJohn branding, as described in
+[`UPSTREAM.md`](UPSTREAM.md).
