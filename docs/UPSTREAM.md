@@ -7,6 +7,11 @@ personal roadmap, artifact tooling, or branding mixed into the patch.
 No contribution has been pushed. Publishing is locally blocked until a personal
 GitHub authentication path is explicitly configured.
 
+| Candidate | Local branch | Commit | Verification |
+| --- | --- | --- | --- |
+| Target validation | `upstream/fix-target-validation` | `97952e6` | Default F072 and explicit F303 builds pass; invalid targets fail |
+| Hardware table length | `upstream/fix-hardware-version-table` | `131ec88` | F303 build passes with the existing warning count; physical version check pending |
+
 ## Candidate 1: hardware-version table count
 
 Current source declares `MAX_VERSION_TEXT` as 5 but initializes only four rows.
