@@ -48,6 +48,7 @@ Read first
 
 - [Baseline and provenance](docs/BASELINE.md)
 - [Firmware architecture](docs/ARCHITECTURE.md)
+- [Known issues and community research](docs/KNOWN_ISSUES.md)
 - [Reverse-engineering workflow](docs/REVERSE_ENGINEERING.md)
 - [Hardware bring-up and recovery gate](docs/HARDWARE_BRINGUP.md)
 - [Modernization roadmap](ROADMAP.md)

@@ -12,6 +12,23 @@ GitHub authentication path is explicitly configured.
 | Target validation | `upstream/fix-target-validation` | `97952e6` | Default F072 and explicit F303 builds pass; invalid targets fail |
 | Hardware table length | `upstream/fix-hardware-version-table` | `131ec88` | F303 build passes with the existing warning count; physical version check pending |
 
+## Candidate 0: document the exact-build solution to issue #152
+
+The open community-build discrepancy can now be answered with evidence:
+
+- official source commit `c979386` and ChibiOS commit `ade76de` are sufficient;
+- the official ELF identifies GCC 11.3.1 / Arm GNU 11.3.Rel1 and a Windows build;
+- the same-version macOS target libraries preserve application symbol layout
+  but order Newlib routines differently;
+- the Windows target libraries reduce the binary difference to the embedded
+  date/time only;
+- `SOURCE_DATE_EPOCH=1778074389` produces the exact official SHA-256
+  `3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41`.
+
+Package this as a concise issue comment and, if welcomed, a small reproducible
+build manifest change. Do not link the entire personal research commit series
+as though it were an upstream-ready patch.
+
 ## Candidate 1: hardware-version table count
 
 Current source declares `MAX_VERSION_TEXT` as 5 but initializes only four rows.
