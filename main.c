@@ -44,6 +44,9 @@
 #if ZS407_FEATURE_FINAL_AUDIT
 #include "modern/core/zs407_capabilities.h"
 #endif
+#if ZS407_FEATURE_PROTOCOL_V2
+#include "modern/embedded/zs407_usb_transport.h"
+#endif
 
 #include <chprintf.h>
 #include <string.h>
@@ -2505,15 +2508,22 @@ VNA_SHELL_FUNCTION(cmd_modern)
 #else
   bool audit_command = false;
 #endif
+#if ZS407_FEATURE_PROTOCOL_V2
+  bool transport_command = argc == 2 &&
+                           strcmp(argv[0], "transport") == 0;
+#else
+  bool transport_command = false;
+#endif
   if (!((argc == 0) || query_radio || run_selftest || show_caps || show_plan ||
         run_dsp_selftest || show_metrics || palette_command || rfdiag_command ||
         hop_plan_command || max_plan_command || refine_command || awg_command ||
-        rf_wave_command || audit_command)) {
+        rf_wave_command || audit_command || transport_command)) {
     usage_printf("modern [radio|caps|selftest|dsp-selftest|metrics|"
                  "palette MODE|rfdiag MODE|hop-plan FREQ|max-plan FREQ|"
                  "refine PROMINENCE_DB RADIUS|plan START STOP POINTS|"
                  "awg MODE|awg SHAPE FREQ_HZ SAMPLE_HZ|"
-                 "rf-wave MODE BITRATE DEVIATION_HZ|audit]\r\n");
+                 "rf-wave MODE BITRATE DEVIATION_HZ|audit|"
+                 "transport MODE]\r\n");
     return;
   }
 
@@ -2548,6 +2558,11 @@ VNA_SHELL_FUNCTION(cmd_modern)
 #endif
 #if ZS407_FEATURE_FINAL_AUDIT
   shell_printf("final_audit=1 disposition_rows=140 hardware_v2=specified\r\n");
+#endif
+#if ZS407_FEATURE_PROTOCOL_V2
+  shell_printf("protocol_v2=1 typed_codecs=1 streaming_parser=1 "
+               "compact_storage=1 transport=locked profile=%u\r\n",
+               (uint32_t)ZS407_RELEASE_PROFILE_ID);
 #endif
 
   if (query_radio) {
@@ -2882,6 +2897,35 @@ VNA_SHELL_FUNCTION(cmd_modern)
                      : "FAIL");
     shell_printf("audit hardware_qualified=0 rf_execution=off "
                  "awg_execution=locked automated_flash=absent\r\n");
+  }
+#endif
+#if ZS407_FEATURE_PROTOCOL_V2
+  if (transport_command) {
+    if (strcmp(argv[1], "status") == 0) {
+      zs407_usb_transport_status_t status;
+      zs407_usb_transport_status(&status);
+      shell_printf("transport compiled=%u running=%u qualified=%u "
+                   "shell_released=%u accepted=%u rejected=%u discarded=%u "
+                   "tx=%u errors=%u\r\n",
+                   status.compiled ? 1U : 0U, status.running ? 1U : 0U,
+                   status.hardware_qualified ? 1U : 0U,
+                   status.shell_ownership_released ? 1U : 0U,
+                   status.accepted_frames, status.rejected_frames,
+                   status.discarded_bytes, status.transmitted_frames,
+                   status.transport_errors);
+    } else if (strcmp(argv[1], "selftest") == 0) {
+      uint32_t failures = zs407_usb_transport_selftest();
+      shell_printf("transport_selftest=%08x %s binary_transport=off\r\n",
+                   failures, failures == 0U ? "PASS" : "FAIL");
+    } else if (strcmp(argv[1], "start") == 0) {
+      zs407_core_status_t status = zs407_usb_transport_start();
+      shell_printf("transport_start status=%u %s\r\n", (uint32_t)status,
+                   status == ZS407_CORE_NOT_QUALIFIED
+                       ? "refused: hardware qualification and shell handoff required"
+                       : (status == ZS407_CORE_OK ? "running" : "failed"));
+    } else {
+      shell_printf("transport mode must be status, selftest, or start\r\n");
+    }
   }
 #endif
 #endif

@@ -47,10 +47,21 @@ def audit(elf: Path) -> str:
     fields = matches[0].split()
     if len(fields) != 4 or fields[1] != "00000001" or fields[2] != "b":
         raise AuditError("qualification latch must be a private 1-byte BSS symbol")
-    if any("qualif" in line.lower() and
-           not line.endswith(" awg_hardware_qualified")
-           for line in symbols.splitlines()):
-        raise AuditError("unexpected qualification-related entry point")
+    allowed_qualification_symbols = {
+        "awg_hardware_qualified", "transport_hardware_qualified"
+    }
+    for line in symbols.splitlines():
+        if "qualif" not in line.lower():
+            continue
+        name = line.split()[-1]
+        if name not in allowed_qualification_symbols:
+            raise AuditError("unexpected qualification-related entry point")
+        if name == "transport_hardware_qualified":
+            transport_fields = line.split()
+            if len(transport_fields) != 4 or \
+                    transport_fields[1] != "00000001" or \
+                    transport_fields[2] != "b":
+                raise AuditError("transport qualification latch is not private")
 
     disassembly = run([
         objdump, "-d", "--disassemble=zs407_awg_start", str(elf)

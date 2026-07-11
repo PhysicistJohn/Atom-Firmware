@@ -9,6 +9,21 @@ ifeq ($(filter $(TARGET),F072 F303),)
   $(error Unsupported TARGET '$(TARGET)'; expected F072 or F303)
 endif
 
+# Post-phase release profiles are intentionally orthogonal to the immutable
+# Phase 0..6 chain. They must name their feature set explicitly.
+RELEASE_PROFILE ?=
+ifneq ($(RELEASE_PROFILE),)
+ ifneq ($(RELEASE_PROFILE),protocol-v2)
+  $(error Unsupported RELEASE_PROFILE '$(RELEASE_PROFILE)')
+ endif
+ ifneq ($(TARGET),F303)
+  $(error RELEASE_PROFILE=protocol-v2 is only supported for TARGET=F303)
+ endif
+ ifneq ($(PHASE),6)
+  $(error RELEASE_PROFILE=protocol-v2 requires PHASE=6)
+ endif
+endif
+
 # Compiler options here.
 ifeq ($(USE_OPT),)
  ifeq ($(TARGET),F303)
@@ -22,6 +37,9 @@ endif
 # C specific options here (added to USE_OPT).
 ifeq ($(USE_COPT),)
   USE_COPT =
+endif
+ifeq ($(RELEASE_PROFILE),protocol-v2)
+  USE_COPT += -DZS407_RELEASE_PROTOCOL_V2=1 -DZS407_RELEASE_PROFILE_ID=1
 endif
 
 # C++ specific options here (added to USE_OPT).
@@ -172,6 +190,13 @@ MODERN_CSRC += modern/core/zs407_waveform.c \
 endif
 ifneq ($(filter 6,$(PHASE)),)
 MODERN_CSRC += modern/core/zs407_capabilities.c
+endif
+ifeq ($(RELEASE_PROFILE),protocol-v2)
+MODERN_CSRC += modern/core/zs407_compact.c \
+               modern/core/zs407_spsc.c \
+               modern/core/zs407_trace_codec.c \
+               modern/embedded/zs407_crc_stm32.c \
+               modern/embedded/zs407_usb_transport.c
 endif
 
 ifeq ($(TARGET),F303)
