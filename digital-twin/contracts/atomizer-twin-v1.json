@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tinysa.local/contracts/atomizer-twin-v1.json",
+  "title": "TinySA Atomizer executable-twin bridge",
+  "constVersion": 1,
+  "transport": "newline-delimited JSON over trusted child-process stdio",
+  "owner": "TinySA_Firmware",
+  "backend": "renode-executable-twin",
+  "methods": [
+    "status",
+    "acquire_sweep",
+    "capture_screen",
+    "configure_generator",
+    "set_generator_output",
+    "touch",
+    "release_touch",
+    "shutdown"
+  ],
+  "invariants": {
+    "firmwareRelease": "lab-v0.2.0-protocol",
+    "firmwareSourceCommit": "d12bd826555eee51505542a55fd184ade5817d58",
+    "firmwareBinarySha256": "a1dbaa03978a25b2a8b2a0e85f60029a6cc736481732eff68e93362724683dd7",
+    "usbTransactionsModeled": false,
+    "failurePolicy": "No retry, substitute, synthetic data, or downgraded backend"
+  }
+}

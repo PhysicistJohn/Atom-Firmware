@@ -147,6 +147,20 @@ namespace Antmicro.Renode.Peripherals.ZS407
             }
         }
 
+        public void SaveRgb565LittleEndian(string path)
+        {
+            using(var output = File.Create(path))
+            {
+                for(var offset = 0; offset < buffer.Length; offset += 2)
+                {
+                    // The ST7796S wire order is big-endian RGB565; tinySA's
+                    // host capture contract is explicitly little-endian.
+                    output.WriteByte(buffer[offset + 1]);
+                    output.WriteByte(buffer[offset]);
+                }
+            }
+        }
+
         protected override void Repaint()
         {
             // SPI writes already update the retained panel GRAM in `buffer`.
