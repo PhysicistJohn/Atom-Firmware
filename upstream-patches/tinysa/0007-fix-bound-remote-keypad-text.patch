@@ -1,0 +1,61 @@
+From bece91ea29adc86ee2cd4804c6d8be407526f35e Mon Sep 17 00:00:00 2001
+From: PhysicistJohn <54456354+PhysicistJohn@users.noreply.github.com>
+Date: Sat, 11 Jul 2026 14:05:12 -0700
+Subject: [PATCH] fix: bound remote keypad text
+
+---
+ main.c    | 7 +------
+ nanovna.h | 1 +
+ ui.c      | 6 ++++++
+ 3 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/main.c b/main.c
+index 5f9b852..f7f6ddf 100644
+--- a/main.c
++++ b/main.c
+@@ -955,12 +955,7 @@ VNA_SHELL_FUNCTION(cmd_text)
+ {
+   if (argc!= 1)
+     return;
+-  char *p = argv[0];
+-  char *t = kp_buf;
+-  while (*p) {
+-    *t++ = *p++;
+-  }
+-  *t = 0;
++  ui_set_keypad_text(argv[0]);
+   uistat.value = my_atof(kp_buf);
+   uistat.freq_value = my_atoui(kp_buf);
+   set_numeric_value();
+diff --git a/nanovna.h b/nanovna.h
+index 18fd053..5f1485a 100644
+--- a/nanovna.h
++++ b/nanovna.h
+@@ -1593,6 +1593,7 @@ extern const char * const averageText[];
+ extern uint8_t menu_current_level;
+ void menu_invoke(int item);
+ extern char    kp_buf[];
++void ui_set_keypad_text(const char *text);
+ void set_numeric_value(void);
+ 
+ void ui_mode_normal(void);
+diff --git a/ui.c b/ui.c
+index 6190e68..3f65f36 100644
+--- a/ui.c
++++ b/ui.c
+@@ -96,6 +96,12 @@ char    kp_buf[NUMINPUT_LEN+2];  // !!!!!! WARNING size must be + 2 from NUMINPU
+ #else
+ char    kp_buf[TXTINPUT_LEN+1];  // !!!!!! WARNING size must be + 2 from NUMINPUT_LEN or TXTINPUT_LEN + 1
+ #endif
++
++void ui_set_keypad_text(const char *text)
++{
++  plot_printf(kp_buf, sizeof(kp_buf), "%s", text);
++}
++
+ static uint8_t ui_mode = UI_NORMAL;
+ static uint8_t keypad_mode;
+ static char   *kp_help_text = NULL;
+-- 
+2.50.1 (Apple Git-155)
+

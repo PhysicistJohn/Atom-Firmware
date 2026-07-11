@@ -1,154 +1,124 @@
-# Upstream contribution candidates
+# Upstream contribution queue
 
-Personal research belongs on the PhysicistJohn fork. Generally useful fixes
-should be packaged as small branches based directly on `upstream/main`, with no
-personal roadmap, artifact tooling, or branding mixed into the patch.
+All personal development remains on the private PhysicistJohn repository.
+Upstream candidates are isolated from the replacement-firmware roadmap and
+carry the PhysicistJohn noreply identity.
 
-No contribution has been pushed. Publishing is locally blocked until a personal
-GitHub authentication path is explicitly configured.
+Nothing in this queue has been published, discussed upstream, or flashed to
+hardware. The upstream remote is fetch-only (`pushurl = no_push`); the only
+writable remote is the private PhysicistJohn repository.
 
-| Candidate | Local branch | Commit | Verification |
-| --- | --- | --- | --- |
-| Target validation | `upstream/fix-target-validation` | `97952e6` | Default F072 and explicit F303 builds pass; invalid targets fail |
-| Hardware table length | `upstream/fix-hardware-version-table` | `131ec88` | F303 build passes with the existing warning count; physical version check pending |
+## tinySA firmware
 
-## Candidate 0: document the exact-build solution to issue #152
+Seven minimal patches are fully packaged under
+[`upstream-patches/tinysa/`](../upstream-patches/tinysa/README.md). They target
+upstream `c97938697b6c7485e7cab50bca9af76996b7d671` and pinned ChibiOS
+`ade76dea89cd093650552328e881252a06486094`.
 
-The open community-build discrepancy can now be answered with evidence:
+| Candidate | Independent branch | Commit | Verification | Remaining gate |
+| --- | --- | --- | --- | --- |
+| Reject unknown `TARGET` values | `upstream/fix-target-validation` | `46dc0d8` | Default/F072/F303 builds; invalid target fails | None |
+| Keep CI on pinned ChibiOS | `upstream/fix-pinned-submodule-ci` | `08caa12` | YAML parse and gitlink checkout | None |
+| Derive hardware table length | `upstream/fix-hardware-version-table` | `2a3a2df` | F072/F303 build; ELF has four records | ZS407 version page/command |
+| Reject invalid scan counts | `upstream/fix-scanraw-points` | `1d518af` | F072/F303 build; static audit | USB boundary transcript |
+| Bound correction table access | `upstream/fix-correction-bounds` | `6cba8a9` | F072/F303 build; static audit | USB mutation/boundary transcript |
+| Bound shell-controlled indices | `upstream/fix-shell-index-bounds` | `5a029f9` | F072/F303 build; static audit | USB command transcript |
+| Bound remote keypad text | `upstream/fix-shell-text-bounds` | `89e5d11` | F072/F303 build; static/string audit | Maximum-line USB test |
 
-- official source commit `c979386` and ChibiOS commit `ade76de` are sufficient;
-- the official ELF identifies GCC 11.3.1 / Arm GNU 11.3.Rel1 and a Windows build;
-- the same-version macOS target libraries preserve application symbol layout
-  but order Newlib routines differently;
-- the Windows target libraries reduce the binary difference to the embedded
-  date/time only;
-- `SOURCE_DATE_EPOCH=1778074389` produces the exact official SHA-256
-  `3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41`.
+The tested aggregate is
+`physicistjohn/upstream-firmware-fixes` at
+`bece91ea29adc86ee2cd4804c6d8be407526f35e`. A clean mailbox reapplication
+produces the same source tree, GCC 11.3.Rel1 builds both targets, GCC
+`-fanalyzer` reports no analyzer diagnostic, and the F303 image boots in the
+exact ZS407 twin with the same initial peripheral transaction counts as
+untouched upstream.
 
-Package this as a concise issue comment and, if welcomed, a small reproducible
-build manifest change. Do not link the entire personal research commit series
-as though it were an upstream-ready patch.
+The full patch rationale, artifact hashes, exact sizes, A/B twin result, and
+physical test script are in the queue README. Keep these as separate PRs; they
+are easier to review and revert individually.
 
-## Candidate 1: hardware-version table count
+## Renode
 
-Current source declares `MAX_VERSION_TEXT` as 5 but initializes only four rows.
-The removed fifth row is zero-initialized, so an ADC identification reading of
-zero matches it and returns a null text pointer. Known ZS407 readings match row
-four before this, but unknown/failed identification should return `"Unknown"`
-rather than a phantom record.
+Three emulator fixes are packaged under
+[`upstream-patches/renode/`](../upstream-patches/renode/README.md) against
+`renode-infrastructure`
+`1c3c1c1f9f1a1c4c7b7302bca3a37b9aa361c7a2`.
 
-Proposed minimal patch:
-
-- let the compiler infer the array length;
-- iterate with `sizeof(array) / sizeof(array[0])` or the project's accepted
-  array-count macro;
-- add a testable helper that maps an ADC value without reading hardware;
-- verify known ZS405, ZS406, ZS407, zero, and out-of-range values.
-
-Hardware test: confirm the version screen and `version` command on the ZS407.
-
-## Candidate 2: `TARGET` parsing
-
-The Makefile currently behaves as:
-
-```make
-ifeq ($(TARGET),)
-  TARGET = F072
-else
-  TARGET = F303
-endif
-```
-
-Therefore any non-empty value—even a typo—silently selects F303. A minimal fix
-would preserve the F072 default, accept only `F072` or `F303`, and fail clearly
-for anything else. Both outputs should build in CI.
-
-## Candidate 3: pinned submodule behavior in CI
-
-The existing CircleCI configuration runs `git submodule update --remote`, which
-can move ChibiOS away from the superproject's pinned commit. That defeats source
-reproducibility and can introduce an unreviewed RTOS/HAL change. It also builds
-the default F072 target rather than explicitly testing the Ultra F303 target.
-
-Proposed patch:
-
-- use `git submodule update --init --recursive` without `--remote`;
-- build explicit F072 and F303 jobs;
-- pin the compiler image/toolchain by digest or verified archive hash;
-- report binary size and embedded version for each target.
-
-## Candidate 4: reproducible release metadata
-
-The image embeds `__DATE__` and `__TIME__`. GCC honors `SOURCE_DATE_EPOCH`, as
-the exact reproduction proves, but the upstream release process does not record
-the epoch or toolchain target-library package. A documented build manifest would
-make future releases independently verifiable.
-
-An upstream patch should avoid imposing this fork's large diagnostic download.
-It can instead record source commit, submodule commit, compiler package, build
-epoch, flags, size, and release hashes at publish time.
-
-## Candidate 5: root licensing clarity
-
-Application headers mostly state GPL-3.0-or-later, but there is no root license
-file and the tree combines code under several notices. Ask the maintainer which
-aggregate license statement and notice set is intended before proposing a
-`LICENSE`, `COPYING`, or SPDX sweep.
-
-## Candidate 6: valid hard-fault entry
-
-`hard_fault_handler_c(uint32_t *sp)` is declared with GCC's `naked` attribute
-but contains ordinary C, local variables, register variables, calls into the
-LCD/shell/RTOS, and an infinite loop. Clang refuses to compile it because a
-naked function may contain only carefully controlled assembly. GCC 11 accepts
-it but emits stack-relative stores such as `[sp, #32]` through `[sp, #60]`
-without a stack-allocation prologue, so the diagnostic path can overwrite state
-above the current exception stack pointer.
-
-Proposed minimal shape:
-
-- a truly naked, assembly-only exception veneer selects MSP or PSP from
-  `EXC_RETURN` and branches to a normal C function;
-- the C function has an ordinary ABI/prologue and records SCB fault status plus
-  the stacked core registers;
-- avoid assuming PSP is always the faulting stack;
-- retain a final non-returning loop/reset policy without recursively faulting;
-- keep rich display/shell diagnostics best-effort because their dependencies
-  may be the reason for the fault.
-
-Verification requires forced faults from thread and handler contexts, stack
-canaries around both MSP/PSP, a debugger/register comparison, and a normal F303
-build. Package this separately from the LLVM experiment: it is a correctness
-fix exposed by Clang, not a request that upstream adopt Clang.
-
-## Packaging checklist
-
-For every proposed upstream patch:
-
-1. Create a branch from the exact current `upstream/main`.
-2. Include one concern only.
-3. Explain observable failure, not stylistic preference.
-4. Build F072 and F303 where the change is shared.
-5. Record firmware size and warning deltas.
-6. Run the ZS407 self-test and relevant RF/USB checks for runtime changes.
-7. Keep generated binaries out of the commit unless the maintainer requests one.
-8. Use PhysicistJohn authorship and a PhysicistJohn-owned fork/PR.
-
-## Renode findings from the ZS407 twin
-
-The exact executable twin exposed two emulator correctness fixes still needed
-on current `renode-infrastructure` master:
-
-| Candidate | Observable failure | Local package |
+| Candidate | Observable failure | Recommended PR |
 | --- | --- | --- |
-| NVIC `ICSR.RETTOBASE` | ChibiOS wakes the main thread in an IRQ but cannot reschedule away from idle | `upstream-patches/renode/0001-*` |
-| Independent STM32 IDR/ODR | ODR reset values falsely assert input-mode ZS407 jog contacts | `upstream-patches/renode/0002-*` |
+| NVIC `ICSR.RETTOBASE` | Armv7/Armv8 bit always read zero; ChibiOS could not reschedule from the ZS407 startup IRQ | One NVIC PR |
+| Independent STM32 IDR/ODR | ODR initialization falsely asserted input-mode jog contacts | GPIO PR, commit 1 |
+| STM32 BSRR set priority | Simultaneous set/reset incorrectly let reset win | GPIO PR, commit 2 |
 
-Both are isolated PhysicistJohn-authored patches with NUnit regressions. Keep
-them as separate PRs because the NVIC change is architecture-wide while the
-GPIO change alters STM32 pin-state semantics. The pinned Renode 1.16.1 timer
-UIF behavior also needed a compatibility model, but current master has already
-fixed it and should not receive a duplicate patch.
+The managed suites total 976 passes and 17 existing skips with zero failures.
+Eighteen STM32 Robot scenarios pass, the native RETTOBASE matrix covers
+M0/M0+/M1/M4/M23/M33, and the exact ZS407 boot/jog/touch/RF integration passes.
 
-See `upstream-patches/renode/README.md` for the base SHA, evidence and apply
-instructions. Do not publish the patches before the hardware-confirmation gate.
+Renode's contribution guide asks for an issue and issue-numbered branch before
+a PR. Rebase first, then open separate NVIC and GPIO issues under
+PhysicistJohn. Do not send them until the publication gate is lifted.
+
+## Exact-build finding for tinySA issue 152
+
+The official source and submodule are sufficient to reproduce the release:
+
+- tinySA source `c979386`;
+- ChibiOS `ade76de`;
+- Arm GNU 11.3.Rel1 target libraries;
+- `SOURCE_DATE_EPOCH=1778074389`.
+
+With the matching Windows target libraries, the official binary reproduces at
+SHA-256
+`3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41`.
+The macOS package preserves application symbol layout but orders some Newlib
+routines differently.
+
+If the maintainer welcomes a response, contribute a concise reproducibility
+comment or small manifest—not the personal research history.
+
+## Deferred, not queued as “obvious”
+
+### Hard-fault entry
+
+`hard_fault_handler_c(uint32_t *sp)` is marked `naked` but contains ordinary
+C, locals, calls, and an infinite loop. Clang correctly rejects this; GCC emits
+stack-relative stores without a normal allocation prologue. A correct fix needs
+an assembly-only MSP/PSP veneer and a normal C diagnostic routine.
+
+This is a real correctness concern but not a few-line, low-risk change. It
+requires forced thread/handler faults, stack canaries, debugger comparison, and
+hardware validation before packaging.
+
+### Reproducible release manifest
+
+The image embeds `__DATE__` and `__TIME__`. A release manifest should record
+source/submodule commits, toolchain package, epoch, flags, sizes, and hashes.
+That is useful process work, but separate from the two-line pinned-submodule
+fix.
+
+### Licensing clarity
+
+Application files mostly state GPL-3.0-or-later, while the repository combines
+several notices and has no root aggregate license file. Ask the maintainer what
+statement they intend before proposing `LICENSE`, `COPYING`, or an SPDX
+sweep.
+
+### Larger firmware work
+
+LLVM support, warning cleanup, async/interrupt redesign, DMA, RF/DSP
+optimization, display replacement, and waveform generation belong to this
+repository's staged replacement-firmware program. They are not upstream
+bug-fix candidates in the present queue.
+
+## Publication checklist
+
+For each future contribution:
+
+1. Fetch and rebase onto the then-current upstream branch.
+2. Keep one observable defect per branch/PR.
+3. Re-run the applicable full build/test matrix.
+4. Capture the required ZS407 USB or UI evidence for runtime changes.
+5. Exclude generated binaries unless the maintainer explicitly requests them.
+6. Use `PhysicistJohn <54456354+PhysicistJohn@users.noreply.github.com>`.
+7. Push only to the PhysicistJohn fork, never with the Keysight identity.
+8. Wait for explicit approval before creating any public issue, PR, or comment.

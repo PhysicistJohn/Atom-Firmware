@@ -1,0 +1,34 @@
+From 45d123e79da420edb82e2ea1f37bc095289c13be Mon Sep 17 00:00:00 2001
+From: PhysicistJohn <54456354+PhysicistJohn@users.noreply.github.com>
+Date: Fri, 10 Jul 2026 18:08:26 -0700
+Subject: [PATCH] build: reject unknown firmware targets
+
+---
+ Makefile | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 85410be..4b465ea 100644
+--- a/Makefile
++++ b/Makefile
+@@ -3,11 +3,12 @@
+ # NOTE: Can be overridden externally.
+ #
+ 
+-#Build target
+-ifeq ($(TARGET),)
+-  TARGET = F072
+-else
+-  TARGET = F303
++# Build target.
++TARGET ?= F072
++ifneq ($(TARGET),F072)
++  ifneq ($(TARGET),F303)
++    $(error Unsupported TARGET '$(TARGET)'; expected F072 or F303)
++  endif
+ endif
+ 
+ # Compiler options here.
+-- 
+2.50.1 (Apple Git-155)
+

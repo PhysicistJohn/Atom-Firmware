@@ -1,0 +1,33 @@
+From eb91a3d85c7cf6e18bbbd03912774e977d03b0e5 Mon Sep 17 00:00:00 2001
+From: PhysicistJohn <54456354+PhysicistJohn@users.noreply.github.com>
+Date: Sat, 11 Jul 2026 13:54:43 -0700
+Subject: [PATCH] ci: keep ChibiOS at the pinned commit
+
+---
+ .circleci/config.yml | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/.circleci/config.yml b/.circleci/config.yml
+index bdaaf48..d87e32f 100644
+--- a/.circleci/config.yml
++++ b/.circleci/config.yml
+@@ -8,8 +8,7 @@ jobs:
+       - run:
+           name: "Pull Submodules"
+           command: |
+-            git submodule init
+-            git submodule update --remote
++            git submodule update --init --recursive
+       - run:
+           name: "Build Firmware"
+           command: make
+@@ -52,4 +51,4 @@ workflows:
+               ignore: /.*/
+             tags:
+               # 1.0.0
+-              only: /^\d+\.\d+\.\d+$/
+\ No newline at end of file
++              only: /^\d+\.\d+\.\d+$/
+-- 
+2.50.1 (Apple Git-155)
+
