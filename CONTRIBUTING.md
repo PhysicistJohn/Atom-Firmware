@@ -9,8 +9,9 @@ The local repository is deliberately configured with:
 - author `PhysicistJohn <54456354+PhysicistJohn@users.noreply.github.com>`;
 - the official repository named `upstream` for fetch only;
 - a disabled push URL;
-- the repository hook path `.githooks`;
-- a pre-push hook that rejects every push;
+- a committed `.githooks` pre-push guard for personal branches and fresh clones;
+- an absolute common-Git-directory pre-push guard in this working copy so the
+  block remains active even when an upstream-only branch is checked out;
 - the local credential helper disabled.
 
 These local settings are defense in depth, not a substitute for checking the
