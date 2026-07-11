@@ -1,0 +1,4 @@
+#!/bin/sh
+
+echo "Push blocked: this tinySA firmware workspace is local-only until PhysicistJohn authentication is explicitly configured." >&2
+exit 1
