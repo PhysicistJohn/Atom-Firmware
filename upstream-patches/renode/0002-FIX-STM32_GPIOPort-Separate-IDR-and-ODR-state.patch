@@ -1,23 +1,23 @@
-From c1483f0fdc5f44dbafdb564263edbae3d388a618 Mon Sep 17 00:00:00 2001
+From 23da23b13b377a71587fd47d5957c52d0f3bd0fd Mon Sep 17 00:00:00 2001
 From: PhysicistJohn <54456354+PhysicistJohn@users.noreply.github.com>
 Date: Sat, 11 Jul 2026 12:15:49 -0700
 Subject: [PATCH] [FIX] STM32_GPIOPort: Separate IDR and ODR state
 
 ---
- .../Peripherals/GPIOPort/STM32_GPIOPort.cs    | 28 +++++++--
- .../PeripheralsTests/STM32_GPIOPortTests.cs   | 58 +++++++++++++++++++
- 2 files changed, 80 insertions(+), 6 deletions(-)
+ .../Peripherals/GPIOPort/STM32_GPIOPort.cs    |  28 ++++-
+ .../PeripheralsTests/STM32_GPIOPortTests.cs   | 114 ++++++++++++++++++
+ 2 files changed, 136 insertions(+), 6 deletions(-)
  create mode 100644 src/Emulator/Peripherals/Test/PeripheralsTests/STM32_GPIOPortTests.cs
 
 diff --git a/src/Emulator/Peripherals/Peripherals/GPIOPort/STM32_GPIOPort.cs b/src/Emulator/Peripherals/Peripherals/GPIOPort/STM32_GPIOPort.cs
-index 26737143..b2bfb0cf 100644
+index 2673714..e63118e 100644
 --- a/src/Emulator/Peripherals/Peripherals/GPIOPort/STM32_GPIOPort.cs
 +++ b/src/Emulator/Peripherals/Peripherals/GPIOPort/STM32_GPIOPort.cs
 @@ -61,6 +61,7 @@ public STM32_GPIOPort(IMachine machine, uint modeResetValue = 0, uint outputSpee
              mode = new Mode[NumberOfPins];
              outputSpeed = new OutputSpeed[NumberOfPins];
              pullUpPullDown = new PullUpPullDown[NumberOfPins];
-+            outputState = new bool[NumberOfPins];
++            outputLatch = new bool[NumberOfPins];
  
              this.modeResetValue = modeResetValue;
              this.outputSpeedResetValue = outputSpeedResetValue;
@@ -25,7 +25,7 @@ index 26737143..b2bfb0cf 100644
  
              lockedPins = 0;
              lockSequenceState = LockSequence.Idle;
-+            Array.Clear(outputState, 0, outputState.Length);
++            Array.Clear(outputLatch, 0, outputLatch.Length);
  
              for(var i = 0; i < NumberOfPins; i++)
              {
@@ -36,7 +36,7 @@ index 26737143..b2bfb0cf 100644
 -        private void WriteState(ushort value)
 +        private void WriteOutputPin(int number, bool value)
 +        {
-+            outputState[number] = value;
++            outputLatch[number] = value;
 +            if(mode[number] == Mode.Output)
 +            {
 +                WritePin(number, value);
@@ -59,7 +59,7 @@ index 26737143..b2bfb0cf 100644
              alternateFunctionOutputs[number].IsConnected = newMode == Mode.AlternateFunction;
 +            if(newMode == Mode.Output)
 +            {
-+                WritePin(number, outputState[number]);
++                WritePin(number, outputLatch[number]);
 +            }
          }
  
@@ -69,17 +69,17 @@ index 26737143..b2bfb0cf 100644
                  },
                  {(long)Registers.OutputData, new DoubleWordRegister(this)
 -                    .WithValueField(0, 16, writeCallback: (_, val) => WriteState((ushort)val), valueProviderCallback: _ => BitHelper.GetValueFromBitsArray(State), name: "ODR")
-+                    .WithValueField(0, 16, writeCallback: (_, val) => WriteOutputState((ushort)val), valueProviderCallback: _ => BitHelper.GetValueFromBitsArray(outputState), name: "ODR")
++                    .WithValueField(0, 16, writeCallback: (_, val) => WriteOutputState((ushort)val), valueProviderCallback: _ => BitHelper.GetValueFromBitsArray(outputLatch), name: "ODR")
                      .WithReservedBits(16, 16)
                  },
                  {(long)Registers.BitSet, new DoubleWordRegister(this)
                      .WithValueField(0, 16, FieldMode.Write,
 -                        writeCallback: (_, val) => { if(val != 0) WriteState((ushort)(BitHelper.GetValueFromBitsArray(State) | val)); },
-+                        writeCallback: (_, val) => { if(val != 0) WriteOutputState((ushort)(BitHelper.GetValueFromBitsArray(outputState) | val)); },
++                        writeCallback: (_, val) => { if(val != 0) WriteOutputState((ushort)(BitHelper.GetValueFromBitsArray(outputLatch) | val)); },
                          name: "GPIOx_BS")
                      .WithValueField(16, 16, FieldMode.Write,
 -                        writeCallback: (_, val) => { if(val != 0) WriteState((ushort)(BitHelper.GetValueFromBitsArray(State) & ~val)); },
-+                        writeCallback: (_, val) => { if(val != 0) WriteOutputState((ushort)(BitHelper.GetValueFromBitsArray(outputState) & ~val)); },
++                        writeCallback: (_, val) => { if(val != 0) WriteOutputState((ushort)(BitHelper.GetValueFromBitsArray(outputLatch) & ~val)); },
                          name: "GPIOx_BR")
                  },
                  { (long)Registers.ConfigurationLock, new DoubleWordRegister(this)
@@ -88,7 +88,7 @@ index 26737143..b2bfb0cf 100644
                  {(long)Registers.BitReset, new DoubleWordRegister(this)
                      .WithValueField(0, 16, FieldMode.Write,
 -                        writeCallback: (_, val) => { if(val != 0) WriteState((ushort)(BitHelper.GetValueFromBitsArray(State) & ~val)); },
-+                        writeCallback: (_, val) => { if(val != 0) WriteOutputState((ushort)(BitHelper.GetValueFromBitsArray(outputState) & ~val)); },
++                        writeCallback: (_, val) => { if(val != 0) WriteOutputState((ushort)(BitHelper.GetValueFromBitsArray(outputLatch) & ~val)); },
                          name: "GPIOx_BRR")
                      .WithReservedBits(16, 16)
                  },
@@ -96,18 +96,18 @@ index 26737143..b2bfb0cf 100644
          private readonly Mode[] mode;
          private readonly OutputSpeed[] outputSpeed;
          private readonly PullUpPullDown[] pullUpPullDown;
-+        private readonly bool[] outputState;
++        private readonly bool[] outputLatch;
          private readonly HashSet<InvertedAFPin> invertedAFPins = new HashSet<InvertedAFPin>();
  
          private readonly uint modeResetValue;
 diff --git a/src/Emulator/Peripherals/Test/PeripheralsTests/STM32_GPIOPortTests.cs b/src/Emulator/Peripherals/Test/PeripheralsTests/STM32_GPIOPortTests.cs
 new file mode 100644
-index 00000000..11ddaa33
+index 0000000..57b29d3
 --- /dev/null
 +++ b/src/Emulator/Peripherals/Test/PeripheralsTests/STM32_GPIOPortTests.cs
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,114 @@
 +//
-+// Copyright (c) 2010-2026 Antmicro
++// Copyright (c) 2026 John Elliott
 +//
 +// This file is licensed under the MIT License.
 +// Full license text is available in 'licenses/MIT.txt'.
@@ -142,14 +142,22 @@ index 00000000..11ddaa33
 +            }
 +        }
 +
-+        [Test]
-+        public void ShouldDriveLatchedValueAfterSwitchingToOutputMode()
++        [TestCase(InputMode)]
++        [TestCase(AlternateFunctionMode)]
++        [TestCase(AnalogMode)]
++        public void ShouldOnlyDriveLatchedValueInOutputMode(uint initialMode)
 +        {
 +            using(var machine = new Machine())
 +            {
 +                var gpio = new STM32_GPIOPort(machine);
 +
++                gpio.WriteDoubleWord(Mode, initialMode << (Pin * 2));
 +                gpio.WriteDoubleWord(OutputData, 1u << Pin);
++
++                Assert.That(gpio.ReadDoubleWord(OutputData), Is.EqualTo(1u << Pin));
++                Assert.That(gpio.ReadDoubleWord(InputData), Is.Zero);
++                Assert.That(gpio.Connections[Pin].IsSet, Is.False);
++
 +                gpio.WriteDoubleWord(Mode, OutputMode << (Pin * 2));
 +
 +                Assert.That(gpio.ReadDoubleWord(InputData), Is.EqualTo(1u << Pin));
@@ -157,10 +165,61 @@ index 00000000..11ddaa33
 +            }
 +        }
 +
++        [Test]
++        public void ShouldUpdateOutputLatchThroughSetAndResetRegisters()
++        {
++            using(var machine = new Machine())
++            {
++                var gpio = new STM32_GPIOPort(machine);
++
++                gpio.OnGPIO(Pin, true);
++                gpio.WriteDoubleWord(BitSetReset, 1u << Pin);
++
++                Assert.That(gpio.ReadDoubleWord(OutputData), Is.EqualTo(1u << Pin));
++                Assert.That(gpio.ReadDoubleWord(InputData), Is.EqualTo(1u << Pin));
++
++                gpio.WriteDoubleWord(BitSetReset, 1u << (Pin + 16));
++
++                Assert.That(gpio.ReadDoubleWord(OutputData), Is.Zero);
++                Assert.That(gpio.ReadDoubleWord(InputData), Is.EqualTo(1u << Pin));
++
++                gpio.WriteDoubleWord(OutputData, 1u << Pin);
++                gpio.WriteDoubleWord(BitReset, 1u << Pin);
++
++                Assert.That(gpio.ReadDoubleWord(OutputData), Is.Zero);
++                Assert.That(gpio.ReadDoubleWord(InputData), Is.EqualTo(1u << Pin));
++            }
++        }
++
++        [Test]
++        public void ShouldClearOutputLatchOnReset()
++        {
++            using(var machine = new Machine())
++            {
++                var gpio = new STM32_GPIOPort(machine);
++
++                gpio.WriteDoubleWord(Mode, OutputMode << (Pin * 2));
++                gpio.WriteDoubleWord(OutputData, 1u << Pin);
++                gpio.Reset();
++
++                Assert.That(gpio.ReadDoubleWord(OutputData), Is.Zero);
++                Assert.That(gpio.ReadDoubleWord(InputData), Is.Zero);
++                Assert.That(gpio.Connections[Pin].IsSet, Is.False);
++            }
++        }
++
 +        private const int Pin = 2;
++        private const uint InputMode = 0;
 +        private const uint OutputMode = 1;
++        private const uint AlternateFunctionMode = 2;
++        private const uint AnalogMode = 3;
 +        private const long Mode = 0x00;
 +        private const long InputData = 0x10;
 +        private const long OutputData = 0x14;
++        private const long BitSetReset = 0x18;
++        private const long BitReset = 0x28;
 +    }
 +}
+-- 
+2.50.1 (Apple Git-155)
+
