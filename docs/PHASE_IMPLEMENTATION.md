@@ -81,3 +81,4 @@ provide.
 - [Phase 3: fixed-point DSP and Atomic UI model](phases/PHASE_3.md)
 - [Phase 4: independently gated RF experiments](phases/PHASE_4.md)
 - [Phase 5: waveform generator foundations](phases/PHASE_5.md)
+- [Phase 6: final integration and hardware-v2 boundary](phases/PHASE_6.md)

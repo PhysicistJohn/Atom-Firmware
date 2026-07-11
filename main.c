@@ -41,6 +41,9 @@
 #include "modern/core/zs407_waveform.h"
 #include "modern/embedded/zs407_awg.h"
 #endif
+#if ZS407_FEATURE_FINAL_AUDIT
+#include "modern/core/zs407_capabilities.h"
+#endif
 
 #include <chprintf.h>
 #include <string.h>
@@ -2497,15 +2500,20 @@ VNA_SHELL_FUNCTION(cmd_modern)
   bool awg_command = false;
   bool rf_wave_command = false;
 #endif
+#if ZS407_FEATURE_FINAL_AUDIT
+  bool audit_command = argc == 1 && strcmp(argv[0], "audit") == 0;
+#else
+  bool audit_command = false;
+#endif
   if (!((argc == 0) || query_radio || run_selftest || show_caps || show_plan ||
         run_dsp_selftest || show_metrics || palette_command || rfdiag_command ||
         hop_plan_command || max_plan_command || refine_command || awg_command ||
-        rf_wave_command)) {
+        rf_wave_command || audit_command)) {
     usage_printf("modern [radio|caps|selftest|dsp-selftest|metrics|"
                  "palette MODE|rfdiag MODE|hop-plan FREQ|max-plan FREQ|"
                  "refine PROMINENCE_DB RADIUS|plan START STOP POINTS|"
                  "awg MODE|awg SHAPE FREQ_HZ SAMPLE_HZ|"
-                 "rf-wave MODE BITRATE DEVIATION_HZ]\r\n");
+                 "rf-wave MODE BITRATE DEVIATION_HZ|audit]\r\n");
     return;
   }
 
@@ -2537,6 +2545,9 @@ VNA_SHELL_FUNCTION(cmd_modern)
 #endif
 #if ZS407_FEATURE_WAVEFORM
   shell_printf("waveform=1 dac_backend=locked rf_fifo=plan-only qualified=0\r\n");
+#endif
+#if ZS407_FEATURE_FINAL_AUDIT
+  shell_printf("final_audit=1 disposition_rows=140 hardware_v2=specified\r\n");
 #endif
 
   if (query_radio) {
@@ -2837,6 +2848,40 @@ VNA_SHELL_FUNCTION(cmd_modern)
                    plan.bits_per_symbol, plan.symbol_rate,
                    plan.payload_bytes);
     }
+  }
+#endif
+#if ZS407_FEATURE_FINAL_AUDIT
+  if (audit_command) {
+    zs407_release_manifest_t manifest = {0};
+    zs407_core_status_t status =
+        zs407_release_manifest_for_phase(ZS407_PHASE, &manifest);
+    uint32_t manifest_failures = zs407_capabilities_selftest();
+    uint32_t service_failures = zs407_services_selftest();
+    uint32_t fft_failures = zs407_fft_selftest(
+        _modern_fft_real, _modern_fft_imag, ZS407_FFT_MAX_POINTS);
+    uint32_t ui_failures = zs407_ui_model_selftest();
+    uint32_t awg_failures = zs407_awg_selftest();
+    shell_printf("manifest status=%u schema=%u phase=%u protocol=%u "
+                 "features=%08x safety=%08x sweep=%u fft=%u "
+                 "wave_samples=%u event_bytes=%u\r\n",
+                 (uint32_t)status, (uint32_t)manifest.manifest_schema,
+                 (uint32_t)manifest.phase,
+                 (uint32_t)manifest.protocol_version,
+                 manifest.feature_bits, manifest.safety_bits,
+                 (uint32_t)manifest.maximum_sweep_points,
+                 (uint32_t)manifest.maximum_fft_points,
+                 (uint32_t)manifest.waveform_sample_count,
+                 (uint32_t)manifest.waveform_event_bytes);
+    shell_printf("audit selftest manifest=%08x services=%08x fft=%08x "
+                 "ui=%08x awg=%08x %s\r\n",
+                 manifest_failures, service_failures, fft_failures,
+                 ui_failures, awg_failures,
+                 (manifest_failures | service_failures | fft_failures |
+                  ui_failures | awg_failures) == 0U
+                     ? "PASS"
+                     : "FAIL");
+    shell_printf("audit hardware_qualified=0 rf_execution=off "
+                 "awg_execution=locked automated_flash=absent\r\n");
   }
 #endif
 #endif

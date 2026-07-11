@@ -170,6 +170,9 @@ ifneq ($(filter 5 6,$(PHASE)),)
 MODERN_CSRC += modern/core/zs407_waveform.c \
                modern/embedded/zs407_awg.c
 endif
+ifneq ($(filter 6,$(PHASE)),)
+MODERN_CSRC += modern/core/zs407_capabilities.c
+endif
 
 ifeq ($(TARGET),F303)
 CSRC = $(STARTUPSRC) \

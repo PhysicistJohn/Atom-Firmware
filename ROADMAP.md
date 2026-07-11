@@ -20,7 +20,7 @@ Status: substantially complete.
   confidence-graded component inventory.
 - [x] Define replacement-firmware, embedded-UI and fixed-point DSP strategies.
 - [x] Build a non-flashing Clang/GNU hybrid image and record migration blockers.
-- [ ] Publish under PhysicistJohn after personal authentication is isolated.
+- [x] Publish privately under PhysicistJohn after personal authentication is isolated.
 
 Exit criterion: one command recreates the pinned official binary from source.
 
@@ -130,6 +130,9 @@ maintainability—without an unexplained loss elsewhere.
   PCB or production firmware.
 - [ ] If no suitable sample path exists, specify hardware v2 with quadrature or
   direct IF sampling, DMA-visible RAM and a shared protocol/UI contract.
+- [x] Specify hardware v2 independently of the pending physical-path inspection,
+  with coherent I/Q, true RF AWG, FPGA timing, external sample RAM and shared
+  protocol/UI contracts.
 
 Exit criterion: “wideband FFT” has either a characterized physical sample path
 and honest bandwidth, or an explicit future-hardware requirement. It is never

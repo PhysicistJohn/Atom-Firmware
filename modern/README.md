@@ -7,7 +7,7 @@ the PhysicistJohn Mac companion. It contains no ChibiOS or STM32 dependency.
 - `generated/` contains deterministic C, Swift and TypeScript projections.
 - `core/` contains allocation-free C11 frequency, correction, protocol,
   RF-state, Q15 FFT, derived-measurement, dirty-tile UI and waveform/event
-  primitives.
+  primitives plus the Phase 0–6 release capability manifest.
 - `embedded/` contains narrowly isolated STM32 adapters. The Phase 5 DAC/DMA
   adapter is compiled and linked but locked before its first peripheral write.
 - `waveforms/` documents the deterministic Mac-to-firmware waveform DSL and

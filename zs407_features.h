@@ -64,4 +64,10 @@
 #define ZS407_FEATURE_WAVEFORM 0
 #endif
 
+#if ZS407_PHASE_BUILD && ZS407_PHASE >= 6
+#define ZS407_FEATURE_FINAL_AUDIT 1
+#else
+#define ZS407_FEATURE_FINAL_AUDIT 0
+#endif
+
 #endif /* ZS407_FEATURES_H */

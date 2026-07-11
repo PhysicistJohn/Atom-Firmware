@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "modern/core/zs407_core.h"
+#include "modern/core/zs407_capabilities.h"
 #include "modern/core/zs407_fft.h"
 #include "modern/core/zs407_measurements.h"
 #include "modern/core/zs407_protocol.h"
@@ -28,6 +29,22 @@ static int test_contract(void)
   CHECK(ZS407_PROTOCOL_MAGIC == 0x5a53U);
   CHECK(ZS407_TRACE_DB_SCALE == 32U);
   CHECK(ZS407_TRACE_INVALID_SAMPLE == -32768);
+  return 0;
+}
+
+static int test_release_capabilities(void)
+{
+  CHECK(zs407_capabilities_selftest() == 0U);
+  zs407_release_manifest_t manifest;
+  CHECK(zs407_release_manifest_for_phase(6U, &manifest) == ZS407_CORE_OK);
+  CHECK(manifest.phase == 6U);
+  CHECK((manifest.feature_bits & ZS407_CAP_WAVEFORM_FOUNDATION) != 0U);
+  CHECK((manifest.feature_bits & ZS407_CAP_FINAL_DISPOSITION_AUDIT) != 0U);
+  CHECK((manifest.safety_bits & ZS407_SAFETY_AWG_EXECUTION_LOCKED) != 0U);
+  CHECK(manifest.maximum_sweep_points == 450U);
+  CHECK(manifest.maximum_fft_points == 512U);
+  CHECK(manifest.waveform_sample_count == 256U);
+  CHECK(manifest.waveform_event_bytes == sizeof(zs407_wave_event_t));
   return 0;
 }
 
@@ -550,6 +567,7 @@ int main(int argc, char **argv)
     return 2;
   }
   CHECK(test_contract() == 0);
+  CHECK(test_release_capabilities() == 0);
   CHECK(test_frequency_dda() == 0);
   CHECK(test_fixed_point_and_correction() == 0);
   CHECK(test_statistics() == 0);
