@@ -1,3 +1,71 @@
+PhysicistJohn tinySA Ultra+ ZS407 firmware lab
+==========================================================
+
+This is the personal research fork for PhysicistJohn's **tinySA Ultra+ ZS407**.
+The first goal is to preserve, understand, and reproduce the official firmware.
+The second is to improve it without sacrificing RF behavior, calibration,
+recovery, or protocol compatibility.
+
+This is not an official tinySA repository, release channel, or support source.
+The official project remains <https://github.com/erikkaashoek/tinySA>.
+
+Baseline status
+---------------
+
+The official `tinySA4_v1.4-224-gc979386.bin` has been reproduced
+**byte-for-byte** from source commit
+`c97938697b6c7485e7cab50bca9af76996b7d671` and ChibiOS submodule commit
+`ade76dea89cd093650552328e881252a06486094`.
+
+```text
+size:    185704 bytes
+SHA-256: 3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41
+```
+
+Reproduce it locally:
+
+```bash
+git submodule update --init --recursive
+tools/reproduce-official-release.sh
+```
+
+The first run downloads pinned Arm GNU 11.3.Rel1 toolchain artifacts. Exact
+reproduction uses the Windows package's target libraries because the official
+ELF shows that the release was built in a Windows ChibiStudio environment.
+All downloaded firmware and toolchains live under ignored `.artifacts/`.
+
+For an ordinary development build:
+
+```bash
+tools/build-zs407.sh
+```
+
+Neither command flashes a device. There is intentionally no automated flash
+command in this fork yet.
+
+Read first
+----------
+
+- [Baseline and provenance](docs/BASELINE.md)
+- [Firmware architecture](docs/ARCHITECTURE.md)
+- [Reverse-engineering workflow](docs/REVERSE_ENGINEERING.md)
+- [Hardware bring-up and recovery gate](docs/HARDWARE_BRINGUP.md)
+- [Modernization roadmap](ROADMAP.md)
+- [Upstream contribution candidates](docs/UPSTREAM.md)
+- [Personal-account and contribution policy](CONTRIBUTING.md)
+
+Safety boundary
+---------------
+
+Do not flash a locally modified image merely because it compiles. Before the
+first firmware change, record the shipped firmware and hardware versions, run
+and save the stock self-test results, preserve configuration/calibration data,
+and prove DFU detection and recovery. The official project also recommends a
+self-test before every update.
+
+Original upstream README
+------------------------
+
 tinySA - tiny Spectrum Analyzer
 ==========================================================
 
