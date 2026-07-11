@@ -1,0 +1,70 @@
+From 176132ddb3c5e40cb3cd7ced473d4234277df9a1 Mon Sep 17 00:00:00 2001
+From: PhysicistJohn <54456354+PhysicistJohn@users.noreply.github.com>
+Date: Sat, 11 Jul 2026 12:14:53 -0700
+Subject: [PATCH] [FIX] NVIC: Implement ICSR RETTOBASE
+
+---
+ src/Emulator/Cores/Arm-M/NVIC.cs              |  4 +--
+ .../Test/PeripheralsTests/NVICTests.cs        | 33 +++++++++++++++++++
+ 2 files changed, 35 insertions(+), 2 deletions(-)
+ create mode 100644 src/Emulator/Peripherals/Test/PeripheralsTests/NVICTests.cs
+
+diff --git a/src/Emulator/Cores/Arm-M/NVIC.cs b/src/Emulator/Cores/Arm-M/NVIC.cs
+index 5b2f5936..b0d22334 100644
+--- a/src/Emulator/Cores/Arm-M/NVIC.cs
++++ b/src/Emulator/Cores/Arm-M/NVIC.cs
+@@ -773,7 +773,7 @@ private void DefineRegisters()
+             Registers.InterruptControlState.Define(RegisterCollection)
+                 .WithValueField(0, 9, FieldMode.Read, valueProviderCallback: _ => (uint)(activeIRQs.Count == 0 ? 0 : activeIRQs.Peek()), name: "VECTACTIVE")
+                 .WithReservedBits(9, 2)
+-                .WithTaggedFlag("RETTOBASE", 11)
++                .WithFlag(11, FieldMode.Read, valueProviderCallback: _ => activeIRQs.Count <= 1, name: "RETTOBASE")
+                 .WithValueField(12, 9, FieldMode.Read, valueProviderCallback: _ => (ulong)(FindPendingInterrupt() ?? 0), name: "VECTPENDING")
+                 .WithReservedBits(21, 1)
+                 .WithTaggedFlag("ISRPENDING", 22)
+@@ -2396,4 +2396,4 @@ private enum SystemException
+             SystemException.UsageFault_S,
+         };
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/src/Emulator/Peripherals/Test/PeripheralsTests/NVICTests.cs b/src/Emulator/Peripherals/Test/PeripheralsTests/NVICTests.cs
+new file mode 100644
+index 00000000..f5c5437d
+--- /dev/null
++++ b/src/Emulator/Peripherals/Test/PeripheralsTests/NVICTests.cs
+@@ -0,0 +1,33 @@
++//
++// Copyright (c) 2010-2026 Antmicro
++//
++// This file is licensed under the MIT License.
++// Full license text is available in 'licenses/MIT.txt'.
++//
++
++using Antmicro.Renode.Core;
++using Antmicro.Renode.Peripherals.IRQControllers;
++
++using NUnit.Framework;
++
++namespace Antmicro.Renode.UnitTests
++{
++    [TestFixture]
++    public class NVICTests
++    {
++        [Test]
++        public void ShouldReportReturnToBaseWhenNoExceptionIsActive()
++        {
++            using(var machine = new Machine())
++            {
++                var nvic = new NVIC(machine);
++
++                Assert.That(nvic.ReadDoubleWord(InterruptControlState) & ReturnToBase,
++                    Is.EqualTo(ReturnToBase));
++            }
++        }
++
++        private const long InterruptControlState = 0xD04;
++        private const uint ReturnToBase = 1u << 11;
++    }
++}

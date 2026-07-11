@@ -133,3 +133,22 @@ For every proposed upstream patch:
 6. Run the ZS407 self-test and relevant RF/USB checks for runtime changes.
 7. Keep generated binaries out of the commit unless the maintainer requests one.
 8. Use PhysicistJohn authorship and a PhysicistJohn-owned fork/PR.
+
+## Renode findings from the ZS407 twin
+
+The exact executable twin exposed two emulator correctness fixes still needed
+on current `renode-infrastructure` master:
+
+| Candidate | Observable failure | Local package |
+| --- | --- | --- |
+| NVIC `ICSR.RETTOBASE` | ChibiOS wakes the main thread in an IRQ but cannot reschedule away from idle | `upstream-patches/renode/0001-*` |
+| Independent STM32 IDR/ODR | ODR reset values falsely assert input-mode ZS407 jog contacts | `upstream-patches/renode/0002-*` |
+
+Both are isolated PhysicistJohn-authored patches with NUnit regressions. Keep
+them as separate PRs because the NVIC change is architecture-wide while the
+GPIO change alters STM32 pin-state semantics. The pinned Renode 1.16.1 timer
+UIF behavior also needed a compatibility model, but current master has already
+fixed it and should not receive a duplicate patch.
+
+See `upstream-patches/renode/README.md` for the base SHA, evidence and apply
+instructions. Do not publish the patches before the hardware-confirmation gate.
