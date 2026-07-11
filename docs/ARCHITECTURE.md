@@ -58,6 +58,14 @@ The linker calls RAM “100% used” because the heap deliberately consumes the
 remainder. That is not proof that runtime heap usage is 100%, but it does mean
 new static allocations cannot simply spill into ordinary SRAM. Stack high-water
 measurement and intentional CCM placement are prerequisites for major growth.
+The STM32F303 reference manual states that CCM is CPU-only and inaccessible to
+DMA, so it is suitable for DSP scratch or CPU code but not LCD/SD/ADC DMA
+buffers.
+
+The enabled clock configuration uses the 8 MHz HSI divided by two and a ×12
+PLL: SYSCLK/HCLK are 48 MHz, APB1 is 24 MHz, and APB2 is 48 MHz. The 72 MHz HSE
+configuration remains under `#if 0`. The firmware also trims the MCU clock to
+move digital spurs, so raising CPU frequency is an RF qualification change.
 
 ## Execution model
 
@@ -127,3 +135,8 @@ The safest sequence is:
 “Modern” is not automatically “better” in an RF instrument. The controlling
 metrics are measurement accuracy, spur behavior, scan time, determinism,
 recovery, memory headroom, and maintainability—not language or framework age.
+
+The detailed next-generation design is in
+[REPLACEMENT_FIRMWARE.md](REPLACEMENT_FIRMWARE.md); the confidence-graded board
+inventory and swept-RSSI data-path evidence are in
+[HARDWARE_REFERENCE.md](HARDWARE_REFERENCE.md).

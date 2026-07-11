@@ -40,6 +40,16 @@ For an ordinary development build:
 tools/build-zs407.sh
 ```
 
+For the first non-flashing LLVM/GNU hybrid experiment:
+
+```bash
+experiments/llvm/build-hybrid.sh
+```
+
+The hybrid image is a compiler feasibility result only and is explicitly
+**not hardware-qualified**. It must not be flashed before the physical baseline
+and recovery gate are complete.
+
 Neither command flashes a device. There is intentionally no automated flash
 command in this fork yet.
 
@@ -47,7 +57,12 @@ Read first
 ----------
 
 - [Baseline and provenance](docs/BASELINE.md)
+- [ZS407 hardware reference and confidence map](docs/HARDWARE_REFERENCE.md)
 - [Firmware architecture](docs/ARCHITECTURE.md)
+- [Replacement firmware architecture](docs/REPLACEMENT_FIRMWARE.md)
+- [Performance, fixed-point DSP and FFT plan](docs/PERFORMANCE_DSP.md)
+- [Atomic 480×320 embedded UI](docs/EMBEDDED_UI.md)
+- [LLVM hybrid build experiment](experiments/llvm/README.md)
 - [Known issues and community research](docs/KNOWN_ISSUES.md)
 - [Reverse-engineering workflow](docs/REVERSE_ENGINEERING.md)
 - [Hardware bring-up and recovery gate](docs/HARDWARE_BRINGUP.md)

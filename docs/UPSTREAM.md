@@ -95,6 +95,32 @@ file and the tree combines code under several notices. Ask the maintainer which
 aggregate license statement and notice set is intended before proposing a
 `LICENSE`, `COPYING`, or SPDX sweep.
 
+## Candidate 6: valid hard-fault entry
+
+`hard_fault_handler_c(uint32_t *sp)` is declared with GCC's `naked` attribute
+but contains ordinary C, local variables, register variables, calls into the
+LCD/shell/RTOS, and an infinite loop. Clang refuses to compile it because a
+naked function may contain only carefully controlled assembly. GCC 11 accepts
+it but emits stack-relative stores such as `[sp, #32]` through `[sp, #60]`
+without a stack-allocation prologue, so the diagnostic path can overwrite state
+above the current exception stack pointer.
+
+Proposed minimal shape:
+
+- a truly naked, assembly-only exception veneer selects MSP or PSP from
+  `EXC_RETURN` and branches to a normal C function;
+- the C function has an ordinary ABI/prologue and records SCB fault status plus
+  the stacked core registers;
+- avoid assuming PSP is always the faulting stack;
+- retain a final non-returning loop/reset policy without recursively faulting;
+- keep rich display/shell diagnostics best-effort because their dependencies
+  may be the reason for the fault.
+
+Verification requires forced faults from thread and handler contexts, stack
+canaries around both MSP/PSP, a debugger/register comparison, and a normal F303
+build. Package this separately from the LLVM experiment: it is a correctness
+fix exposed by Clang, not a request that upstream adopt Clang.
+
 ## Packaging checklist
 
 For every proposed upstream patch:
