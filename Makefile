@@ -152,6 +152,13 @@ endif
 
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
+MODERN_CSRC =
+ifneq ($(filter 2 3 4 5 6,$(PHASE)),)
+MODERN_CSRC = modern/core/zs407_core.c \
+              modern/core/zs407_protocol.c \
+              modern/core/zs407_services.c
+endif
+
 ifeq ($(TARGET),F303)
 CSRC = $(STARTUPSRC) \
        $(KERNSRC) \
@@ -165,7 +172,8 @@ CSRC = $(STARTUPSRC) \
        FatFs/ffunicode.c \
        usbcfg.c \
        NANOVNA_STM32_F303/adc.c \
-       main.c plot.c ui.c ili9341.c tlv320aic3204.c si5351.c numfont20x22.c Font5x7.c Font10x14.c flash.c si4468.c  Font7x13b.c rtc.c
+       main.c plot.c ui.c ili9341.c tlv320aic3204.c si5351.c numfont20x22.c Font5x7.c Font10x14.c flash.c si4468.c  Font7x13b.c rtc.c \
+       $(MODERN_CSRC)
 else
 CSRC = $(STARTUPSRC) \
        $(KERNSRC) \

@@ -42,8 +42,8 @@ shipped/official image on the physical unit.
 ## Phase 2 — regression harness
 
 - [ ] Add a host-side transcript runner for USB commands and responses.
-- [ ] Extract pure frequency-planning, correction, parsing, and trace functions
-  into host-compilable units.
+- [x] Extract the first pure frequency-planning, correction, statistics and
+  protocol functions into host-compilable units.
 - [ ] Add golden tests for boundary frequencies, integer overflow, interpolation,
   marker math, persistence checksums, and malformed commands.
 - [ ] Add firmware size, static RAM, stack-usage, warning, and symbol-delta gates.
@@ -74,12 +74,13 @@ targets where relevant, and pass physical regression tests.
 - [ ] Split direct `.c` inclusion into normal translation units incrementally.
 - [ ] Reduce shared mutable globals and state ownership ambiguity.
 - [ ] Separate measurement state, presentation state, and command transport.
-- [ ] Introduce a capability structure keyed by measured hardware identity.
+- [x] Introduce a restricted-by-default capability structure keyed by measured
+  hardware identity.
 - [ ] Evaluate a current compiler before considering an RTOS/HAL upgrade.
 - [x] Prove selected application objects compile with Clang 17 and link with
   GNU 11.3.1; keep the resulting image in do-not-flash status.
 - [ ] Replace GCC optimization pragmas with named per-module build profiles.
-- [ ] Split hard-fault assembly entry from the normal C crash reporter.
+- [x] Split hard-fault assembly entry from the normal C crash reporter.
 - [ ] Modernize CMSIS compiler support and test hard-float context switching.
 - [ ] Evaluate ChibiOS replacement/upgrade only with interrupt, USB, timing,
   memory, power, and RF evidence in place.

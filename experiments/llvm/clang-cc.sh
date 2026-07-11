@@ -33,7 +33,7 @@ for argument in "$@"; do
         use_clang=true
       fi
       ;;
-    ff.c|ffunicode.c|usbcfg.c|adc.c|plot.c|ui.c|ili9341.c|tlv320aic3204.c|si5351.c|numfont20x22.c|Font5x7.c|Font10x14.c|Font7x13b.c|flash.c|si4468.c|rtc.c)
+    ff.c|ffunicode.c|usbcfg.c|adc.c|plot.c|ui.c|ili9341.c|tlv320aic3204.c|si5351.c|numfont20x22.c|Font5x7.c|Font10x14.c|Font7x13b.c|flash.c|si4468.c|rtc.c|zs407_*.c)
       use_clang=true
       ;;
   esac

@@ -24,6 +24,10 @@
 #if ZS407_FEATURE_HOST_CONTRACT
 #include "modern/generated/zs407_contract.h"
 #endif
+#if ZS407_FEATURE_DETERMINISTIC_SERVICES
+#include "modern/core/zs407_core.h"
+#include "modern/core/zs407_services.h"
+#endif
 
 #include <chprintf.h>
 #include <string.h>
@@ -1637,6 +1641,10 @@ static freq_t   _f_start;
 static freq_t   _f_delta;
 static freq_t   _f_error;
 static uint16_t _f_count;
+#if ZS407_FEATURE_CCM_FREQUENCY_CACHE
+static freq_t _f_cache[POINTS_COUNT]
+    __attribute__((section(".ccmram"), aligned(8)));
+#endif
 
 
 #ifdef __BANDS__
@@ -1701,6 +1709,17 @@ set_frequencies(freq_t start, freq_t stop, uint16_t points)
   _f_delta = span / _f_count;
   _f_error = span % _f_count;
   setting.frequency_step = _f_delta;
+#if ZS407_FEATURE_CCM_FREQUENCY_CACHE
+  zs407_sweep_request_t request = {start, stop, points};
+  zs407_frequency_dda_t dda;
+  if (zs407_frequency_dda_init(&dda, &request) == ZS407_CORE_OK) {
+    uint16_t index = 0U;
+    while (index < points &&
+           zs407_frequency_dda_next(&dda, &_f_cache[index])) {
+      index++;
+    }
+  }
+#endif
   dirty = true;
 }
 freq_t getFrequency(uint16_t idx) {
@@ -1713,6 +1732,10 @@ freq_t getFrequency(uint16_t idx) {
     volatile freq_t f = bp->start + ((bp->end- bp->start) * (idx - bp->start_index)) / (bp->stop_index - bp->start_index) ;
     return f;
   } else
+#endif
+#if ZS407_FEATURE_CCM_FREQUENCY_CACHE
+    if (idx <= _f_count)
+      return _f_cache[idx];
 #endif
     return _f_start + _f_delta * idx + (_f_count / 2 + _f_error * idx) / _f_count;}
 #endif
@@ -2289,7 +2312,11 @@ typedef struct version_t {
   const char *hw_text;
 } version_t;
 
+#if ZS407_FEATURE_DETERMINISTIC_SERVICES
+#define MAX_VERSION_TEXT    4
+#else
 #define MAX_VERSION_TEXT    5
+#endif
 const version_t hw_version_text[MAX_VERSION_TEXT] =
 {
  { 165, 179,    "V0.4.5.1",     1,      0, " ZS405"},
@@ -2346,8 +2373,18 @@ VNA_SHELL_FUNCTION(cmd_version)
  */
 VNA_SHELL_FUNCTION(cmd_modern)
 {
-  if (argc > 1 || (argc == 1 && strcmp(argv[0], "radio") != 0)) {
-    usage_printf("modern [radio]\r\n");
+  bool query_radio = argc == 1 && strcmp(argv[0], "radio") == 0;
+#if ZS407_FEATURE_DETERMINISTIC_SERVICES
+  bool run_selftest = argc == 1 && strcmp(argv[0], "selftest") == 0;
+  bool show_caps = argc == 1 && strcmp(argv[0], "caps") == 0;
+  bool show_plan = argc == 4 && strcmp(argv[0], "plan") == 0;
+#else
+  bool run_selftest = false;
+  bool show_caps = false;
+  bool show_plan = false;
+#endif
+  if (!((argc == 0) || query_radio || run_selftest || show_caps || show_plan)) {
+    usage_printf("modern [radio|caps|selftest|plan START STOP POINTS]\r\n");
     return;
   }
 
@@ -2366,8 +2403,12 @@ VNA_SHELL_FUNCTION(cmd_modern)
   shell_printf("spi_hz lcd=%u si4468=%u max2871=%u pe4302=%u\r\n",
                ZS407_LCD_SPI_HZ, ZS407_SI4468_SPI_HZ,
                ZS407_MAX2871_SPI_HZ, ZS407_PE4302_SPI_HZ);
+#if ZS407_FEATURE_DETERMINISTIC_SERVICES
+  shell_printf("deterministic_services=1 ccm_frequency_cache_bytes=%u\r\n",
+               (uint32_t)(POINTS_COUNT * sizeof(freq_t)));
+#endif
 
-  if (argc == 1) {
+  if (query_radio) {
     si446x_info_t info;
     Si446x_getInfo(&info);
     shell_printf("si4468 part=0x%04x rev=0x%02x build=0x%02x "
@@ -2378,6 +2419,44 @@ VNA_SHELL_FUNCTION(cmd_modern)
                  info.revExternal, info.revBranch, info.revInternal,
                  info.patch, info.func);
   }
+#if ZS407_FEATURE_DETERMINISTIC_SERVICES
+  if (run_selftest) {
+    uint32_t failures = zs407_services_selftest();
+    shell_printf("deterministic_selftest=0x%08x %s\r\n", failures,
+                 failures == 0U ? "PASS" : "FAIL");
+  }
+  if (show_caps) {
+    zs407_hardware_caps_t caps;
+    if (!zs407_hardware_caps(hwid, &caps)) {
+      shell_printf("hardware_caps=restricted hwid=%u\r\n", hwid);
+    } else {
+      shell_printf("hardware_caps hwid=%u if=%u normal_max=%u "
+                   "synthesized_limit=%U plus_if=%u max2871=%u\r\n",
+                   caps.hardware_id, caps.first_if_hz,
+                   caps.normal_input_max_hz, caps.synthesized_limit_hz,
+                   caps.has_plus_if ? 1U : 0U,
+                   caps.has_max2871 ? 1U : 0U);
+    }
+  }
+  if (show_plan) {
+    zs407_sweep_request_t request = {
+        my_atoui(argv[1]), my_atoui(argv[2]), (uint16_t)my_atoi(argv[3])};
+    if (request.point_count == 0U || request.point_count > 32U) {
+      shell_printf("plan points must be 1..32\r\n");
+      return;
+    }
+    zs407_frequency_dda_t dda;
+    if (zs407_frequency_dda_init(&dda, &request) != ZS407_CORE_OK) {
+      shell_printf("invalid plan\r\n");
+      return;
+    }
+    uint64_t frequency;
+    uint16_t index = 0U;
+    while (zs407_frequency_dda_next(&dda, &frequency)) {
+      shell_printf("%u:%U\r\n", index++, frequency);
+    }
+  }
+#endif
 }
 #endif
 

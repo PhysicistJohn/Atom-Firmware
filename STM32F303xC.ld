@@ -89,6 +89,15 @@ INCLUDE rules.ld
 
 SECTIONS
 {
+    /* CPU-only scratch/cache. STM32F303 CCM is intentionally not DMA-visible. */
+    .ccmram (NOLOAD) : ALIGN(8)
+    {
+        __ccmram_start__ = .;
+        *(.ccmram .ccmram.*)
+        . = ALIGN(8);
+        __ccmram_end__ = .;
+    } > ram4
+
     .calsave (NOLOAD) : ALIGN(4)
     {
         *(.calsave)

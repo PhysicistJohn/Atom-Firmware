@@ -26,6 +26,8 @@ zs407_core_status_t zs407_frequency_dda_init(
   dda->denominator = (uint32_t)request->point_count - 1U;
   dda->whole_step_hz = delta / dda->denominator;
   dda->remainder_hz = (uint32_t)(delta % dda->denominator);
+  /* Match the legacy grid exactly: round each rational point to nearest. */
+  dda->error = dda->denominator / 2U;
   return ZS407_CORE_OK;
 }
 

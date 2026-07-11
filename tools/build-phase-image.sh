@@ -95,6 +95,10 @@ binary_hash=$(sha256_file "$artifact_dir/tinySA4_phase-$phase.bin")
 elf_hash=$(sha256_file "$artifact_dir/tinySA4_phase-$phase.elf")
 hex_hash=$(sha256_file "$artifact_dir/tinySA4_phase-$phase.hex")
 size_report=$(arm-none-eabi-size "$artifact_dir/tinySA4_phase-$phase.elf")
+arm-none-eabi-size -A "$artifact_dir/tinySA4_phase-$phase.elf" \
+  > "$artifact_dir/sections.txt"
+find "$ROOT/build/obj" -name '*.su' -type f -exec sed -n '/./p' {} \; \
+  | sort -k2,2nr > "$artifact_dir/stack-usage.txt"
 
 {
   printf 'phase=%s\n' "$phase"
@@ -110,6 +114,8 @@ size_report=$(arm-none-eabi-size "$artifact_dir/tinySA4_phase-$phase.elf")
   printf 'hex_sha256=%s\n' "$hex_hash"
   printf 'reproducible_clean_builds=true\n'
   printf 'hardware_qualified=false\n'
+  printf 'ccm_bytes=%s\n' \
+    "$(awk '$1 == ".ccmram" { print $2 }' "$artifact_dir/sections.txt")"
   printf '\n%s\n' "$size_report"
 } > "$artifact_dir/manifest.txt"
 

@@ -21,6 +21,7 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
 "$host_cc" $common_flags $sanitizer_flags -O2 -I"$ROOT" \
   "$ROOT/modern/core/zs407_core.c" \
   "$ROOT/modern/core/zs407_protocol.c" \
+  "$ROOT/modern/core/zs407_services.c" \
   "$ROOT/tests/host/test_core.c" \
   -o "$build_dir/test_core"
 
@@ -32,7 +33,8 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
 # shellcheck disable=SC2086
 "$host_cc" $common_flags -fsanitize=address -fno-omit-frame-pointer -O1 \
   -I"$ROOT" "$ROOT/modern/core/zs407_core.c" \
-  "$ROOT/modern/core/zs407_protocol.c" "$ROOT/tests/host/test_core.c" \
+  "$ROOT/modern/core/zs407_protocol.c" \
+  "$ROOT/modern/core/zs407_services.c" "$ROOT/tests/host/test_core.c" \
   -o "$build_dir/test_core_asan"
 asan_status=linked-not-run
 if [ "${ZS407_RUN_ASAN:-0}" = 1 ]; then
@@ -42,7 +44,7 @@ if [ "${ZS407_RUN_ASAN:-0}" = 1 ]; then
 fi
 
 gnu_bin=$($ROOT/tools/bootstrap-toolchain.sh)
-for source in zs407_core zs407_protocol; do
+for source in zs407_core zs407_protocol zs407_services; do
   "$gnu_bin/arm-none-eabi-gcc" $common_flags -ffreestanding -fno-builtin \
     -mcpu=cortex-m4 -mthumb -I"$ROOT" \
     -c "$ROOT/modern/core/$source.c" -o "$build_dir/arm/$source.o"
