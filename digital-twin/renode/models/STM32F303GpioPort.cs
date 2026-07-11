@@ -126,8 +126,9 @@ namespace Antmicro.Renode.Peripherals.ZS407
                     RefreshOutputs();
                     break;
                 case BitSetReset:
-                    outputData |= value & 0xFFFFu;
                     outputData &= ~((value >> 16) & 0xFFFFu);
+                    // STM32 BSRR set bits win when both halves select a pin.
+                    outputData |= value & 0xFFFFu;
                     RefreshOutputs();
                     break;
                 case ConfigurationLock:

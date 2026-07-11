@@ -110,7 +110,7 @@ result through SPI/DMA.
 | DMA1/DMA2 | seven/five channels, widths, increments, circular mode, flags and IRQs | firmware DMA configuration |
 | ADC1 | ZS407 hardware-ID divider, battery and VREF channels | `NANOVNA_STM32_F303/adc.c` |
 | ADC2/touch | four-wire X/Y measurement, watchdog, DMA and 20 Hz TIM1 trigger behavior | `ui.c`, `adc.c`, board pins |
-| GPIO/EXTI | independent IDR/ODR state, modes, pulls, AFs, BSRR/BRR and grouped EXTI IRQs | board reset values and ChibiOS EXT config |
+| GPIO/EXTI | independent IDR/ODR state, modes, pulls, set-wins BSRR, BRR and grouped EXTI IRQs | board reset values, STM32 register semantics and ChibiOS EXT config |
 | SPI1 | F303 data-size packing, FIFO/status and DMA traffic | HAL SPI configuration and LCD packed writes |
 | Shared SPI wiring | simultaneous active-low selects/latches with broadcast MOSI | source GPIO macros and transaction code |
 | ST7796S LCD | 480×320 RGB565 GRAM, windows, MADCTL, reset, D/C, display enable | LCD driver command stream |
@@ -197,7 +197,8 @@ bring-up remains the release gate in `docs/HARDWARE_BRINGUP.md`.
 
 ## Renode defects exposed by the twin
 
-Three emulator discrepancies were isolated during first boot:
+Four emulator discrepancies were isolated during first boot and the subsequent
+register audit:
 
 1. Renode 1.16.1 and current `renode-infrastructure` master tag
    `ICSR.RETTOBASE` instead of calculating it. ChibiOS reads that bit in
@@ -208,10 +209,13 @@ Three emulator discrepancies were isolated during first boot:
    ZS407 board writes high reset values to ODR while PA1–PA3 remain pull-down
    inputs, making all jog contacts appear pressed. The F303 twin keeps input,
    output and external state separate.
-3. Renode 1.16.1 only sets STM32 timer UIF when UIE is enabled. UIF is a status
+3. The STM32 BSRR callbacks apply set before reset, so writing both halves for
+   one pin incorrectly leaves it reset. STM32 specifies set priority. The local
+   F303 model and the upstream patch now apply reset first and set last.
+4. Renode 1.16.1 only sets STM32 timer UIF when UIE is enabled. UIF is a status
    flag; UIE gates only its interrupt. Current Renode master already contains
    the correct unconditional UIF behavior, so this is a local 1.16.1 backport,
    not a new upstream request.
 
-The two still-current fixes and NUnit regressions are packaged under
+The three still-current fixes and NUnit regressions are packaged under
 `upstream-patches/renode/`. They are not published yet.
