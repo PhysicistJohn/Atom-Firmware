@@ -15,6 +15,7 @@
 */
 
 #include "hal.h"
+#include "zs407_features.h"
 
 #if HAL_USE_PAL || defined(__DOXYGEN__)
 /**
@@ -136,6 +137,11 @@ void __early_init(void) {
  * Board-specific initialization code.
  */
 void boardInit(void) {
+#if ZS407_FEATURE_SAFE_TIMING
+  /* ST specifies one wait state for 24 MHz < HCLK <= 48 MHz. */
+  FLASH->ACR = FLASH_ACR_PRFTBE | FLASH_ACR_LATENCY_1;
+#else
     // Speedup flash latency
   FLASH->ACR= FLASH_ACR_PRFTBE | FLASH_ACR_LATENCY_0;
+#endif
 }

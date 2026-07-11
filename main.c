@@ -20,6 +20,7 @@
 
 #include "usbcfg.h"
 #include "nanovna.h"
+#include "zs407_features.h"
 
 #include <chprintf.h>
 #include <string.h>
@@ -2334,6 +2335,44 @@ VNA_SHELL_FUNCTION(cmd_version)
 #endif
 }
 
+#if ZS407_PHASE_BUILD
+/*
+ * Read-only modernization diagnostics.  The optional radio query is kept
+ * explicit because it owns the shared SPI bus long enough to issue PART_INFO
+ * and FUNC_INFO; the command table therefore also takes the sweep mutex.
+ */
+VNA_SHELL_FUNCTION(cmd_modern)
+{
+  if (argc > 1 || (argc == 1 && strcmp(argv[0], "radio") != 0)) {
+    usage_printf("modern [radio]\r\n");
+    return;
+  }
+
+  uint32_t cycle0 = DWT->CYCCNT;
+  uint32_t cycle1 = DWT->CYCCNT;
+  shell_printf("phase=%d version=%s safe_timing=%u\r\n",
+               ZS407_PHASE, VERSION, ZS407_FEATURE_SAFE_TIMING);
+  shell_printf("hclk_hz=%u flash_acr=0x%08x flash_wait_states=%u dwt=%s\r\n",
+               (uint32_t)STM32_HCLK, FLASH->ACR, ZS407_FLASH_WAIT_STATES,
+               cycle1 != cycle0 ? "running" : "stopped");
+  shell_printf("spi_hz lcd=%u si4468=%u max2871=%u pe4302=%u\r\n",
+               ZS407_LCD_SPI_HZ, ZS407_SI4468_SPI_HZ,
+               ZS407_MAX2871_SPI_HZ, ZS407_PE4302_SPI_HZ);
+
+  if (argc == 1) {
+    si446x_info_t info;
+    Si446x_getInfo(&info);
+    shell_printf("si4468 part=0x%04x rev=0x%02x build=0x%02x "
+                 "id=0x%04x customer=0x%02x rom=0x%02x\r\n",
+                 info.part, info.chipRev, info.partBuild, info.id,
+                 info.customer, info.romId);
+    shell_printf("si4468 fw=%u.%u.%u patch=0x%04x func=0x%02x\r\n",
+                 info.revExternal, info.revBranch, info.revInternal,
+                 info.patch, info.func);
+  }
+}
+#endif
+
 VNA_SHELL_FUNCTION(cmd_vbat)
 {
   (void)argc;
@@ -2470,6 +2509,9 @@ typedef struct {
 static const VNAShellCommand commands[] =
 {
     {"version"     , cmd_version     , 0},
+#if ZS407_PHASE_BUILD
+    {"modern"      , cmd_modern      , CMD_WAIT_MUTEX},
+#endif
     {"reset"       , cmd_reset       , 0},
     {"freq"        , cmd_freq        , CMD_WAIT_MUTEX | CMD_RUN_IN_LOAD},
 #ifdef __USE_RTC__
@@ -3531,6 +3573,5 @@ void hard_fault_handler_c(uint32_t *sp)
   while (true) {
   }
 }
-
 
 

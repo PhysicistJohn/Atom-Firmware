@@ -93,6 +93,8 @@ The complete candidate inventory, source-derived constraints, risk ratings and
 recommended implementation order live in
 [`docs/ENHANCEMENT_RISK_REGISTER.md`](docs/ENHANCEMENT_RISK_REGISTER.md). This
 phase lists the major directions; the register is the detailed working backlog.
+The cumulative branch and image gates are defined in
+[`docs/PHASE_IMPLEMENTATION.md`](docs/PHASE_IMPLEMENTATION.md).
 
 Candidate directions, to be prioritized from measurements rather than novelty:
 

@@ -19,6 +19,7 @@
 #include "ch.h"
 #include "hal.h"
 #include "nanovna.h"
+#include "zs407_features.h"
 #include <math.h>
 #include "si4432.h"
 #include "spi.h"
@@ -59,6 +60,11 @@
 #define SI4432_SPI         SPI1
 
 // Check device SPI clock speed
+#if ZS407_FEATURE_SAFE_TIMING
+/* Keep Si4468 at or below 10 MHz and MAX2871 at or below 20 MHz. */
+#define SI4432_SPI_SPEED       SPI_BR_DIV8
+#define ADF_SPI_SPEED          SPI_BR_DIV4
+#else
 #if STM32_PCLK2 > 48000000   // 48 or 72M MCU
 // On 72M MCU STM32_PCLK2 = 72M, SPI = 72M/4 = 18M
 //#define SI4432_SPI_SPEED       SPI_BR_DIV4
@@ -73,6 +79,7 @@
 //#define ADF_SPI_SPEED   SPI_BR_DIV64
 //#define ADF_SPI_SPEED   SPI_BR_DIV32
 #define ADF_SPI_SPEED   SPI_BR_DIV2
+#endif
 
 #define PE4302_HW_SHIFT     true
 #define PE_SPI_SPEED   SPI_BR_DIV8

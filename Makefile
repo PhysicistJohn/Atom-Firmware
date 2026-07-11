@@ -267,6 +267,9 @@ CPPWARN = -Wall -Wextra -Wundef
 # List all user C define here, like -D_DEBUG=1
 ifeq ($(TARGET),F303)
  UDEFS = -DARM_MATH_CM4 -DVERSION=\"$(VERSION)\" -DTINYSA_F303 -D__FPU_USED -DST7796S -DTINYSA4
+ifneq ($(PHASE),)
+ UDEFS+= -DZS407_PHASE_BUILD=1 -DZS407_PHASE=$(PHASE)
+endif
 #Enable if install external 32.768kHz clock quartz on PC14 and PC15 pins on STM32 CPU
 UDEFS+= -DVNA_USE_LSE
 # Use R as usb pullup
@@ -323,4 +326,3 @@ else
 	@etags *.[ch] NANOVNA_STM32_F072/*.[ch] $(shell find ChibiOS/os/hal/ports/STM32/STM32F0xx ChibiOS/os -name \*.\[ch\] -print) 
 endif
 	@ls -l TAGS
-

@@ -26,6 +26,7 @@
 #endif
 #include "chprintf.h"
 #include "spi.h"
+#include "zs407_features.h"
 
 // Pin macros for LCD
 #ifdef TINYSA4
@@ -63,7 +64,11 @@
 
 #ifdef LCD_DRIVER_ST7796S
 // Set SPI bus speed for LCD
+#if ZS407_FEATURE_SAFE_TIMING
+#define LCD_SPI_SPEED    SPI_BR_DIV4
+#else
 #define LCD_SPI_SPEED    SPI_BR_DIV2
+#endif
 // Read speed, need more slow, not define if need use some as Tx speed
 #define LCD_SPI_RX_SPEED SPI_BR_DIV4
 // Allow enable DMA for read display data
