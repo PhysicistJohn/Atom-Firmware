@@ -40,6 +40,17 @@ For an ordinary development build:
 tools/build-zs407.sh
 ```
 
+Run the exact executable ZS407 digital twin without hardware:
+
+```bash
+tools/test-digital-twin.sh --smoke
+tools/test-digital-twin.sh --full
+```
+
+The twin verifies and executes the immutable private v0.2.0 BIN, renders its
+real 480×320 framebuffer, accepts jog/touch input, initializes SD and RF parts,
+and sweeps deterministic RF tones. It never flashes or transmits.
+
 For the first non-flashing LLVM/GNU hybrid experiment:
 
 ```bash
@@ -69,6 +80,7 @@ Read first
 - [Cumulative phase and image plan](docs/PHASE_IMPLEMENTATION.md)
 - [Private phase-image release policy](docs/PRIVATE_RELEASES.md)
 - [Portable firmware/Mac core and generated contracts](modern/README.md)
+- [Exact ZS407 executable digital twin](docs/DIGITAL_TWIN.md)
 - [Atomic 480×320 embedded UI](docs/EMBEDDED_UI.md)
 - [LLVM hybrid build experiment](experiments/llvm/README.md)
 - [Known issues and community research](docs/KNOWN_ISSUES.md)

@@ -1,0 +1,8 @@
+include $ORIGIN/../zs407.resc
+
+emulation RunFor "1.5"
+twinStatus AssertBooted
+twinStatus Report
+spi1.spiFabric.lcd SaveScreenshot $CWD/.artifacts/digital-twin/boot.png
+
+quit

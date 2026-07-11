@@ -1,0 +1,36 @@
+include $ORIGIN/../zs407.resc
+
+# Exact-image boot and peripheral initialization.
+emulation RunFor "1.5"
+twinStatus AssertBooted
+
+# The sweep loop can take roughly 623 ms, so hold the real active-high jog
+# contact until the firmware consumes its EXTI event.
+gpioPortA.jogPress Press
+emulation RunFor "1.0"
+twinStatus AssertMenuOpen
+gpioPortA.jogPress Release
+emulation RunFor "0.05"
+
+# A touch outside the menu closes it. The assertion compares the raw ADC
+# coordinates consumed by the immutable firmware with the injected panel
+# coordinates before release.
+adc2 SetTouchPixel 200 150
+emulation RunFor "2.0"
+twinStatus AssertTouchAccepted
+adc2 ReleaseTouch
+emulation RunFor "0.3"
+twinStatus AssertNormalUi
+
+# Frequency-selective RF scene: a 450 MHz tone must produce both noise-floor
+# and elevated RSSI samples over a full sweep.
+spi1.spiFabric.receiver ClearFixedRssi
+spi1.spiFabric.receiver ClearTones
+spi1.spiFabric.receiver ResetRssiStatistics
+spi1.spiFabric.receiver AddTone 450000000 -20 10000000
+emulation RunFor "1.5"
+twinStatus AssertToneObserved 150
+twinStatus Report
+spi1.spiFabric.lcd SaveScreenshot $CWD/.artifacts/digital-twin/full-tone-450mhz.png
+
+quit
