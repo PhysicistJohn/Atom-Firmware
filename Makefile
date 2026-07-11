@@ -4,10 +4,9 @@
 #
 
 #Build target
-ifeq ($(TARGET),)
-  TARGET = F072
-else
-  TARGET = F303
+TARGET ?= F072
+ifeq ($(filter $(TARGET),F072 F303),)
+  $(error Unsupported TARGET '$(TARGET)'; expected F072 or F303)
 endif
 
 # Compiler options here.
@@ -326,3 +325,7 @@ else
 	@etags *.[ch] NANOVNA_STM32_F072/*.[ch] $(shell find ChibiOS/os/hal/ports/STM32/STM32F0xx ChibiOS/os -name \*.\[ch\] -print) 
 endif
 	@ls -l TAGS
+
+.PHONY: host-test
+host-test:
+	tools/test-host-core.sh

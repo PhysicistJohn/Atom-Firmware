@@ -1,0 +1,40 @@
+{
+  "schema_name": "ZS407InstrumentContract",
+  "schema_version": 1,
+  "protocol": {
+    "magic": 23123,
+    "version": 1,
+    "maximum_payload_bytes": 1024,
+    "maximum_trace_points": 4096
+  },
+  "commands": {
+    "capabilities": 1,
+    "sweep_plan": 2,
+    "sweep_data": 3,
+    "generator_arm": 16,
+    "generator_configure": 17,
+    "generator_enable": 18
+  },
+  "status": {
+    "ok": 0,
+    "invalid_argument": 1,
+    "out_of_range": 2,
+    "buffer_too_small": 3,
+    "bad_frame": 4,
+    "unsupported": 5,
+    "not_qualified": 6
+  },
+  "capabilities": {
+    "fixed_point_trace": 1,
+    "binary_protocol": 2,
+    "precompiled_sweep_plan": 4,
+    "derived_measurements": 8,
+    "experimental_rf": 16,
+    "waveform_sequencer": 32,
+    "audio_awg": 64
+  },
+  "trace": {
+    "power_scale_db": 32,
+    "invalid_sample": -32768
+  }
+}

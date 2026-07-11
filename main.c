@@ -21,6 +21,9 @@
 #include "usbcfg.h"
 #include "nanovna.h"
 #include "zs407_features.h"
+#if ZS407_FEATURE_HOST_CONTRACT
+#include "modern/generated/zs407_contract.h"
+#endif
 
 #include <chprintf.h>
 #include <string.h>
@@ -2352,6 +2355,11 @@ VNA_SHELL_FUNCTION(cmd_modern)
   uint32_t cycle1 = DWT->CYCCNT;
   shell_printf("phase=%d version=%s safe_timing=%u\r\n",
                ZS407_PHASE, VERSION, ZS407_FEATURE_SAFE_TIMING);
+#if ZS407_FEATURE_HOST_CONTRACT
+  shell_printf("schema=%u protocol=%u trace_db_scale=%u\r\n",
+               ZS407_SCHEMA_VERSION, ZS407_PROTOCOL_VERSION,
+               ZS407_TRACE_DB_SCALE);
+#endif
   shell_printf("hclk_hz=%u flash_acr=0x%08x flash_wait_states=%u dwt=%s\r\n",
                (uint32_t)STM32_HCLK, FLASH->ACR, ZS407_FLASH_WAIT_STATES,
                cycle1 != cycle0 ? "running" : "stopped");
@@ -3488,8 +3496,36 @@ int main(void)
   }
 }
 
-/* The prototype shows it is a naked function - in effect this is just an
-assembly function. */
+#if ZS407_FEATURE_HARD_FAULT_VENEER
+void hard_fault_handler_c(uint32_t *sp, const uint32_t *callee)
+    __attribute__((noreturn, noinline));
+void HardFault_Handler(void) __attribute__((naked));
+
+void HardFault_Handler(void)
+{
+  __asm volatile(
+      "tst lr, #4\n"
+      "ite eq\n"
+      "mrseq r0, msp\n"
+      "mrsne r0, psp\n"
+      "sub sp, sp, #32\n"
+      "str r4, [sp, #0]\n"
+      "str r5, [sp, #4]\n"
+      "str r6, [sp, #8]\n"
+      "str r7, [sp, #12]\n"
+      "mov r2, r8\n"
+      "str r2, [sp, #16]\n"
+      "mov r2, r9\n"
+      "str r2, [sp, #20]\n"
+      "mov r2, r10\n"
+      "str r2, [sp, #24]\n"
+      "mov r2, r11\n"
+      "str r2, [sp, #28]\n"
+      "mov r1, sp\n"
+      "b hard_fault_handler_c\n");
+}
+#else
+/* Compatibility profile retains the official handler byte-for-byte. */
 void HardFault_Handler(void);
 
 void hard_fault_handler_c(uint32_t *sp) __attribute__((naked));
@@ -3502,14 +3538,29 @@ void HardFault_Handler(void)
   __asm volatile("mrs %0, psp \n\t" : "=r"(sp));
   hard_fault_handler_c(sp);
 }
+#endif
 
+#if ZS407_FEATURE_HARD_FAULT_VENEER
+void hard_fault_handler_c(uint32_t *sp, const uint32_t *callee)
+#else
 void hard_fault_handler_c(uint32_t *sp)
+#endif
 {
 #ifdef TINYSA4
   uint32_t r0  = sp[0];
   uint32_t r1  = sp[1];
   uint32_t r2  = sp[2];
   uint32_t r3  = sp[3];
+#if ZS407_FEATURE_HARD_FAULT_VENEER
+  uint32_t r4  = callee[0];
+  uint32_t r5  = callee[1];
+  uint32_t r6  = callee[2];
+  uint32_t r7  = callee[3];
+  uint32_t r8  = callee[4];
+  uint32_t r9  = callee[5];
+  uint32_t r10 = callee[6];
+  uint32_t r11 = callee[7];
+#else
   register uint32_t  r4 __asm("r4");
   register uint32_t  r5 __asm("r5");
   register uint32_t  r6 __asm("r6");
@@ -3518,6 +3569,7 @@ void hard_fault_handler_c(uint32_t *sp)
   register uint32_t  r9 __asm("r9");
   register uint32_t r10 __asm("r10");
   register uint32_t r11 __asm("r11");
+#endif
   uint32_t r12 = sp[4];
   uint32_t lr  = sp[5];
   uint32_t pc  = sp[6];
@@ -3573,5 +3625,3 @@ void hard_fault_handler_c(uint32_t *sp)
   while (true) {
   }
 }
-
-

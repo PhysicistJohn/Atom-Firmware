@@ -37,6 +37,10 @@ toolchain_bin=$($ROOT/tools/bootstrap-toolchain.sh)
 export PATH="$toolchain_bin:$PATH"
 export LC_ALL=C
 
+if [ "$phase" -ge 1 ]; then
+  "$ROOT/tools/test-host-core.sh"
+fi
+
 commit=$(git -C "$ROOT" rev-parse HEAD)
 short_commit=$(printf '%s' "$commit" | cut -c1-7)
 source_date_epoch=$(git -C "$ROOT" show -s --format=%ct HEAD)

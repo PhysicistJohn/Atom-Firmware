@@ -20,6 +20,11 @@ CLANG_OPT=-Os LLVM_BUILD_DIR=build-llvm-os \
 
 CLANG_OPT=-O2 LLVM_BUILD_DIR=build-llvm-o2 \
   experiments/llvm/build-hybrid.sh
+
+CLANG_MAIN=1 LLVM_PHASE=1 CLANG_OPT=-Oz \
+  LLVM_BUILD_DIR=build-llvm-phase1 \
+  LLVM_VERSION=tinySA4_llvm-p1-gdraft01 \
+  experiments/llvm/build-hybrid.sh
 ```
 
 Output is isolated under the requested `build-llvm*` directory. The normal
@@ -27,6 +32,10 @@ Output is isolated under the requested `build-llvm*` directory. The normal
 the normal bootstrap helper and uses `/usr/bin/clang` by default. Override with
 `CLANG=/path/to/clang` if needed. `CLANG_OPT` changes only the admitted Clang
 objects; GNU-owned objects retain the baseline flags.
+
+`CLANG_MAIN=1` is deliberately opt-in. It requires `LLVM_PHASE=1` or later so
+the unity RF translation unit uses the assembly-only hard-fault veneer. The
+RTOS, HAL, startup, assembler, linker and C runtime remain GNU-owned.
 
 The build identifies itself as `tinySA4_llvm-000-gc979386` and exports
 `SOURCE_DATE_EPOCH`, defaulting to the pinned source commit time (`1778053464`).
@@ -53,6 +62,14 @@ not evidence of equivalent behavior or speed. Conversely, broad `-O2` nearly
 fills flash and leaves only 1,524 bytes, so performance optimization must be
 module/function-specific.
 
+The Phase 1 opt-in also compiles `main.c` plus its directly included
+`sa_core.c` and `sa_cmd.c` with Clang `-Oz`. It links successfully at 186,372
+bytes (75.83%, SHA-256
+`04ca605d98b10e85ab821af219c5a69300174a49d594d4c460690403ff816481`).
+That closes the known compiler parsing seam; it remains a no-flash codegen
+experiment and is not directly size-comparable to the official image because
+it contains the cumulative Phase 1 diagnostics and fault handler.
+
 The default `-Og` growth is localized by unlinked object flash estimates:
 
 | Object | GNU | Clang `-Og` | Delta |
@@ -68,7 +85,7 @@ intrinsic LLVM penalty, explains most of the first result.
 
 ## Compiler boundary
 
-Clang currently compiles selected filesystem, USB configuration, board ADC,
+By default Clang compiles selected filesystem, USB configuration, board ADC,
 plot, UI, LCD, RF peripheral, font, flash and RTC translation units. Arm GNU
 11.3.1 compiles:
 
@@ -81,6 +98,10 @@ plot, UI, LCD, RF peripheral, font, flash and RTC translation units. Arm GNU
 Arm GNU also assembles, links, supplies newlib-nano/libgcc and converts the ELF
 to `.bin`/`.hex`. `.comment` sections in `plot.o`, `ui.o` and `si4468.o` confirm
 Clang provenance; `main.o` and `chsys.o` confirm GNU provenance.
+
+With `CLANG_MAIN=1`, `main.o` (and therefore the included RF core and command
+code) moves to Clang. `chsys.o` and all timing-critical RTOS/HAL objects remain
+GNU provenance.
 
 ## Compatibility details
 
@@ -106,17 +127,18 @@ Apple Clang's default newer DWARF forms.
 
 ## Migration findings
 
-An attempted Clang build of `main.c` found this real incompatibility:
+The first attempted Clang build of `main.c` found this real incompatibility:
 
 ```c
 void hard_fault_handler_c(uint32_t *sp) __attribute__((naked));
 ```
 
 The function contains ordinary C, local variables and LCD calls. Clang rejects
-non-assembly statements in a naked function. The correct eventual structure is
-a minimal naked assembly fault-entry veneer that selects MSP/PSP and branches
-to a normal C reporter. That change is independent of compiler selection and
-must be tested before moving the RF-core unity translation unit to Clang.
+non-assembly statements in a naked function. Phase 1 now supplies the correct
+structure behind its cumulative feature gate: a naked assembly veneer selects
+MSP/PSP, saves R4-R11, and branches to an ordinary non-returning C reporter.
+Both GNU and Clang compile/link it, and disassembly confirms the veneer. A
+controlled fault test is still required before hardware qualification.
 
 The experiment also surfaces warnings currently hidden or accepted by GCC,
 including old-style field designators, self-assignment, declarations without
@@ -130,7 +152,7 @@ small correctness/cleanup changes, not one warning-suppression patch.
 3. Use `-Oz` for UI/control and benchmark narrowly selected DSP/render kernels
    at `-O2` instead of applying `-O2` to every Clang object.
 4. Record cycle, stack and object-symbol deltas automatically.
-5. Fix the hard-fault entry/report split.
+5. Hardware-test the completed hard-fault entry/report split.
 6. Introduce modern CMSIS compiler support and explicitly test FPU context
    across preemption/interrupts.
 7. Migrate one timing-sensitive driver only after logic-analyzer captures exist.

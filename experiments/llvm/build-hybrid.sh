@@ -10,6 +10,7 @@ export LC_ALL=C
 build_dir=${LLVM_BUILD_DIR:-build-llvm}
 LLVM_VERSION=${LLVM_VERSION:-tinySA4_llvm-000-gc979386}
 SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-$(git -C "$ROOT" show -s --format=%ct c97938697b6c7485e7cab50bca9af76996b7d671)}
+LLVM_PHASE=${LLVM_PHASE:-}
 export SOURCE_DATE_EPOCH
 
 case "$build_dir" in
@@ -25,6 +26,7 @@ git -C "$ROOT" submodule status ChibiOS | grep -q '^ ' || \
 rm -rf "$ROOT/$build_dir" "$ROOT/.dep"
 make -C "$ROOT" \
   TARGET=F303 \
+  PHASE="$LLVM_PHASE" \
   BUILDDIR="$build_dir" \
   VERSION="$LLVM_VERSION" \
   CC="$ROOT/experiments/llvm/clang-cc.sh" \

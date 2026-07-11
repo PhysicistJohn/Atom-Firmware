@@ -63,6 +63,7 @@ Read first
 - [Performance, fixed-point DSP and FFT plan](docs/PERFORMANCE_DSP.md)
 - [Enhancement and risk register](docs/ENHANCEMENT_RISK_REGISTER.md)
 - [Cumulative phase and image plan](docs/PHASE_IMPLEMENTATION.md)
+- [Portable firmware/Mac core and generated contracts](modern/README.md)
 - [Atomic 480×320 embedded UI](docs/EMBEDDED_UI.md)
 - [LLVM hybrid build experiment](experiments/llvm/README.md)
 - [Known issues and community research](docs/KNOWN_ISSUES.md)

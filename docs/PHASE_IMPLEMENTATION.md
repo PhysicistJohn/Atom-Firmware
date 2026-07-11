@@ -76,3 +76,4 @@ provide.
 ## Phase notes
 
 - [Phase 0: reproducible build and electrical timing safety](phases/PHASE_0.md)
+- [Phase 1: portable host core and generated contracts](phases/PHASE_1.md)

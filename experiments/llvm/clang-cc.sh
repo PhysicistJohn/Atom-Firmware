@@ -28,6 +28,11 @@ use_clang=false
 for argument in "$@"; do
   source_name=${argument##*/}
   case "$source_name" in
+    main.c)
+      if [ "${CLANG_MAIN:-0}" = 1 ]; then
+        use_clang=true
+      fi
+      ;;
     ff.c|ffunicode.c|usbcfg.c|adc.c|plot.c|ui.c|ili9341.c|tlv320aic3204.c|si5351.c|numfont20x22.c|Font5x7.c|Font10x14.c|Font7x13b.c|flash.c|si4468.c|rtc.c)
       use_clang=true
       ;;
