@@ -100,7 +100,9 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
   "$ROOT/modern/core/zs407_compact.c" \
   "$ROOT/tests/host/benchmark_protocol_v2.c" -lm \
   -o "$build_dir/benchmark_protocol_v2"
-"$build_dir/benchmark_protocol_v2" | tee "$build_dir/protocol-v2-benchmark.txt"
+"$build_dir/benchmark_protocol_v2" \
+  > "$build_dir/protocol-v2-benchmark.txt"
+sed -n '/./p' "$build_dir/protocol-v2-benchmark.txt"
 
 # Apple Clang's ASan runtime can deadlock during dyld initialization on some
 # newer macOS/toolchain combinations. Always prove the ASan-instrumented binary

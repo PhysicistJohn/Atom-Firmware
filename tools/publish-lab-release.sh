@@ -61,6 +61,8 @@ assets=(
   "$artifact_dir/sections.txt"
   "$artifact_dir/stack-usage.txt"
   "$artifact_dir/host-tests.txt"
+  "$artifact_dir/official-reproduction.txt"
+  "$artifact_dir/f072-build.txt"
   "$artifact_dir/protocol-v2-benchmark.txt"
   "$artifact_dir/output-gate-audit.txt"
   "$artifact_dir/protocol-v2-lock-audit.txt"

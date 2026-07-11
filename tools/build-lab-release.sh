@@ -41,7 +41,31 @@ first_binary="$artifact_dir/first.bin"
 
 rm -rf "$artifact_dir"
 mkdir -p "$artifact_dir"
-"$ROOT/tools/test-host-core.sh" | tee "$artifact_dir/host-tests.txt"
+"$ROOT/tools/test-host-core.sh" > "$artifact_dir/host-tests.txt"
+sed -n '/./p' "$artifact_dir/host-tests.txt"
+
+# The opt-in profile must not contaminate either supported default build.
+"$ROOT/tools/reproduce-official-release.sh" \
+  > "$artifact_dir/official-reproduction.txt"
+sed -n '/./p' "$artifact_dir/official-reproduction.txt"
+
+make -C "$ROOT" TARGET=F072 clean >/dev/null
+make -C "$ROOT" TARGET=F072 VERSION='tinySA_f072-v0.2-regression' \
+  -j"$(host_jobs)" > "$artifact_dir/f072-build.txt" 2>&1
+f072_binary="$ROOT/build/tinySA.bin"
+f072_elf="$ROOT/build/tinySA.elf"
+[ -f "$f072_binary" ] && [ -f "$f072_elf" ] || \
+  die 'F072 regression did not produce BIN and ELF'
+[ -z "$(arm-none-eabi-nm -u "$f072_elf")" ] || \
+  die 'F072 regression ELF has unresolved symbols'
+f072_size=$(wc -c < "$f072_binary" | tr -d ' ')
+f072_hash=$(sha256_file "$f072_binary")
+{
+  printf '\nf072_regression=passed\n'
+  printf 'f072_binary_size=%s\n' "$f072_size"
+  printf 'f072_binary_sha256=%s\n' "$f072_hash"
+} >> "$artifact_dir/f072-build.txt"
+printf 'F072 regression: %s bytes, SHA-256 %s\n' "$f072_size" "$f072_hash"
 
 build_once() {
   make -C "$ROOT" TARGET=F303 clean >/dev/null
@@ -99,6 +123,8 @@ binary_hash=$(sha256_file "$artifact_dir/$stem.bin")
 elf_hash=$(sha256_file "$artifact_dir/$stem.elf")
 hex_hash=$(sha256_file "$artifact_dir/$stem.hex")
 benchmark_hash=$(sha256_file "$artifact_dir/protocol-v2-benchmark.txt")
+official_report_hash=$(sha256_file "$artifact_dir/official-reproduction.txt")
+f072_report_hash=$(sha256_file "$artifact_dir/f072-build.txt")
 bss_bytes=$(awk '$1 == ".bss" { print $2 }' "$artifact_dir/sections.txt")
 heap_bytes=$(awk '$1 == ".heap" { print $2 }' "$artifact_dir/sections.txt")
 ccm_bytes=$(awk '$1 == ".ccmram" { print $2 }' "$artifact_dir/sections.txt")
@@ -123,11 +149,17 @@ size_report=$(arm-none-eabi-size "$artifact_dir/$stem.elf")
   printf 'elf_sha256=%s\n' "$elf_hash"
   printf 'hex_sha256=%s\n' "$hex_hash"
   printf 'benchmark_sha256=%s\n' "$benchmark_hash"
+  printf 'official_report_sha256=%s\n' "$official_report_hash"
+  printf 'f072_report_sha256=%s\n' "$f072_report_hash"
+  printf 'f072_binary_size=%s\n' "$f072_size"
+  printf 'f072_binary_sha256=%s\n' "$f072_hash"
   printf 'bss_bytes=%s\n' "$bss_bytes"
   printf 'heap_bytes=%s\n' "$heap_bytes"
   printf 'ccm_bytes=%s\n' "$ccm_bytes"
   printf 'reproducible_clean_builds=true\n'
   printf 'host_tests=passed\n'
+  printf 'official_exact_reproduction=passed\n'
+  printf 'f072_regression=passed\n'
   printf 'output_lock_audit=passed\n'
   printf 'protocol_v2_lock_audit=passed\n'
   printf 'hardware_qualified=false\n'
