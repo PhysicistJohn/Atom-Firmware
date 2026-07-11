@@ -25,8 +25,10 @@
 
 static int test_contract(void)
 {
-  CHECK(ZS407_SCHEMA_VERSION == 1U);
+  CHECK(ZS407_SCHEMA_VERSION == 2U);
   CHECK(ZS407_PROTOCOL_MAGIC == 0x5a53U);
+  CHECK(ZS407_PROTOCOL_MINIMUM_VERSION == 1U);
+  CHECK(ZS407_PROTOCOL_VERSION == 2U);
   CHECK(ZS407_TRACE_DB_SCALE == 32U);
   CHECK(ZS407_TRACE_INVALID_SAMPLE == -32768);
   return 0;
@@ -202,6 +204,7 @@ static int test_protocol(const char *fixture_path)
   zs407_frame_t decoded;
   CHECK(zs407_frame_decode(fixture, fixture_length, &decoded) ==
         ZS407_CORE_OK);
+  CHECK(decoded.version == 1U);
   CHECK(decoded.flags == 0xa5U);
   CHECK(decoded.request_id == 0x1234U);
   CHECK(decoded.command == ZS407_COMMAND_CAPABILITIES);
@@ -224,12 +227,18 @@ static int test_protocol(const char *fixture_path)
     for (uint16_t i = 0U; i < payload_length; ++i) {
       payload[i] = (uint8_t)next_random();
     }
-    zs407_frame_t input = {(uint8_t)next_random(), (uint16_t)next_random(),
-                           (uint16_t)next_random(), payload, payload_length};
+    zs407_frame_t input = {
+        .version = (uint8_t)(1U + (next_random() & 1U)),
+        .flags = (uint8_t)next_random(),
+        .request_id = (uint16_t)next_random(),
+        .command = (uint16_t)next_random(),
+        .payload = payload,
+        .payload_length = payload_length};
     CHECK(zs407_frame_encode(&input, encoded, sizeof(encoded),
                              &encoded_length) == ZS407_CORE_OK);
     CHECK(zs407_frame_decode(encoded, encoded_length, &decoded) ==
           ZS407_CORE_OK);
+    CHECK(decoded.version == input.version);
     CHECK(decoded.flags == input.flags);
     CHECK(decoded.request_id == input.request_id);
     CHECK(decoded.command == input.command);

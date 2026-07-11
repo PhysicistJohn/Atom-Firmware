@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "zs407_capabilities.h"
 
+#include "../../zs407_features.h"
+
 #include <string.h>
 
 #define ZS407_PHASE6_FEATURES                                              \
@@ -54,6 +56,16 @@ zs407_core_status_t zs407_release_manifest_for_phase(
   if (phase >= 6U) {
     manifest->feature_bits |= ZS407_CAP_FINAL_DISPOSITION_AUDIT;
   }
+#if ZS407_RELEASE_PROTOCOL_V2
+  if (phase >= 6U) {
+    manifest->feature_bits |= ZS407_CAP_TYPED_PROTOCOL_V2 |
+                              ZS407_CAP_STREAMING_MARSHALLING |
+                              ZS407_CAP_COMPACT_STORAGE_CODECS |
+                              ZS407_CAP_ASYNC_USB_LAB;
+    manifest->safety_bits |= ZS407_SAFETY_BINARY_TRANSPORT_LOCKED |
+                             ZS407_SAFETY_HARDWARE_CRC_UNQUALIFIED;
+  }
+#endif
   return ZS407_CORE_OK;
 }
 
@@ -81,12 +93,24 @@ uint32_t zs407_capabilities_selftest(void)
   }
   zs407_release_manifest_t final_manifest;
   if (zs407_release_manifest_for_phase(6U, &final_manifest) != ZS407_CORE_OK ||
-      final_manifest.feature_bits != ZS407_PHASE6_FEATURES ||
+      final_manifest.feature_bits !=
+          (ZS407_PHASE6_FEATURES
+#if ZS407_RELEASE_PROTOCOL_V2
+           | ZS407_CAP_TYPED_PROTOCOL_V2 |
+             ZS407_CAP_STREAMING_MARSHALLING |
+             ZS407_CAP_COMPACT_STORAGE_CODECS | ZS407_CAP_ASYNC_USB_LAB
+#endif
+          ) ||
       final_manifest.safety_bits !=
           (ZS407_SAFETY_HARDWARE_UNQUALIFIED |
            ZS407_SAFETY_NO_AUTOMATED_FLASH |
            ZS407_SAFETY_RF_EXPERIMENTS_DISABLED |
-           ZS407_SAFETY_AWG_EXECUTION_LOCKED) ||
+           ZS407_SAFETY_AWG_EXECUTION_LOCKED
+#if ZS407_RELEASE_PROTOCOL_V2
+           | ZS407_SAFETY_BINARY_TRANSPORT_LOCKED |
+             ZS407_SAFETY_HARDWARE_CRC_UNQUALIFIED
+#endif
+          ) ||
       final_manifest.maximum_fft_points != 512U ||
       final_manifest.waveform_event_bytes != 16U) {
     failures |= 8U;

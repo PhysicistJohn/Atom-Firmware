@@ -37,24 +37,9 @@ export const ZS407Contract = {
     waveform_sequencer: 32,
     audio_awg: 64,
   },
-} as const;
+};
 
-export interface CapabilitiesPayload {
-  schemaVersion: number;
-  protocolVersion: number;
-  releasePhase: number;
-  profileId: number;
-  featureBits: number;
-  safetyBits: number;
-  maximumPayloadBytes: number;
-  maximumTracePoints: number;
-  maximumSweepPoints: number;
-  maximumFftPoints: number;
-  waveformSampleCount: number;
-  waveformEventBytes: number;
-}
-
-export function encodeCapabilitiesPayload(value: CapabilitiesPayload): Uint8Array {
+export function encodeCapabilitiesPayload(value) {
   const output = new Uint8Array(24);
   const view = new DataView(output.buffer);
   view.setUint8(0, value.schemaVersion);
@@ -72,7 +57,7 @@ export function encodeCapabilitiesPayload(value: CapabilitiesPayload): Uint8Arra
   return output;
 }
 
-export function decodeCapabilitiesPayload(input: Uint8Array): CapabilitiesPayload {
+export function decodeCapabilitiesPayload(input) {
   if (input.byteLength !== 24) throw new RangeError("CapabilitiesPayload wire size");
   const view = new DataView(input.buffer, input.byteOffset, input.byteLength);
   return {
@@ -91,27 +76,7 @@ export function decodeCapabilitiesPayload(input: Uint8Array): CapabilitiesPayloa
   };
 }
 
-export interface TraceChunkPayload {
-  traceId: number;
-  sequence: number;
-  flags: number;
-  startIndex: number;
-  pointCount: number;
-  totalPoints: number;
-  validityBytes: number;
-  startHz: bigint;
-  frequencyStepNumeratorHz: bigint;
-  frequencyStepDenominator: number;
-  rbwHz: number;
-  enbwHz: number;
-  timestampUs: bigint;
-  path: number;
-  detector: number;
-  powerScaleDb: number;
-  reserved: number;
-}
-
-export function encodeTraceChunkPayload(value: TraceChunkPayload): Uint8Array {
+export function encodeTraceChunkPayload(value) {
   const output = new Uint8Array(56);
   const view = new DataView(output.buffer);
   view.setUint32(0, value.traceId, true);
@@ -134,7 +99,7 @@ export function encodeTraceChunkPayload(value: TraceChunkPayload): Uint8Array {
   return output;
 }
 
-export function decodeTraceChunkPayload(input: Uint8Array): TraceChunkPayload {
+export function decodeTraceChunkPayload(input) {
   if (input.byteLength !== 56) throw new RangeError("TraceChunkPayload wire size");
   const view = new DataView(input.buffer, input.byteOffset, input.byteLength);
   return {
@@ -158,16 +123,7 @@ export function decodeTraceChunkPayload(input: Uint8Array): TraceChunkPayload {
   };
 }
 
-export interface WaveformUploadPayload {
-  programId: number;
-  uncompressedBytes: number;
-  crc32: number;
-  eventCount: number;
-  encoding: number;
-  flags: number;
-}
-
-export function encodeWaveformUploadPayload(value: WaveformUploadPayload): Uint8Array {
+export function encodeWaveformUploadPayload(value) {
   const output = new Uint8Array(16);
   const view = new DataView(output.buffer);
   view.setUint32(0, value.programId, true);
@@ -179,7 +135,7 @@ export function encodeWaveformUploadPayload(value: WaveformUploadPayload): Uint8
   return output;
 }
 
-export function decodeWaveformUploadPayload(input: Uint8Array): WaveformUploadPayload {
+export function decodeWaveformUploadPayload(input) {
   if (input.byteLength !== 16) throw new RangeError("WaveformUploadPayload wire size");
   const view = new DataView(input.buffer, input.byteOffset, input.byteLength);
   return {
@@ -192,13 +148,7 @@ export function decodeWaveformUploadPayload(input: Uint8Array): WaveformUploadPa
   };
 }
 
-export interface StatusPayload {
-  status: number;
-  reserved: number;
-  detail: number;
-}
-
-export function encodeStatusPayload(value: StatusPayload): Uint8Array {
+export function encodeStatusPayload(value) {
   const output = new Uint8Array(4);
   const view = new DataView(output.buffer);
   view.setUint8(0, value.status);
@@ -207,7 +157,7 @@ export function encodeStatusPayload(value: StatusPayload): Uint8Array {
   return output;
 }
 
-export function decodeStatusPayload(input: Uint8Array): StatusPayload {
+export function decodeStatusPayload(input) {
   if (input.byteLength !== 4) throw new RangeError("StatusPayload wire size");
   const view = new DataView(input.buffer, input.byteOffset, input.byteLength);
   return {

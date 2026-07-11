@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate deterministic C, Swift and TypeScript ZS407 contracts."""
+"""Generate deterministic C, Swift, TypeScript and JavaScript ZS407 codecs."""
 
 from __future__ import annotations
 
@@ -15,11 +15,66 @@ OUTPUTS = {
     "c": ROOT / "modern/generated/zs407_contract.h",
     "swift": ROOT / "modern/generated/ZS407Contract.swift",
     "typescript": ROOT / "modern/generated/zs407-contract.ts",
+    "javascript": ROOT / "modern/generated/zs407-contract.mjs",
+}
+
+TYPE_INFO = {
+    "u8": {"bytes": 1, "c": "uint8_t", "swift": "UInt8", "ts": "number"},
+    "i8": {"bytes": 1, "c": "int8_t", "swift": "Int8", "ts": "number"},
+    "u16": {"bytes": 2, "c": "uint16_t", "swift": "UInt16", "ts": "number"},
+    "i16": {"bytes": 2, "c": "int16_t", "swift": "Int16", "ts": "number"},
+    "u32": {"bytes": 4, "c": "uint32_t", "swift": "UInt32", "ts": "number"},
+    "i32": {"bytes": 4, "c": "int32_t", "swift": "Int32", "ts": "number"},
+    "u64": {"bytes": 8, "c": "uint64_t", "swift": "UInt64", "ts": "bigint"},
+    "i64": {"bytes": 8, "c": "int64_t", "swift": "Int64", "ts": "bigint"},
 }
 
 
 def macro(name: str) -> str:
     return name.upper().replace("-", "_")
+
+
+def camel(name: str) -> str:
+    parts = name.split("_")
+    return parts[0] + "".join(part.title() for part in parts[1:])
+
+
+def title(name: str) -> str:
+    return "".join(part.title() for part in name.split("_"))
+
+
+def payload_layout(payload: dict) -> tuple[list[tuple[dict, int]], int]:
+    layout = []
+    offset = 0
+    for field in payload["fields"]:
+        if field["type"] not in TYPE_INFO:
+            raise ValueError(f"unsupported field type {field['type']!r}")
+        layout.append((field, offset))
+        offset += TYPE_INFO[field["type"]]["bytes"]
+    return layout, offset
+
+
+def validate(data: dict) -> None:
+    protocol = data["protocol"]
+    if not (1 <= protocol["minimum_supported_version"] <=
+            protocol["version"] <= 255):
+        raise ValueError("invalid protocol version interval")
+    for payload_name, payload in data["payloads"].items():
+        layout, _ = payload_layout(payload)
+        golden = payload["golden"]
+        expected = {field["name"] for field, _ in layout}
+        if set(golden) != expected:
+            raise ValueError(f"{payload_name}: golden fields do not match layout")
+        for field, _ in layout:
+            value = golden[field["name"]]
+            bits = TYPE_INFO[field["type"]]["bytes"] * 8
+            signed = field["type"].startswith("i")
+            low = -(1 << (bits - 1)) if signed else 0
+            high = (1 << (bits - int(signed))) - 1
+            if not low <= value <= high:
+                raise ValueError(
+                    f"{payload_name}.{field['name']}={value} outside {field['type']}"
+                )
 
 
 def render_c(data: dict) -> str:
@@ -31,11 +86,17 @@ def render_c(data: dict) -> str:
         "#ifndef ZS407_GENERATED_CONTRACT_H",
         "#define ZS407_GENERATED_CONTRACT_H",
         "",
+        "#include <stdbool.h>",
+        "#include <stddef.h>",
+        "#include <stdint.h>",
+        "",
         f"#define ZS407_SCHEMA_VERSION {data['schema_version']}U",
         f"#define ZS407_PROTOCOL_MAGIC {protocol['magic']}U",
         f"#define ZS407_PROTOCOL_VERSION {protocol['version']}U",
+        f"#define ZS407_PROTOCOL_MINIMUM_VERSION {protocol['minimum_supported_version']}U",
         f"#define ZS407_PROTOCOL_MAX_PAYLOAD {protocol['maximum_payload_bytes']}U",
         f"#define ZS407_PROTOCOL_MAX_TRACE_POINTS {protocol['maximum_trace_points']}U",
+        f"#define ZS407_PROTOCOL_MAX_TRACE_CHUNK_POINTS {protocol['maximum_trace_chunk_points']}U",
         f"#define ZS407_TRACE_DB_SCALE {trace['power_scale_db']}U",
         f"#define ZS407_TRACE_INVALID_SAMPLE ({trace['invalid_sample']})",
         "",
@@ -45,8 +106,104 @@ def render_c(data: dict) -> str:
         for name, value in data[group].items():
             lines.append(f"#define ZS407_{prefix}_{macro(name)} {value}U")
         lines.append("")
+
+    lines.extend([
+        "static inline void zs407_contract_put_u16le(uint8_t *output, uint16_t value)",
+        "{",
+        "  output[0] = (uint8_t)value;",
+        "  output[1] = (uint8_t)(value >> 8);",
+        "}",
+        "",
+        "static inline void zs407_contract_put_u32le(uint8_t *output, uint32_t value)",
+        "{",
+        "  zs407_contract_put_u16le(output, (uint16_t)value);",
+        "  zs407_contract_put_u16le(&output[2], (uint16_t)(value >> 16));",
+        "}",
+        "",
+        "static inline void zs407_contract_put_u64le(uint8_t *output, uint64_t value)",
+        "{",
+        "  zs407_contract_put_u32le(output, (uint32_t)value);",
+        "  zs407_contract_put_u32le(&output[4], (uint32_t)(value >> 32));",
+        "}",
+        "",
+        "static inline uint16_t zs407_contract_get_u16le(const uint8_t *input)",
+        "{",
+        "  return (uint16_t)((uint16_t)input[0] | ((uint16_t)input[1] << 8));",
+        "}",
+        "",
+        "static inline uint32_t zs407_contract_get_u32le(const uint8_t *input)",
+        "{",
+        "  return (uint32_t)zs407_contract_get_u16le(input) |",
+        "         ((uint32_t)zs407_contract_get_u16le(&input[2]) << 16);",
+        "}",
+        "",
+        "static inline uint64_t zs407_contract_get_u64le(const uint8_t *input)",
+        "{",
+        "  return (uint64_t)zs407_contract_get_u32le(input) |",
+        "         ((uint64_t)zs407_contract_get_u32le(&input[4]) << 32);",
+        "}",
+        "",
+    ])
+
+    for payload_name, payload in data["payloads"].items():
+        layout, size = payload_layout(payload)
+        c_name = f"zs407_{payload_name}_payload"
+        lines.append(f"#define {macro(c_name)}_BYTES {size}U")
+        lines.append("typedef struct {")
+        for field, _ in layout:
+            lines.append(
+                f"  {TYPE_INFO[field['type']]['c']} {field['name']};"
+            )
+        lines.extend([f"}} {c_name}_t;", ""])
+        lines.extend([
+            f"static inline bool {c_name}_encode(",
+            f"    const {c_name}_t *value, uint8_t *output, size_t output_size)",
+            "{",
+            f"  if (value == NULL || output == NULL || output_size != {size}U) {{",
+            "    return false;",
+            "  }",
+        ])
+        for field, offset in layout:
+            field_type = field["type"]
+            name = field["name"]
+            width = TYPE_INFO[field_type]["bytes"]
+            if width == 1:
+                lines.append(f"  output[{offset}] = (uint8_t)value->{name};")
+            else:
+                unsigned = f"uint{width * 8}_t"
+                lines.append(
+                    f"  zs407_contract_put_u{width * 8}le(&output[{offset}], "
+                    f"({unsigned})value->{name});"
+                )
+        lines.extend(["  return true;", "}", ""])
+        lines.extend([
+            f"static inline bool {c_name}_decode(",
+            f"    const uint8_t *input, size_t input_size, {c_name}_t *value)",
+            "{",
+            f"  if (input == NULL || value == NULL || input_size != {size}U) {{",
+            "    return false;",
+            "  }",
+        ])
+        for field, offset in layout:
+            field_type = field["type"]
+            name = field["name"]
+            c_type = TYPE_INFO[field_type]["c"]
+            width = TYPE_INFO[field_type]["bytes"]
+            if width == 1:
+                lines.append(f"  value->{name} = ({c_type})input[{offset}];")
+            else:
+                lines.append(
+                    f"  value->{name} = ({c_type})"
+                    f"zs407_contract_get_u{width * 8}le(&input[{offset}]);"
+                )
+        lines.extend(["  return true;", "}", ""])
+
     lines.extend(["#endif /* ZS407_GENERATED_CONTRACT_H */", ""])
     return "\n".join(lines)
+
+
+def swift_literal(field_type: str, value: int) -> str:
+    return str(value)
 
 
 def render_swift(data: dict) -> str:
@@ -59,8 +216,10 @@ def render_swift(data: dict) -> str:
         f"    public static let schemaVersion: UInt8 = {data['schema_version']}",
         f"    public static let protocolMagic: UInt16 = {p['magic']}",
         f"    public static let protocolVersion: UInt8 = {p['version']}",
+        f"    public static let minimumProtocolVersion: UInt8 = {p['minimum_supported_version']}",
         f"    public static let maximumPayloadBytes = {p['maximum_payload_bytes']}",
         f"    public static let maximumTracePoints = {p['maximum_trace_points']}",
+        f"    public static let maximumTraceChunkPoints = {p['maximum_trace_chunk_points']}",
         f"    public static let traceDBScale = {t['power_scale_db']}",
         f"    public static let invalidTraceSample: Int16 = {t['invalid_sample']}",
         "",
@@ -72,16 +231,107 @@ def render_swift(data: dict) -> str:
     ):
         lines.append(f"    public enum {enum_name}: {raw_type} {{")
         for name, value in data[group].items():
-            swift_name = name.split("_")[0] + "".join(
-                part.title() for part in name.split("_")[1:]
-            )
-            lines.append(f"        case {swift_name} = {value}")
+            lines.append(f"        case {camel(name)} = {value}")
         lines.extend(["    }", ""])
+
+    lines.extend([
+        "    private static func putU16(_ value: UInt16, into output: inout [UInt8], at offset: Int) {",
+        "        output[offset] = UInt8(truncatingIfNeeded: value)",
+        "        output[offset + 1] = UInt8(truncatingIfNeeded: value >> 8)",
+        "    }",
+        "",
+        "    private static func putU32(_ value: UInt32, into output: inout [UInt8], at offset: Int) {",
+        "        putU16(UInt16(truncatingIfNeeded: value), into: &output, at: offset)",
+        "        putU16(UInt16(truncatingIfNeeded: value >> 16), into: &output, at: offset + 2)",
+        "    }",
+        "",
+        "    private static func putU64(_ value: UInt64, into output: inout [UInt8], at offset: Int) {",
+        "        putU32(UInt32(truncatingIfNeeded: value), into: &output, at: offset)",
+        "        putU32(UInt32(truncatingIfNeeded: value >> 32), into: &output, at: offset + 4)",
+        "    }",
+        "",
+        "    private static func getU16(_ input: [UInt8], at offset: Int) -> UInt16 {",
+        "        UInt16(input[offset]) | (UInt16(input[offset + 1]) << 8)",
+        "    }",
+        "",
+        "    private static func getU32(_ input: [UInt8], at offset: Int) -> UInt32 {",
+        "        UInt32(getU16(input, at: offset)) | (UInt32(getU16(input, at: offset + 2)) << 16)",
+        "    }",
+        "",
+        "    private static func getU64(_ input: [UInt8], at offset: Int) -> UInt64 {",
+        "        UInt64(getU32(input, at: offset)) | (UInt64(getU32(input, at: offset + 4)) << 32)",
+        "    }",
+        "",
+    ])
+
+    for payload_name, payload in data["payloads"].items():
+        layout, size = payload_layout(payload)
+        struct_name = f"{title(payload_name)}Payload"
+        lines.extend([f"    public struct {struct_name}: Equatable {{",
+                      f"        public static let wireSize = {size}"])
+        for field, _ in layout:
+            lines.append(
+                f"        public var {camel(field['name'])}: "
+                f"{TYPE_INFO[field['type']]['swift']}"
+            )
+        lines.append("")
+        params = ", ".join(
+            f"{camel(field['name'])}: {TYPE_INFO[field['type']]['swift']}"
+            for field, _ in layout
+        )
+        lines.append(f"        public init({params}) {{")
+        for field, _ in layout:
+            name = camel(field["name"])
+            lines.append(f"            self.{name} = {name}")
+        lines.extend(["        }", "", "        public func encode() -> [UInt8] {",
+                      "            var output = [UInt8](repeating: 0, count: Self.wireSize)"])
+        for field, offset in layout:
+            field_type = field["type"]
+            name = camel(field["name"])
+            width = TYPE_INFO[field_type]["bytes"]
+            if width == 1:
+                if field_type.startswith("i"):
+                    lines.append(
+                        f"            output[{offset}] = UInt8(bitPattern: {name})"
+                    )
+                else:
+                    lines.append(f"            output[{offset}] = {name}")
+            else:
+                swift_unsigned = f"UInt{width * 8}"
+                conversion = (
+                    f"{swift_unsigned}(bitPattern: {name})"
+                    if field_type.startswith("i") else name
+                )
+                lines.append(
+                    f"            ZS407Contract.putU{width * 8}({conversion}, "
+                    f"into: &output, at: {offset})"
+                )
+        lines.extend(["            return output", "        }", "",
+                      "        public init?(wireBytes input: [UInt8]) {",
+                      "            guard input.count == Self.wireSize else { return nil }"])
+        for field, offset in layout:
+            field_type = field["type"]
+            name = camel(field["name"])
+            swift_type = TYPE_INFO[field_type]["swift"]
+            width = TYPE_INFO[field_type]["bytes"]
+            if width == 1:
+                conversion = (
+                    f"{swift_type}(bitPattern: input[{offset}])"
+                    if field_type.startswith("i") else f"input[{offset}]"
+                )
+            else:
+                raw = f"ZS407Contract.getU{width * 8}(input, at: {offset})"
+                conversion = (
+                    f"{swift_type}(bitPattern: {raw})"
+                    if field_type.startswith("i") else raw
+                )
+            lines.append(f"            self.{name} = {conversion}")
+        lines.extend(["        }", "    }", ""])
     lines.extend(["}", ""])
     return "\n".join(lines)
 
 
-def render_typescript(data: dict) -> str:
+def render_typescript(data: dict, javascript: bool = False) -> str:
     p = data["protocol"]
     t = data["trace"]
     lines = [
@@ -91,8 +341,10 @@ def render_typescript(data: dict) -> str:
         f"  schemaVersion: {data['schema_version']},",
         f"  protocolMagic: {p['magic']},",
         f"  protocolVersion: {p['version']},",
+        f"  minimumProtocolVersion: {p['minimum_supported_version']},",
         f"  maximumPayloadBytes: {p['maximum_payload_bytes']},",
         f"  maximumTracePoints: {p['maximum_trace_points']},",
+        f"  maximumTraceChunkPoints: {p['maximum_trace_chunk_points']},",
         f"  traceDBScale: {t['power_scale_db']},",
         f"  invalidTraceSample: {t['invalid_sample']},",
         "  commands: {",
@@ -105,7 +357,87 @@ def render_typescript(data: dict) -> str:
     lines.extend(["  },", "  capabilities: {"])
     for name, value in data["capabilities"].items():
         lines.append(f"    {name}: {value},")
-    lines.extend(["  },", "} as const;", ""])
+    lines.extend(["  },", "}" + (";" if javascript else " as const;"), ""])
+
+    for payload_name, payload in data["payloads"].items():
+        layout, size = payload_layout(payload)
+        interface_name = f"{title(payload_name)}Payload"
+        if not javascript:
+            lines.append(f"export interface {interface_name} {{")
+            for field, _ in layout:
+                lines.append(
+                    f"  {camel(field['name'])}: {TYPE_INFO[field['type']]['ts']};"
+                )
+            lines.extend(["}", ""])
+        param = "value" if javascript else f"value: {interface_name}"
+        ret = "" if javascript else ": Uint8Array"
+        lines.extend([
+            f"export function encode{interface_name}({param}){ret} {{",
+            f"  const output = new Uint8Array({size});",
+            "  const view = new DataView(output.buffer);",
+        ])
+        for field, offset in layout:
+            field_type = field["type"]
+            name = camel(field["name"])
+            width = TYPE_INFO[field_type]["bytes"]
+            signed_name = "Int" if field_type.startswith("i") else "Uint"
+            if width == 1:
+                lines.append(f"  view.set{signed_name}8({offset}, value.{name});")
+            elif width == 8:
+                lines.append(
+                    f"  view.setBig{signed_name}64({offset}, value.{name}, true);"
+                )
+            else:
+                lines.append(
+                    f"  view.set{signed_name}{width * 8}({offset}, value.{name}, true);"
+                )
+        lines.extend(["  return output;", "}", ""])
+        input_param = "input" if javascript else "input: Uint8Array"
+        decode_ret = "" if javascript else f": {interface_name}"
+        lines.extend([
+            f"export function decode{interface_name}({input_param}){decode_ret} {{",
+            f"  if (input.byteLength !== {size}) throw new RangeError(\"{interface_name} wire size\");",
+            "  const view = new DataView(input.buffer, input.byteOffset, input.byteLength);",
+            "  return {",
+        ])
+        for field, offset in layout:
+            field_type = field["type"]
+            name = camel(field["name"])
+            width = TYPE_INFO[field_type]["bytes"]
+            signed_name = "Int" if field_type.startswith("i") else "Uint"
+            if width == 1:
+                expression = f"view.get{signed_name}8({offset})"
+            elif width == 8:
+                expression = f"view.getBig{signed_name}64({offset}, true)"
+            else:
+                expression = f"view.get{signed_name}{width * 8}({offset}, true)"
+            lines.append(f"    {name}: {expression},")
+        lines.extend(["  };", "}", ""])
+    return "\n".join(lines)
+
+
+def golden_bytes(payload: dict) -> bytes:
+    output = bytearray()
+    for field, _ in payload_layout(payload)[0]:
+        field_type = field["type"]
+        output.extend(
+            int(payload["golden"][field["name"]]).to_bytes(
+                TYPE_INFO[field_type]["bytes"], "little",
+                signed=field_type.startswith("i"),
+            )
+        )
+    return bytes(output)
+
+
+def render_fixture(payload_name: str, payload: dict) -> str:
+    encoded = golden_bytes(payload)
+    lines = [
+        "# Generated by tools/generate-contracts.py; do not edit.",
+        f"# payload={payload_name} bytes={len(encoded)}",
+    ]
+    for offset in range(0, len(encoded), 16):
+        lines.append(" ".join(f"{byte:02x}" for byte in encoded[offset:offset + 16]))
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -115,14 +447,21 @@ def main() -> int:
                         help="fail if generated files differ")
     args = parser.parse_args()
     data = json.loads(SOURCE.read_text(encoding="utf-8"))
+    validate(data)
     rendered = {
-        "c": render_c(data),
-        "swift": render_swift(data),
-        "typescript": render_typescript(data),
+        OUTPUTS["c"]: render_c(data),
+        OUTPUTS["swift"]: render_swift(data),
+        OUTPUTS["typescript"]: render_typescript(data),
+        OUTPUTS["javascript"]: render_typescript(data, javascript=True),
     }
+    for payload_name, payload in data["payloads"].items():
+        rendered[ROOT / "tests/fixtures" /
+                 f"protocol_v2_{payload_name}.hex"] = render_fixture(
+                     payload_name, payload
+                 )
+
     stale = []
-    for key, path in OUTPUTS.items():
-        content = rendered[key]
+    for path, content in rendered.items():
         if args.check:
             if not path.exists() or path.read_text(encoding="utf-8") != content:
                 stale.append(str(path.relative_to(ROOT)))

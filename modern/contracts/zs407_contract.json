@@ -1,13 +1,16 @@
 {
   "schema_name": "ZS407InstrumentContract",
-  "schema_version": 1,
+  "schema_version": 2,
   "protocol": {
     "magic": 23123,
-    "version": 1,
+    "version": 2,
+    "minimum_supported_version": 1,
     "maximum_payload_bytes": 1024,
-    "maximum_trace_points": 4096
+    "maximum_trace_points": 4096,
+    "maximum_trace_chunk_points": 450
   },
   "commands": {
+    "ping": 0,
     "capabilities": 1,
     "sweep_plan": 2,
     "sweep_data": 3,
@@ -32,6 +35,108 @@
     "experimental_rf": 16,
     "waveform_sequencer": 32,
     "audio_awg": 64
+  },
+  "payloads": {
+    "capabilities": {
+      "fields": [
+        {"name": "schema_version", "type": "u8"},
+        {"name": "protocol_version", "type": "u8"},
+        {"name": "release_phase", "type": "u8"},
+        {"name": "profile_id", "type": "u8"},
+        {"name": "feature_bits", "type": "u32"},
+        {"name": "safety_bits", "type": "u32"},
+        {"name": "maximum_payload_bytes", "type": "u16"},
+        {"name": "maximum_trace_points", "type": "u16"},
+        {"name": "maximum_sweep_points", "type": "u16"},
+        {"name": "maximum_fft_points", "type": "u16"},
+        {"name": "waveform_sample_count", "type": "u16"},
+        {"name": "waveform_event_bytes", "type": "u16"}
+      ],
+      "golden": {
+        "schema_version": 2,
+        "protocol_version": 2,
+        "release_phase": 6,
+        "profile_id": 1,
+        "feature_bits": 305419896,
+        "safety_bits": 2309737967,
+        "maximum_payload_bytes": 1024,
+        "maximum_trace_points": 4096,
+        "maximum_sweep_points": 450,
+        "maximum_fft_points": 512,
+        "waveform_sample_count": 256,
+        "waveform_event_bytes": 16
+      }
+    },
+    "trace_chunk": {
+      "fields": [
+        {"name": "trace_id", "type": "u32"},
+        {"name": "sequence", "type": "u16"},
+        {"name": "flags", "type": "u16"},
+        {"name": "start_index", "type": "u16"},
+        {"name": "point_count", "type": "u16"},
+        {"name": "total_points", "type": "u16"},
+        {"name": "validity_bytes", "type": "u16"},
+        {"name": "start_hz", "type": "u64"},
+        {"name": "frequency_step_numerator_hz", "type": "u64"},
+        {"name": "frequency_step_denominator", "type": "u32"},
+        {"name": "rbw_hz", "type": "u32"},
+        {"name": "enbw_hz", "type": "u32"},
+        {"name": "timestamp_us", "type": "u64"},
+        {"name": "path", "type": "u8"},
+        {"name": "detector", "type": "u8"},
+        {"name": "power_scale_db", "type": "u8"},
+        {"name": "reserved", "type": "u8"}
+      ],
+      "golden": {
+        "trace_id": 270544960,
+        "sequence": 3,
+        "flags": 1,
+        "start_index": 900,
+        "point_count": 450,
+        "total_points": 4096,
+        "validity_bytes": 57,
+        "start_hz": 1000000000,
+        "frequency_step_numerator_hz": 1234567890123,
+        "frequency_step_denominator": 4095,
+        "rbw_hz": 10000,
+        "enbw_hz": 11200,
+        "timestamp_us": 72623859790382856,
+        "path": 2,
+        "detector": 4,
+        "power_scale_db": 32,
+        "reserved": 0
+      }
+    },
+    "waveform_upload": {
+      "fields": [
+        {"name": "program_id", "type": "u32"},
+        {"name": "uncompressed_bytes", "type": "u32"},
+        {"name": "crc32", "type": "u32"},
+        {"name": "event_count", "type": "u16"},
+        {"name": "encoding", "type": "u8"},
+        {"name": "flags", "type": "u8"}
+      ],
+      "golden": {
+        "program_id": 407,
+        "uncompressed_bytes": 96,
+        "crc32": 3421780262,
+        "event_count": 6,
+        "encoding": 1,
+        "flags": 0
+      }
+    },
+    "status": {
+      "fields": [
+        {"name": "status", "type": "u8"},
+        {"name": "reserved", "type": "u8"},
+        {"name": "detail", "type": "u16"}
+      ],
+      "golden": {
+        "status": 5,
+        "reserved": 0,
+        "detail": 4660
+      }
+    }
   },
   "trace": {
     "power_scale_db": 32,
