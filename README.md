@@ -61,6 +61,7 @@ Read first
 - [Firmware architecture](docs/ARCHITECTURE.md)
 - [Replacement firmware architecture](docs/REPLACEMENT_FIRMWARE.md)
 - [Performance, fixed-point DSP and FFT plan](docs/PERFORMANCE_DSP.md)
+- [Enhancement and risk register](docs/ENHANCEMENT_RISK_REGISTER.md)
 - [Atomic 480×320 embedded UI](docs/EMBEDDED_UI.md)
 - [LLVM hybrid build experiment](experiments/llvm/README.md)
 - [Known issues and community research](docs/KNOWN_ISSUES.md)

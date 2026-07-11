@@ -89,6 +89,11 @@ boundaries, without degrading sweep timing or RF behavior.
 
 ## Phase 5 — genuinely better instrument behavior
 
+The complete candidate inventory, source-derived constraints, risk ratings and
+recommended implementation order live in
+[`docs/ENHANCEMENT_RISK_REGISTER.md`](docs/ENHANCEMENT_RISK_REGISTER.md). This
+phase lists the major directions; the register is the detailed working backlog.
+
 Candidate directions, to be prioritized from measurements rather than novelty:
 
 - a versioned, machine-readable USB protocol alongside the compatible shell;
