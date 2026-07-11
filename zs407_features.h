@@ -58,4 +58,10 @@
 #define ZS407_FEATURE_RF_LAB 0
 #endif
 
+#if ZS407_PHASE_BUILD && ZS407_PHASE >= 5
+#define ZS407_FEATURE_WAVEFORM 1
+#else
+#define ZS407_FEATURE_WAVEFORM 0
+#endif
+
 #endif /* ZS407_FEATURES_H */

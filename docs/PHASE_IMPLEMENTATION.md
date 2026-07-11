@@ -80,3 +80,4 @@ provide.
 - [Phase 2: deterministic services and CCM frequency cache](phases/PHASE_2.md)
 - [Phase 3: fixed-point DSP and Atomic UI model](phases/PHASE_3.md)
 - [Phase 4: independently gated RF experiments](phases/PHASE_4.md)
+- [Phase 5: waveform generator foundations](phases/PHASE_5.md)

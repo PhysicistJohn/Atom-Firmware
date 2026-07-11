@@ -6,7 +6,12 @@ the PhysicistJohn Mac companion. It contains no ChibiOS or STM32 dependency.
 - `contracts/zs407_contract.json` is the protocol/capability source of truth.
 - `generated/` contains deterministic C, Swift and TypeScript projections.
 - `core/` contains allocation-free C11 frequency, correction, protocol,
-  RF-state, Q15 FFT, derived-measurement and dirty-tile UI primitives.
+  RF-state, Q15 FFT, derived-measurement, dirty-tile UI and waveform/event
+  primitives.
+- `embedded/` contains narrowly isolated STM32 adapters. The Phase 5 DAC/DMA
+  adapter is compiled and linked but locked before its first peripheral write.
+- `waveforms/` documents the deterministic Mac-to-firmware waveform DSL and
+  binary contract.
 
 Run `tools/test-host-core.sh` on macOS to regenerate-check the contracts, build
 with Apple Clang and UndefinedBehaviorSanitizer, link an AddressSanitizer image,

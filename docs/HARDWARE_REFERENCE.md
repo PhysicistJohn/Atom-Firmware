@@ -115,7 +115,7 @@ The device response and PCB marking decide what this particular unit is.
 | USB | STM32 USB FS CDC ACM; DFU in ROM | Firmware VID/PID is 0483:5740 for the serial interface; ROM DFU recovery is used. | Confirmed in build; descriptors pending unit |
 | UART | Optional TTL USART | PA9/PA10 alternate function and official specification. | Confirmed interface; header population open |
 | Audio codec | TLV320AIC3204 support source | Driver and I2S code exist, but `__AUDIO__` is disabled and codec init is omitted in this build. TI specifies stereo ADC/DAC and up to 192 ksample/s. Physical population/routing is unknown. | Open |
-| Audio/listen output | MCU DAC-based RSSI audio path | `__LISTEN__` is enabled and writes shaped RSSI to DAC channel 1. This is not an I/Q sample path. | Confirmed in build |
+| Audio/listen output | MCU DAC1 on PA4 | `__LISTEN__` is enabled and writes shaped RSSI to `DAC->DHR12R1`. The board header confusingly names PA4 `GPIO_SD_DAT2`, but configures it analog and active source does not use that symbol for SD traffic. This is not an I/Q sample path; connector routing/loading remains open. | Confirmed in build; physical load open |
 
 Primary component references:
 

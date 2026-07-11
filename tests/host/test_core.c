@@ -6,6 +6,7 @@
 #include "modern/core/zs407_rf_lab.h"
 #include "modern/core/zs407_services.h"
 #include "modern/core/zs407_ui_model.h"
+#include "modern/core/zs407_waveform.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -422,6 +423,126 @@ static int test_rf_lab(void)
   return 0;
 }
 
+static int test_waveform(void)
+{
+  zs407_timer16_plan_t timer;
+  CHECK(zs407_timer16_plan(48000000U, 48000U, &timer) == ZS407_CORE_OK);
+  CHECK(timer.prescaler == 0U && timer.auto_reload == 999U &&
+        timer.actual_rate_hz == 48000U);
+  CHECK(zs407_timer16_plan(48000000U, 44100U, &timer) == ZS407_CORE_OK);
+  CHECK(timer.prescaler == 0U && timer.auto_reload == 1087U &&
+        timer.actual_rate_hz == 44118U);
+  CHECK(zs407_timer16_plan(48000000U, 0U, &timer) ==
+        ZS407_CORE_INVALID_ARGUMENT);
+  for (uint32_t requested = 100U; requested <= 200000U;
+       requested += 137U) {
+    CHECK(zs407_timer16_plan(48000000U, requested, &timer) == ZS407_CORE_OK);
+    uint64_t divisor = (uint64_t)(timer.prescaler + 1U) *
+                       (uint64_t)(timer.auto_reload + 1U);
+    uint32_t expected =
+        (uint32_t)((UINT64_C(48000000) + divisor / 2U) / divisor);
+    CHECK(timer.actual_rate_hz == expected);
+  }
+
+  CHECK(zs407_sine_q15(0U) == 0);
+  CHECK(zs407_sine_q15(UINT32_C(0x40000000)) == 32767);
+  CHECK(zs407_sine_q15(UINT32_C(0x80000000)) == 0);
+  CHECK(zs407_sine_q15(UINT32_C(0xc0000000)) == -32767);
+
+  uint16_t samples[64];
+  zs407_wave_oscillator_t oscillator = {0U, UINT32_C(0x12345678)};
+  uint32_t actual_millihz = 0U;
+  CHECK(zs407_render_dac12(ZS407_WAVE_SINE, 1000000U, 32000U, 1800U,
+                           2048U, &oscillator, samples, 32U,
+                           &actual_millihz) == ZS407_CORE_OK);
+  CHECK(actual_millihz == 1000000U);
+  CHECK(samples[0] == 2048U);
+  CHECK(samples[8] >= 3847U && samples[8] <= 3848U);
+  CHECK(samples[24] >= 247U && samples[24] <= 249U);
+
+  oscillator.phase = 0U;
+  CHECK(zs407_render_dac12(ZS407_WAVE_TRIANGLE, 500000U, 32000U,
+                           2048U, 2048U, &oscillator, samples, 64U,
+                           &actual_millihz) == ZS407_CORE_OK);
+  for (size_t i = 0U; i < 64U; ++i) {
+    CHECK(samples[i] <= 4095U);
+  }
+  for (unsigned shape = ZS407_WAVE_SINE; shape <= ZS407_WAVE_NOISE;
+       ++shape) {
+    oscillator.phase = UINT32_C(0x10203040);
+    oscillator.noise_state = UINT32_C(0x12345678);
+    CHECK(zs407_render_dac12((zs407_wave_shape_t)shape, 750000U,
+                             48000U, 4095U, 2048U, &oscillator, samples,
+                             64U, &actual_millihz) == ZS407_CORE_OK);
+    for (size_t i = 0U; i < 64U; ++i) {
+      CHECK(samples[i] <= 4095U);
+    }
+  }
+
+  const zs407_wave_event_t program[] = {
+      {0U, ZS407_EVENT_GATE, 0U, 0U, 0},
+      {0U, ZS407_EVENT_SET_FREQUENCY_HZ, 0U, 0U, 100000000},
+      {0U, ZS407_EVENT_SET_LEVEL_DBM_X10, 0U, 0U, -300},
+      {1000U, ZS407_EVENT_GATE, 0U, 0U, 1},
+      {11000U, ZS407_EVENT_GATE, 0U, 0U, 0},
+      {11000U, ZS407_EVENT_END, 0U, 0U, 0},
+  };
+  zs407_wave_program_report_t report;
+  CHECK(zs407_validate_wave_program(program, 6U, &report) == ZS407_CORE_OK);
+  CHECK(report.duration_us == 11000U);
+  CHECK(report.maximum_frequency_hz == 100000000U);
+  CHECK(report.gate_transitions == 2U);
+  CHECK(report.minimum_level_dbm_x10 == -300);
+
+  zs407_wave_event_t unsafe[2] = {
+      {0U, ZS407_EVENT_GATE, 0U, 0U, 1},
+      {1U, ZS407_EVENT_END, 0U, 0U, 0},
+  };
+  CHECK(zs407_validate_wave_program(unsafe, 2U, &report) ==
+        ZS407_CORE_NOT_QUALIFIED);
+  unsafe[0] = (zs407_wave_event_t){0U, ZS407_EVENT_GATE, 0U, 0U, 0};
+  unsafe[1] = (zs407_wave_event_t){1U, ZS407_EVENT_WAIT_TRIGGER, 0U, 0U, 0};
+  CHECK(zs407_validate_wave_program(unsafe, 2U, &report) ==
+        ZS407_CORE_NOT_QUALIFIED);
+
+  zs407_wave_event_t trigger_program[4] = {
+      {0U, ZS407_EVENT_GATE, 0U, 0U, 0},
+      {1U, ZS407_EVENT_GATE, 0U, 0U, 1},
+      {2U, ZS407_EVENT_WAIT_TRIGGER, 0U, 0U, 0},
+      {3U, ZS407_EVENT_END, 0U, 0U, 0},
+  };
+  CHECK(zs407_validate_wave_program(trigger_program, 4U, &report) ==
+        ZS407_CORE_NOT_QUALIFIED);
+  trigger_program[1].value = 0;
+  trigger_program[2].reserved = 1U;
+  CHECK(zs407_validate_wave_program(trigger_program, 4U, &report) ==
+        ZS407_CORE_INVALID_ARGUMENT);
+
+  zs407_rf_fifo_plan_t fifo;
+  CHECK(zs407_rf_fifo_plan(ZS407_RF_MOD_2GFSK, 9600U, 5000U, 32U,
+                           &fifo) == ZS407_CORE_OK);
+  CHECK(fifo.symbol_rate == 9600U && fifo.bits_per_symbol == 1U);
+  CHECK(zs407_rf_fifo_plan(ZS407_RF_MOD_4FSK, 9600U, 5000U, 64U,
+                           &fifo) == ZS407_CORE_OK);
+  CHECK(fifo.symbol_rate == 4800U && fifo.bits_per_symbol == 2U);
+  CHECK(zs407_rf_fifo_plan(ZS407_RF_MOD_2FSK, 9600U, 0U, 64U,
+                           &fifo) == ZS407_CORE_INVALID_ARGUMENT);
+  CHECK(zs407_rf_fifo_plan(ZS407_RF_MOD_OOK, 1000001U, 0U, 64U,
+                           &fifo) == ZS407_CORE_INVALID_ARGUMENT);
+
+  uint8_t code = 0U;
+  zs407_db32_t actual = 0;
+  CHECK(zs407_quantize_pe4302_db32(168, &code, &actual) == ZS407_CORE_OK);
+  CHECK(code == 11U && actual == 176);
+  CHECK(zs407_quantize_pe4302_db32(0, &code, &actual) == ZS407_CORE_OK);
+  CHECK(code == 0U && actual == 0);
+  CHECK(zs407_quantize_pe4302_db32(1008, &code, &actual) == ZS407_CORE_OK);
+  CHECK(code == 63U && actual == 1008);
+  CHECK(zs407_quantize_pe4302_db32(1024, &code, &actual) ==
+        ZS407_CORE_OUT_OF_RANGE);
+  return 0;
+}
+
 int main(int argc, char **argv)
 {
   if (argc != 2) {
@@ -438,6 +559,7 @@ int main(int argc, char **argv)
   CHECK(test_fft() == 0);
   CHECK(test_ui_model() == 0);
   CHECK(test_rf_lab() == 0);
+  CHECK(test_waveform() == 0);
   puts("ZS407 host core: all tests passed");
   return 0;
 }

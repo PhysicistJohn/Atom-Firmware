@@ -83,6 +83,11 @@ second_hash=$(sha256_file "$binary")
 [ "$first_hash" = "$second_hash" ] || \
   die "clean phase builds are not reproducible ($first_hash != $second_hash)"
 
+if [ "$phase" -ge 5 ]; then
+  "$ROOT/tools/audit-output-lock.py" "$elf" \
+    > "$artifact_dir/output-gate-audit.txt"
+fi
+
 for extension in bin elf hex map list dmp; do
   source_file="$ROOT/build/tinySA4.$extension"
   if [ -f "$source_file" ]; then
@@ -114,6 +119,9 @@ find "$ROOT/build/obj" -name '*.su' -type f -exec sed -n '/./p' {} \; \
   printf 'hex_sha256=%s\n' "$hex_hash"
   printf 'reproducible_clean_builds=true\n'
   printf 'hardware_qualified=false\n'
+  if [ "$phase" -ge 5 ]; then
+    printf 'output_lock_audit=passed\n'
+  fi
   printf 'ccm_bytes=%s\n' \
     "$(awk '$1 == ".ccmram" { print $2 }' "$artifact_dir/sections.txt")"
   printf '\n%s\n' "$size_report"

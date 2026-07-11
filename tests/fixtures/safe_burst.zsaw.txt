@@ -1,0 +1,7 @@
+# A compilation/replay fixture. Compilation does not transmit or enable output.
+at 0us gate off
+at 0us frequency 100MHz
+at 0us level -30.0dBm
+at 1ms gate on
+at 11ms gate off
+at 11ms end

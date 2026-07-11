@@ -9,6 +9,8 @@ host_cc=${CC:-clang}
 command -v "$host_cc" >/dev/null 2>&1 || die "host compiler not found: $host_cc"
 
 "$ROOT/tools/generate-contracts.py" --check
+"$ROOT/tools/generate-waveform-tables.py" --check
+"$ROOT/tools/compile-waveform.py" --self-test
 
 build_dir="$ROOT/.artifacts/host-tests"
 rm -rf "$build_dir"
@@ -26,6 +28,7 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
   "$ROOT/modern/core/zs407_rf_lab.c" \
   "$ROOT/modern/core/zs407_services.c" \
   "$ROOT/modern/core/zs407_ui_model.c" \
+  "$ROOT/modern/core/zs407_waveform.c" \
   "$ROOT/tests/host/test_core.c" \
   -lm -o "$build_dir/test_core"
 
@@ -41,6 +44,7 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
   "$ROOT/modern/core/zs407_rf_lab.c" \
   "$ROOT/modern/core/zs407_services.c" \
   "$ROOT/modern/core/zs407_ui_model.c" "$ROOT/tests/host/test_core.c" \
+  "$ROOT/modern/core/zs407_waveform.c" \
   -lm -o "$build_dir/test_core_embedded_math"
 "$build_dir/test_core_embedded_math" \
   "$ROOT/tests/fixtures/protocol_v1_capabilities.hex"
@@ -56,7 +60,8 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
   "$ROOT/modern/core/zs407_protocol.c" \
   "$ROOT/modern/core/zs407_rf_lab.c" \
   "$ROOT/modern/core/zs407_services.c" \
-  "$ROOT/modern/core/zs407_ui_model.c" "$ROOT/tests/host/test_core.c" \
+  "$ROOT/modern/core/zs407_ui_model.c" \
+  "$ROOT/modern/core/zs407_waveform.c" "$ROOT/tests/host/test_core.c" \
   -lm -o "$build_dir/test_core_asan"
 asan_status=linked-not-run
 if [ "${ZS407_RUN_ASAN:-0}" = 1 ]; then
@@ -67,7 +72,7 @@ fi
 
 gnu_bin=$($ROOT/tools/bootstrap-toolchain.sh)
 for source in zs407_core zs407_fft zs407_measurements zs407_protocol \
-              zs407_rf_lab zs407_services zs407_ui_model; do
+              zs407_rf_lab zs407_services zs407_ui_model zs407_waveform; do
   "$gnu_bin/arm-none-eabi-gcc" $common_flags -ffreestanding -fno-builtin \
     -DZS407_EMBEDDED_MATH=1 -mcpu=cortex-m4 -mthumb -I"$ROOT" \
     -c "$ROOT/modern/core/$source.c" -o "$build_dir/arm/$source.o"

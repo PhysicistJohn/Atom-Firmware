@@ -37,6 +37,10 @@
 #include "modern/core/zs407_rf_lab.h"
 #include "modern/embedded/zs407_rf_probe.h"
 #endif
+#if ZS407_FEATURE_WAVEFORM
+#include "modern/core/zs407_waveform.h"
+#include "modern/embedded/zs407_awg.h"
+#endif
 
 #include <chprintf.h>
 #include <string.h>
@@ -2485,12 +2489,23 @@ VNA_SHELL_FUNCTION(cmd_modern)
   bool max_plan_command = false;
   bool refine_command = false;
 #endif
+#if ZS407_FEATURE_WAVEFORM
+  bool awg_command = (argc == 2 || argc == 4) &&
+                     strcmp(argv[0], "awg") == 0;
+  bool rf_wave_command = argc == 4 && strcmp(argv[0], "rf-wave") == 0;
+#else
+  bool awg_command = false;
+  bool rf_wave_command = false;
+#endif
   if (!((argc == 0) || query_radio || run_selftest || show_caps || show_plan ||
         run_dsp_selftest || show_metrics || palette_command || rfdiag_command ||
-        hop_plan_command || max_plan_command || refine_command)) {
+        hop_plan_command || max_plan_command || refine_command || awg_command ||
+        rf_wave_command)) {
     usage_printf("modern [radio|caps|selftest|dsp-selftest|metrics|"
                  "palette MODE|rfdiag MODE|hop-plan FREQ|max-plan FREQ|"
-                 "refine PROMINENCE_DB RADIUS|plan START STOP POINTS]\r\n");
+                 "refine PROMINENCE_DB RADIUS|plan START STOP POINTS|"
+                 "awg MODE|awg SHAPE FREQ_HZ SAMPLE_HZ|"
+                 "rf-wave MODE BITRATE DEVIATION_HZ]\r\n");
     return;
   }
 
@@ -2519,6 +2534,9 @@ VNA_SHELL_FUNCTION(cmd_modern)
                           sizeof(_modern_sort) + sizeof(_modern_fft_real) +
                           sizeof(_modern_fft_imag)),
                (uint32_t)ZS407_FFT_MAX_POINTS);
+#endif
+#if ZS407_FEATURE_WAVEFORM
+  shell_printf("waveform=1 dac_backend=locked rf_fifo=plan-only qualified=0\r\n");
 #endif
 
   if (query_radio) {
@@ -2716,6 +2734,108 @@ VNA_SHELL_FUNCTION(cmd_modern)
                    getFrequency(windows[i].first_index),
                    getFrequency(windows[i].last_index),
                    getFrequency(windows[i].peak_index));
+    }
+  }
+#endif
+#if ZS407_FEATURE_WAVEFORM
+  if (awg_command) {
+    if (argc == 2 && strcmp(argv[1], "status") == 0) {
+      zs407_awg_status_t status;
+      zs407_awg_get_status(&status);
+      shell_printf("awg prepared=%u active=%u qualified=%u shape=%u "
+                   "requested_mHz=%u actual_mHz=%u sample=%u/%u "
+                   "amplitude=%u offset=%u count=%u crc=%08x\r\n",
+                   status.prepared ? 1U : 0U, status.active ? 1U : 0U,
+                   status.hardware_qualified ? 1U : 0U, status.shape,
+                   status.requested_frequency_millihz,
+                   status.actual_frequency_millihz,
+                   status.requested_sample_rate_hz,
+                   status.actual_sample_rate_hz, status.amplitude,
+                   status.offset, status.sample_count, status.buffer_crc32);
+    } else if (argc == 2 && strcmp(argv[1], "selftest") == 0) {
+      uint32_t failures = zs407_awg_selftest();
+      shell_printf("awg_selftest=0x%08x %s output=off\r\n", failures,
+                   failures == 0U ? "PASS" : "FAIL");
+    } else if (argc == 2 && strcmp(argv[1], "start") == 0) {
+      zs407_core_status_t status = zs407_awg_start();
+      shell_printf("awg_start status=%u %s\r\n", (uint32_t)status,
+                   status == ZS407_CORE_NOT_QUALIFIED
+                       ? "refused: hardware qualification required"
+                       : (status == ZS407_CORE_OK ? "active" : "failed"));
+    } else if (argc == 2 && strcmp(argv[1], "stop") == 0) {
+      zs407_awg_stop();
+      shell_printf("awg_stop awg_active=0\r\n");
+    } else if (argc == 4) {
+      zs407_wave_shape_t shape;
+      if (strcmp(argv[1], "sine") == 0) {
+        shape = ZS407_WAVE_SINE;
+      } else if (strcmp(argv[1], "triangle") == 0) {
+        shape = ZS407_WAVE_TRIANGLE;
+      } else if (strcmp(argv[1], "square") == 0) {
+        shape = ZS407_WAVE_SQUARE;
+      } else if (strcmp(argv[1], "noise") == 0) {
+        shape = ZS407_WAVE_NOISE;
+      } else {
+        shell_printf("awg shape must be sine, triangle, square, or noise\r\n");
+        return;
+      }
+      freq_t frequency_hz = my_atoui(argv[2]);
+      freq_t sample_rate_hz = my_atoui(argv[3]);
+      if (frequency_hz > UINT32_MAX / 1000U ||
+          sample_rate_hz > UINT32_MAX) {
+        shell_printf("awg request outside 32-bit planner range\r\n");
+        return;
+      }
+      zs407_core_status_t status = zs407_awg_prepare(
+          shape, (uint32_t)frequency_hz * 1000U,
+          (uint32_t)sample_rate_hz, 1800U, 2048U);
+      zs407_awg_status_t report;
+      zs407_awg_get_status(&report);
+      shell_printf("awg_prepare status=%u requested_mHz=%u actual_mHz=%u "
+                   "sample=%u/%u crc=%08x output=off\r\n",
+                   (uint32_t)status, report.requested_frequency_millihz,
+                   report.actual_frequency_millihz,
+                   report.requested_sample_rate_hz,
+                   report.actual_sample_rate_hz, report.buffer_crc32);
+    } else {
+      shell_printf("awg mode must be status, selftest, start, or stop\r\n");
+    }
+  }
+  if (rf_wave_command) {
+    zs407_rf_modulation_t modulation;
+    if (strcmp(argv[1], "ook") == 0) {
+      modulation = ZS407_RF_MOD_OOK;
+    } else if (strcmp(argv[1], "2fsk") == 0) {
+      modulation = ZS407_RF_MOD_2FSK;
+    } else if (strcmp(argv[1], "2gfsk") == 0) {
+      modulation = ZS407_RF_MOD_2GFSK;
+    } else if (strcmp(argv[1], "4fsk") == 0) {
+      modulation = ZS407_RF_MOD_4FSK;
+    } else if (strcmp(argv[1], "4gfsk") == 0) {
+      modulation = ZS407_RF_MOD_4GFSK;
+    } else if (strcmp(argv[1], "prbs") == 0) {
+      modulation = ZS407_RF_MOD_PRBS;
+    } else {
+      shell_printf("rf-wave mode must be ook, 2fsk, 2gfsk, 4fsk, 4gfsk, or prbs\r\n");
+      return;
+    }
+    freq_t bit_rate = my_atoui(argv[2]);
+    freq_t deviation = my_atoui(argv[3]);
+    zs407_rf_fifo_plan_t plan;
+    zs407_core_status_t status =
+        bit_rate > UINT32_MAX || deviation > UINT32_MAX
+            ? ZS407_CORE_OUT_OF_RANGE
+            : zs407_rf_fifo_plan(modulation, (uint32_t)bit_rate,
+                                 (uint32_t)deviation, 64U, &plan);
+    if (status != ZS407_CORE_OK) {
+      shell_printf("rf-wave plan unavailable status=%u tx=off\r\n",
+                   (uint32_t)status);
+    } else {
+      shell_printf("rf-wave dry-run mode=%u bitrate=%u deviation=%u "
+                   "bits_per_symbol=%u symbols=%u payload=%u tx=off\r\n",
+                   plan.modulation, plan.bit_rate, plan.deviation_hz,
+                   plan.bits_per_symbol, plan.symbol_rate,
+                   plan.payload_bytes);
     }
   }
 #endif
