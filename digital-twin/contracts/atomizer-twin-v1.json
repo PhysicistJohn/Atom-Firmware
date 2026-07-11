@@ -5,6 +5,7 @@
   "constVersion": 1,
   "transport": "newline-delimited JSON over trusted child-process stdio",
   "owner": "TinySA_Firmware",
+  "trioContract": "tinysa-trio-composition/1",
   "backend": "renode-executable-twin",
   "methods": [
     "status",
@@ -22,5 +23,11 @@
     "firmwareBinarySha256": "a1dbaa03978a25b2a8b2a0e85f60029a6cc736481732eff68e93362724683dd7",
     "usbTransactionsModeled": false,
     "failurePolicy": "No retry, substitute, synthetic data, or downgraded backend"
+  },
+  "composition": {
+    "atomizerEdge": "active",
+    "signalLabStimulusSink": "reserved-not-connected",
+    "requestSettlement": "exactly-once success or explicit error",
+    "usbIdentityVerified": false
   }
 }
