@@ -135,6 +135,25 @@ zs407_core_status_t zs407_frame_finish(uint8_t *output,
   return ZS407_CORE_OK;
 }
 
+zs407_core_status_t zs407_frame_resize_payload(uint8_t *output,
+                                               size_t output_capacity,
+                                               uint16_t payload_length)
+{
+  if (output == NULL || output_capacity < ZS407_FRAME_OVERHEAD_BYTES ||
+      zs407_contract_get_u16le(output) != ZS407_PROTOCOL_MAGIC ||
+      !version_supported(output[2])) {
+    return ZS407_CORE_INVALID_ARGUMENT;
+  }
+  if (payload_length > ZS407_PROTOCOL_MAX_PAYLOAD) {
+    return ZS407_CORE_OUT_OF_RANGE;
+  }
+  if (output_capacity < ZS407_FRAME_OVERHEAD_BYTES + payload_length) {
+    return ZS407_CORE_BUFFER_TOO_SMALL;
+  }
+  zs407_contract_put_u16le(&output[8], payload_length);
+  return ZS407_CORE_OK;
+}
+
 zs407_core_status_t zs407_frame_encode(const zs407_frame_t *frame,
                                        uint8_t *output,
                                        size_t output_capacity,

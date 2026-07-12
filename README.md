@@ -45,6 +45,7 @@ Run the exact executable ZS407 digital twin without hardware:
 ```bash
 tools/test-digital-twin.sh --smoke
 tools/test-digital-twin.sh --full
+tools/test-digital-twin.sh --passive # current local v0.4 build, no hardware
 ```
 
 The twin verifies and executes the immutable private v0.2.0 BIN, renders its
@@ -87,6 +88,7 @@ Read first
 - [Reverse-engineering workflow](docs/REVERSE_ENGINEERING.md)
 - [Hardware bring-up and recovery gate](docs/HARDWARE_BRINGUP.md)
 - [Enhanced ZS407 hardware trial v0.3](docs/HARDWARE_TRIAL_V0_3.md)
+- [Passive acquisition candidate v0.4](docs/PASSIVE_ACQUISITION_V0_4.md)
 - [Modernization roadmap](ROADMAP.md)
 - [Upstream contribution candidates](docs/UPSTREAM.md)
 - [Personal-account and contribution policy](CONTRIBUTING.md)

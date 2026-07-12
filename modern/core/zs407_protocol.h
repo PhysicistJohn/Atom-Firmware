@@ -49,6 +49,9 @@ zs407_core_status_t zs407_frame_begin(const zs407_frame_t *frame,
 zs407_core_status_t zs407_frame_finish(uint8_t *output,
                                        size_t output_capacity,
                                        size_t *output_length);
+zs407_core_status_t zs407_frame_resize_payload(uint8_t *output,
+                                               size_t output_capacity,
+                                               uint16_t payload_length);
 zs407_core_status_t zs407_frame_encode_segments(
     const zs407_frame_t *metadata, const zs407_bytes_t *segments,
     size_t segment_count, uint8_t *output, size_t output_capacity,

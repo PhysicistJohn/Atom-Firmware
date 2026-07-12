@@ -41,6 +41,10 @@ Swift, TypeScript, runnable JavaScript and byte-for-byte golden fixtures.
 |---|---:|---|
 | capabilities | 24 | none |
 | trace chunk | 56 | signed dB×32 samples, then validity bitmap |
+| clock snapshot | 24 | none |
+| acquisition status | 40 | none |
+| adaptive window | 36 | none |
+| capture summary | 60 | none |
 | waveform upload | 16 | negotiated raw or compact events |
 | status | 4 | none |
 
@@ -69,11 +73,13 @@ rational frequency step, RBW, ENBW, timestamp, RF path, detector and scale.
 The validity bitmap is authoritative; unused high bits in its last byte must be
 zero. Invalid samples retain the `-32768` sentinel for compatibility.
 
-The normal streaming representation stays raw `int16` because it has fixed
-decode cost. The optional storage/transfer codec uses ZigZag delta values plus
-ULEB128. It is selected only when smaller than raw. A representative smooth
-450-point trace in the host benchmark is 451 bytes instead of 900; noisy data
-can expand, so raw fallback is mandatory.
+The protocol-v2 profile keeps raw `int16` streaming for fixed decode cost. The
+additive passive-v0.4 profile first tries ZigZag delta values plus ULEB128
+directly in the final frame. Trace flag bit 2 selects compact form and sets
+`validity_bytes` to zero; the invalid sentinel remains lossless. Compact form
+is committed only when smaller than the complete raw tail. A representative
+smooth 450-point trace is about half the raw size; noisy or alternating data
+can expand, so raw fallback is mandatory and tested.
 
 Waveform programs use a separate compact representation: delta microseconds,
 one opcode byte and a ZigZag/ULEB128 value. Decoding reconstructs the fixed
@@ -86,6 +92,7 @@ The core provides four paths:
 
 - ordinary encode/decode for contiguous callers;
 - reserve/fill/finalize so a payload is generated directly inside its frame;
+- resize/finalize so a maximum reservation can be compacted in place;
 - segment encode to avoid assembling a temporary payload;
 - a scatter/gather sink that emits header, segments and trailer without a
   full-frame transmit buffer.

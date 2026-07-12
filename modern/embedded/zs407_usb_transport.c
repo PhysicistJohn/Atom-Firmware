@@ -8,6 +8,9 @@
 #include "../core/zs407_capabilities.h"
 #include "zs407_crc_stm32.h"
 #include "../../zs407_features.h"
+#if ZS407_FEATURE_PASSIVE_ACQUISITION
+#include "zs407_passive_runtime.h"
+#endif
 
 #include <string.h>
 
@@ -112,15 +115,75 @@ static void handle_frame(void *context, const zs407_frame_t *request)
     send_response(request, ZS407_RESPONSE_FLAG, &segment, 1U);
     return;
   }
+#if ZS407_FEATURE_PASSIVE_ACQUISITION
+  if (request->payload_length == 0U &&
+      (request->command == ZS407_COMMAND_CLOCK_SNAPSHOT ||
+       request->command == ZS407_COMMAND_ACQUISITION_STATUS ||
+       request->command == ZS407_COMMAND_ZERO_SPAN_CAPTURE)) {
+    zs407_passive_runtime_status_t runtime;
+    zs407_passive_runtime_status(&runtime);
+    uint8_t encoded[ZS407_CAPTURE_SUMMARY_PAYLOAD_BYTES];
+    size_t encoded_length = 0U;
+    bool encoded_ok = false;
+    if (request->command == ZS407_COMMAND_CLOCK_SNAPSHOT) {
+      encoded_length = ZS407_CLOCK_SNAPSHOT_PAYLOAD_BYTES;
+      encoded_ok = zs407_clock_snapshot_payload_encode(
+          &runtime.clock, encoded, encoded_length);
+    } else if (request->command == ZS407_COMMAND_ACQUISITION_STATUS) {
+      encoded_length = ZS407_ACQUISITION_STATUS_PAYLOAD_BYTES;
+      encoded_ok = zs407_acquisition_status_payload_encode(
+          &runtime.acquisition, encoded, encoded_length);
+    } else if (runtime.capture_summary_valid) {
+      encoded_length = ZS407_CAPTURE_SUMMARY_PAYLOAD_BYTES;
+      encoded_ok = zs407_capture_summary_payload_encode(
+          &runtime.capture_summary, encoded, encoded_length);
+    } else {
+      send_status(request, ZS407_CORE_NOT_QUALIFIED, 0U);
+      return;
+    }
+    if (!encoded_ok) {
+      send_status(request, ZS407_CORE_BAD_FRAME, 0U);
+      return;
+    }
+    const zs407_bytes_t segment = {encoded, encoded_length};
+    send_response(request, ZS407_RESPONSE_FLAG, &segment, 1U);
+    return;
+  }
+#endif
   send_status(request, ZS407_CORE_UNSUPPORTED, request->command);
 }
+
+#if ZS407_FEATURE_PASSIVE_ACQUISITION
+static void drain_passive_frame(void)
+{
+  const uint8_t *data = NULL;
+  size_t length = 0U;
+  if (!zs407_passive_runtime_take_frame(&data, &length)) {
+    return;
+  }
+  if (streamWrite((BaseSequentialStream *)&SDU1, data, length) == length) {
+    transmitted_frames++;
+  } else {
+    transport_errors++;
+  }
+  zs407_passive_runtime_release_frame();
+}
+#endif
 
 static THD_FUNCTION(transport_worker, argument)
 {
   (void)argument;
   chRegSetThreadName("zs407-binary");
   while (transport_running) {
+#if ZS407_FEATURE_PASSIVE_ACQUISITION
+    drain_passive_frame();
+    msg_t message = ibqGetFullBufferTimeout(&SDU1.ibqueue, MS2ST(10));
+    if (message == MSG_TIMEOUT) {
+      continue;
+    }
+#else
     msg_t message = ibqGetFullBufferTimeout(&SDU1.ibqueue, TIME_INFINITE);
+#endif
     if (message != MSG_OK) {
       continue;
     }

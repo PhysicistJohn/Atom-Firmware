@@ -13,14 +13,14 @@ endif
 # Phase 0..6 chain. They must name their feature set explicitly.
 RELEASE_PROFILE ?=
 ifneq ($(RELEASE_PROFILE),)
- ifneq ($(RELEASE_PROFILE),protocol-v2)
+ ifeq ($(filter $(RELEASE_PROFILE),protocol-v2 passive-v0.4),)
   $(error Unsupported RELEASE_PROFILE '$(RELEASE_PROFILE)')
  endif
  ifneq ($(TARGET),F303)
-  $(error RELEASE_PROFILE=protocol-v2 is only supported for TARGET=F303)
+  $(error RELEASE_PROFILE=$(RELEASE_PROFILE) is only supported for TARGET=F303)
  endif
  ifneq ($(PHASE),6)
-  $(error RELEASE_PROFILE=protocol-v2 requires PHASE=6)
+  $(error RELEASE_PROFILE=$(RELEASE_PROFILE) requires PHASE=6)
  endif
 endif
 
@@ -40,6 +40,11 @@ ifeq ($(USE_COPT),)
 endif
 ifeq ($(RELEASE_PROFILE),protocol-v2)
   USE_COPT += -DZS407_RELEASE_PROTOCOL_V2=1 -DZS407_RELEASE_PROFILE_ID=1
+endif
+ifeq ($(RELEASE_PROFILE),passive-v0.4)
+  USE_COPT += -DZS407_RELEASE_PROTOCOL_V2=1 \
+              -DZS407_RELEASE_PASSIVE_V04=1 \
+              -DZS407_RELEASE_PROFILE_ID=2
 endif
 
 # C++ specific options here (added to USE_OPT).
@@ -191,12 +196,16 @@ endif
 ifneq ($(filter 6,$(PHASE)),)
 MODERN_CSRC += modern/core/zs407_capabilities.c
 endif
-ifeq ($(RELEASE_PROFILE),protocol-v2)
+ifneq ($(filter $(RELEASE_PROFILE),protocol-v2 passive-v0.4),)
 MODERN_CSRC += modern/core/zs407_compact.c \
                modern/core/zs407_spsc.c \
                modern/core/zs407_trace_codec.c \
                modern/embedded/zs407_crc_stm32.c \
                modern/embedded/zs407_usb_transport.c
+endif
+ifeq ($(RELEASE_PROFILE),passive-v0.4)
+MODERN_CSRC += modern/core/zs407_passive.c \
+               modern/embedded/zs407_passive_runtime.c
 endif
 
 ifeq ($(TARGET),F303)

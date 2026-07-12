@@ -192,6 +192,16 @@ static int test_adaptive_plan(void)
   for (size_t i = 0U; i < count; ++i) {
     CHECK((windows[i].flags & ZS407_ADAPTIVE_PLAN_TRUNCATED) != 0U);
   }
+
+  for (size_t i = 0U; i < 450U; ++i) {
+    samples[i] = -32767;
+  }
+  samples[200] = INT16_MAX;
+  CHECK(zs407_adaptive_plan(
+            9U, 11U, samples, 450U, 0U, UINT64_C(449000000), 449U,
+            -32767, 0, 1U, 101U, windows, 4U, &count, &candidates) ==
+        ZS407_CORE_OK);
+  CHECK(count == 1U && windows[0].peak_index == 200U);
   return 0;
 }
 
@@ -305,6 +315,7 @@ static int test_capture_pretrigger_and_sweeps(void)
   CHECK(zs407_zero_span_capture_analyze(
             &capture, imag, 256U, &summary) == ZS407_CORE_OK);
   CHECK(summary.peak_bin == 9U && summary.discontinuities == 0U);
+  CHECK((summary.flags & ZS407_CAPTURE_TIMESTAMPS_INTERPOLATED) != 0U);
   return 0;
 }
 

@@ -13,13 +13,19 @@ case "${1:---smoke}" in
     name=full
     markers='ZS407_TWIN_BOOT=PASS ZS407_TWIN_JOG=PASS ZS407_TWIN_TOUCH=PASS ZS407_TWIN_UI_NORMAL=PASS ZS407_TWIN_RF_TONE=PASS'
     ;;
+  --passive)
+    name=passive
+    markers='ZS407_TWIN_BOOT=PASS ZS407_PASSIVE_HOOK=PASS ZS407_TWIN_PASSIVE=PASS ZS407_TWIN_RF_TONE=PASS'
+    ;;
   *)
-    printf 'Usage: %s [--smoke|--full]\n' "$0" >&2
+    printf 'Usage: %s [--smoke|--full|--passive]\n' "$0" >&2
     exit 2
     ;;
 esac
 
-"$ROOT/tools/fetch-digital-twin-firmware.sh" >/dev/null
+if [ "$name" != passive ]; then
+  "$ROOT/tools/fetch-digital-twin-firmware.sh" >/dev/null
+fi
 runtime=$($ROOT/tools/bootstrap-renode.sh)
 output="$ROOT/.artifacts/digital-twin"
 raw_log="$output/$name.raw.log"
@@ -51,6 +57,6 @@ for marker in $markers; do
   }
 done
 
-grep -E 'ZS407_TWIN_(BOOT|JOG|TOUCH|UI_NORMAL|RF_TONE|STATUS)' "$log"
+grep -E 'ZS407_(TWIN_(BOOT|JOG|TOUCH|UI_NORMAL|RF_TONE|PASSIVE|STATUS)|PASSIVE_HOOK)' "$log"
 printf 'digital_twin_%s=passed\n' "$name"
 printf 'log=%s\n' "$log"

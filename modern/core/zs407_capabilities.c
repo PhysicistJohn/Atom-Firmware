@@ -67,6 +67,17 @@ zs407_core_status_t zs407_release_manifest_for_phase(
                              ZS407_SAFETY_HARDWARE_CRC_UNQUALIFIED;
   }
 #endif
+#if ZS407_RELEASE_PASSIVE_V04
+  if (phase >= 6U) {
+    manifest->feature_bits |= ZS407_CAP_DEVICE_TIMESTAMPS |
+                              ZS407_CAP_PASSIVE_STREAM_ENGINE |
+                              ZS407_CAP_ADAPTIVE_SCAN_PLANNER |
+                              ZS407_CAP_ZERO_SPAN_FFT_CAPTURE;
+    manifest->safety_bits |= ZS407_SAFETY_PASSIVE_EXECUTION_LOCKED |
+                             ZS407_SAFETY_CLOCK_NOT_DISCIPLINED |
+                             ZS407_SAFETY_ADAPTIVE_EXECUTION_LOCKED;
+  }
+#endif
   return ZS407_CORE_OK;
 }
 
@@ -101,6 +112,12 @@ uint32_t zs407_capabilities_selftest(void)
              ZS407_CAP_STREAMING_MARSHALLING |
              ZS407_CAP_COMPACT_STORAGE_CODECS | ZS407_CAP_ASYNC_USB_LAB
 #endif
+#if ZS407_RELEASE_PASSIVE_V04
+           | ZS407_CAP_DEVICE_TIMESTAMPS |
+             ZS407_CAP_PASSIVE_STREAM_ENGINE |
+             ZS407_CAP_ADAPTIVE_SCAN_PLANNER |
+             ZS407_CAP_ZERO_SPAN_FFT_CAPTURE
+#endif
           ) ||
       final_manifest.safety_bits !=
           (ZS407_SAFETY_HARDWARE_UNQUALIFIED |
@@ -110,6 +127,11 @@ uint32_t zs407_capabilities_selftest(void)
 #if ZS407_RELEASE_PROTOCOL_V2
            | ZS407_SAFETY_BINARY_TRANSPORT_LOCKED |
              ZS407_SAFETY_HARDWARE_CRC_UNQUALIFIED
+#endif
+#if ZS407_RELEASE_PASSIVE_V04
+           | ZS407_SAFETY_PASSIVE_EXECUTION_LOCKED |
+             ZS407_SAFETY_CLOCK_NOT_DISCIPLINED |
+             ZS407_SAFETY_ADAPTIVE_EXECUTION_LOCKED
 #endif
           ) ||
       final_manifest.maximum_fft_points != ZS407_FFT_MAX_POINTS ||

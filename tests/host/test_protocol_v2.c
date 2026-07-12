@@ -232,6 +232,20 @@ static int test_protocol_streaming(void)
   CHECK(zs407_frame_decode(output, output_length, &decoded) == ZS407_CORE_OK);
   CHECK(decoded.payload[30] == (uint8_t)(0xf0U ^ 30U));
 
+  in_place.payload_length = ZS407_PROTOCOL_MAX_PAYLOAD;
+  CHECK(zs407_frame_begin(&in_place, output, sizeof(output), &reserved) ==
+        ZS407_CORE_OK);
+  for (uint16_t i = 0U; i < 17U; ++i) {
+    reserved[i] = (uint8_t)(0xa0U + i);
+  }
+  CHECK(zs407_frame_resize_payload(output, sizeof(output), 17U) ==
+        ZS407_CORE_OK);
+  CHECK(zs407_frame_finish(output, sizeof(output), &output_length) ==
+        ZS407_CORE_OK);
+  CHECK(output_length == 17U + ZS407_FRAME_OVERHEAD_BYTES);
+  CHECK(zs407_frame_decode(output, output_length, &decoded) == ZS407_CORE_OK);
+  CHECK(decoded.payload_length == 17U && decoded.payload[16] == 0xb0U);
+
   static const uint8_t first[] = {1U, 2U, 3U};
   static const uint8_t second[] = {4U, 5U, 6U, 7U};
   const zs407_bytes_t segments[] = {
@@ -368,6 +382,52 @@ static int test_trace_chunks(void)
     sequence++;
   }
   CHECK(sequence == 10U);
+
+  for (uint16_t i = 0U; i < 450U; ++i) {
+    samples[i] = (zs407_db32_t)(-3200 + (int32_t)(i / 5U));
+  }
+  zs407_trace_chunk_payload_t compact_header = {
+      .trace_id = 0x408U,
+      .sequence = 11U,
+      .flags = ZS407_TRACE_CHUNK_COMPLETE |
+               ZS407_TRACE_CHUNK_MONOTONIC_TIME,
+      .start_index = 0U,
+      .point_count = 450U,
+      .total_points = 450U,
+      .validity_bytes = 0U,
+      .start_hz = UINT64_C(100000000),
+      .frequency_step_numerator_hz = UINT64_C(449000000),
+      .frequency_step_denominator = 449U,
+      .rbw_hz = 10000U,
+      .enbw_hz = 11200U,
+      .timestamp_us = UINT64_C(999000),
+      .path = 0U,
+      .detector = 0U,
+      .power_scale_db = ZS407_TRACE_DB_SCALE,
+      .reserved = 0U};
+  size_t compact_length = 0U;
+  CHECK(zs407_trace_chunk_delta_encode(
+            &compact_header, samples, payload, sizeof(payload),
+            &compact_length) == ZS407_CORE_OK);
+  CHECK(compact_length < zs407_trace_chunk_payload_size(450U));
+  zs407_db32_t compact_copy[450];
+  zs407_trace_chunk_payload_t decoded_header;
+  CHECK(zs407_trace_chunk_decode_samples(
+            payload, compact_length, compact_copy, 450U,
+            &decoded_header) == ZS407_CORE_OK);
+  CHECK((decoded_header.flags & ZS407_TRACE_CHUNK_DELTA_ENCODED) != 0U);
+  CHECK(memcmp(samples, compact_copy, sizeof(samples)) == 0);
+  payload[compact_length - 1U] |= 0x80U;
+  CHECK(zs407_trace_chunk_decode_samples(
+            payload, compact_length, compact_copy, 450U,
+            &decoded_header) == ZS407_CORE_BAD_FRAME);
+
+  for (uint16_t i = 0U; i < 450U; ++i) {
+    samples[i] = (i & 1U) == 0U ? INT16_MIN : INT16_MAX;
+  }
+  CHECK(zs407_trace_chunk_delta_encode(
+            &compact_header, samples, payload, sizeof(payload),
+            &compact_length) == ZS407_CORE_BUFFER_TOO_SMALL);
   return 0;
 }
 
@@ -452,6 +512,15 @@ static int test_release_profile(void)
   CHECK((manifest.feature_bits & ZS407_CAP_ASYNC_USB_LAB) != 0U);
   CHECK((manifest.safety_bits & ZS407_SAFETY_BINARY_TRANSPORT_LOCKED) != 0U);
   CHECK((manifest.safety_bits & ZS407_SAFETY_HARDWARE_CRC_UNQUALIFIED) != 0U);
+#if ZS407_RELEASE_PASSIVE_V04
+  CHECK((manifest.feature_bits & ZS407_CAP_DEVICE_TIMESTAMPS) != 0U);
+  CHECK((manifest.feature_bits & ZS407_CAP_PASSIVE_STREAM_ENGINE) != 0U);
+  CHECK((manifest.feature_bits & ZS407_CAP_ADAPTIVE_SCAN_PLANNER) != 0U);
+  CHECK((manifest.feature_bits & ZS407_CAP_ZERO_SPAN_FFT_CAPTURE) != 0U);
+  CHECK((manifest.safety_bits & ZS407_SAFETY_PASSIVE_EXECUTION_LOCKED) != 0U);
+  CHECK((manifest.safety_bits & ZS407_SAFETY_CLOCK_NOT_DISCIPLINED) != 0U);
+  CHECK((manifest.safety_bits & ZS407_SAFETY_ADAPTIVE_EXECUTION_LOCKED) != 0U);
+#endif
   return 0;
 }
 

@@ -12,9 +12,9 @@ using Antmicro.Renode.Peripherals.Bus;
 namespace Antmicro.Renode.Peripherals.ZS407
 {
     /// <summary>
-    /// Assertions for the immutable v0.2.0 ZS407 executable twin.
-    /// Static SRAM addresses are deliberately tied to the pinned ELF and are
-    /// guarded by host-side binary and ELF hashes before a scenario starts.
+    /// Assertions for the source-derived ZS407 executable twin. Legacy UI and
+    /// RF methods use addresses tied to the pinned v0.2 ELF; additive release
+    /// assertions receive local-symbol addresses from the loaded candidate ELF.
     /// </summary>
     public sealed class ZS407TwinStatus : IDoubleWordPeripheral, IKnownSize
     {
@@ -138,6 +138,61 @@ namespace Antmicro.Renode.Peripherals.ZS407
             return $"ZS407_TWIN_RF_TONE=PASS samples={sampleCount} "
                 + $"range={minimum}..{peak} "
                 + $"frame=0x{Get<ulong>(display, "FramebufferHash"):X16}";
+        }
+
+        public string AssertPassiveAcquisition(long runtimeInitializedAddress,
+            long clockAddress, long ledgerAddress,
+            long hardwareQualifiedAddress, long streamQualifiedAddress,
+            long captureQualifiedAddress, long streamStorageAddress)
+        {
+            var failures = new List<string>();
+            var initialized = ReadByteFromSram((ulong)runtimeInitializedAddress);
+            var clockTimestampUs = ReadQuadWordFromSram((ulong)clockAddress + 8);
+            var tickFrequencyHz = ReadDoubleWordFromSram((ulong)clockAddress + 16);
+            var clockId = ReadDoubleWordFromSram((ulong)clockAddress + 24);
+            var streamId = ReadDoubleWordFromSram((ulong)ledgerAddress);
+            var nextSequence = ReadDoubleWordFromSram((ulong)ledgerAddress + 4);
+            var completed = ReadDoubleWordFromSram((ulong)ledgerAddress + 8);
+            var published = ReadDoubleWordFromSram((ulong)ledgerAddress + 12);
+            var dropped = ReadDoubleWordFromSram((ulong)ledgerAddress + 16);
+            var invalid = ReadDoubleWordFromSram((ulong)ledgerAddress + 20);
+            var lastStartUs = ReadQuadWordFromSram((ulong)ledgerAddress + 24);
+            var lastDurationUs = ReadDoubleWordFromSram((ulong)ledgerAddress + 32);
+            var lastPoints = ReadWordFromSram((ulong)ledgerAddress + 36);
+            var state = ReadByteFromSram((ulong)ledgerAddress + 38);
+            var streamStorage = ReadDoubleWordFromSram((ulong)streamStorageAddress);
+
+            Require(initialized == 1, $"runtime initialized={initialized}", failures);
+            Require(tickFrequencyHz == 10000,
+                $"clock tick frequency {tickFrequencyHz} != 10000", failures);
+            Require(clockId == 0x5A533430,
+                $"clock ID 0x{clockId:X8} is invalid", failures);
+            Require(clockTimestampUs > 0, "clock timestamp was not advanced", failures);
+            Require(streamId == 0x04070001,
+                $"stream ID 0x{streamId:X8} is invalid", failures);
+            Require(nextSequence > 0 && completed > 0,
+                $"no completed sweep was ledgered ({nextSequence}/{completed})", failures);
+            Require(nextSequence == completed,
+                $"sequence {nextSequence} != completed {completed}", failures);
+            Require(published == 0 && dropped == 0 && invalid == 0,
+                $"locked counters published={published} dropped={dropped} invalid={invalid}", failures);
+            Require(lastStartUs > 0 && lastDurationUs > 0,
+                $"invalid timing start={lastStartUs} duration={lastDurationUs}", failures);
+            Require(lastPoints >= MinimumSweepPoints && lastPoints <= MaximumSweepPoints,
+                $"last point count {lastPoints} is invalid", failures);
+            Require(state == 0, $"locked acquisition state {state} != 0", failures);
+            Require(ReadByteFromSram((ulong)hardwareQualifiedAddress) == 0,
+                "hardware qualification latch changed", failures);
+            Require(ReadByteFromSram((ulong)streamQualifiedAddress) == 0,
+                "stream qualification latch changed", failures);
+            Require(ReadByteFromSram((ulong)captureQualifiedAddress) == 0,
+                "capture qualification latch changed", failures);
+            Require(streamStorage == 0,
+                $"locked stream leased memory 0x{streamStorage:X8}", failures);
+            ThrowIfAny("passive acquisition", failures);
+            return $"ZS407_TWIN_PASSIVE=PASS sequence={nextSequence} "
+                + $"start_us={lastStartUs} duration_us={lastDurationUs} "
+                + $"points={lastPoints} clock_us={clockTimestampUs} locks=closed";
         }
 
         public string Report()
@@ -339,6 +394,12 @@ namespace Antmicro.Renode.Peripherals.ZS407
         private uint ReadDoubleWordFromSram(ulong address)
         {
             return machine.GetSystemBus(this).ReadDoubleWord(address, this);
+        }
+
+        private ulong ReadQuadWordFromSram(ulong address)
+        {
+            return ReadDoubleWordFromSram(address)
+                | ((ulong)ReadDoubleWordFromSram(address + 4) << 32);
         }
 
         private void WriteByteToSram(ulong address, byte value)

@@ -68,6 +68,21 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
   -lm -o "$build_dir/test_protocol_v2"
 "$build_dir/test_protocol_v2" "$ROOT/tests/fixtures"
 
+# Re-run the wire/manifest suite with the additive v0.4 capability surface.
+# shellcheck disable=SC2086
+"$host_cc" $common_flags $sanitizer_flags -O2 \
+  -DZS407_RELEASE_PROTOCOL_V2=1 -DZS407_RELEASE_PASSIVE_V04=1 -I"$ROOT" \
+  "$ROOT/modern/core/zs407_core.c" \
+  "$ROOT/modern/core/zs407_capabilities.c" \
+  "$ROOT/modern/core/zs407_protocol.c" \
+  "$ROOT/modern/core/zs407_trace_codec.c" \
+  "$ROOT/modern/core/zs407_waveform.c" \
+  "$ROOT/modern/core/zs407_compact.c" \
+  "$ROOT/modern/core/zs407_spsc.c" \
+  "$ROOT/tests/host/test_protocol_v2.c" \
+  -lm -o "$build_dir/test_protocol_v2_passive"
+"$build_dir/test_protocol_v2_passive" "$ROOT/tests/fixtures"
+
 # Passive acquisition primitives: wrap-safe clocks, non-blocking publication,
 # adaptive refinement and triggered 256/1024-point zero-span FFT analysis.
 # shellcheck disable=SC2086
@@ -117,6 +132,21 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
   > "$build_dir/protocol-v2-benchmark.txt"
 sed -n '/./p' "$build_dir/protocol-v2-benchmark.txt"
 
+# Passive pipeline cost/size evidence on the current host. Correctness is
+# enforced by the sanitizer suites above; these values are informational.
+# shellcheck disable=SC2086
+"$host_cc" $common_flags -O3 -I"$ROOT" \
+  "$ROOT/modern/core/zs407_core.c" \
+  "$ROOT/modern/core/zs407_fft.c" \
+  "$ROOT/modern/core/zs407_waveform.c" \
+  "$ROOT/modern/core/zs407_compact.c" \
+  "$ROOT/modern/core/zs407_trace_codec.c" \
+  "$ROOT/modern/core/zs407_passive.c" \
+  "$ROOT/tests/host/benchmark_passive.c" -lm \
+  -o "$build_dir/benchmark_passive"
+"$build_dir/benchmark_passive" > "$build_dir/passive-benchmark.txt"
+sed -n '/./p' "$build_dir/passive-benchmark.txt"
+
 # Apple Clang's ASan runtime can deadlock during dyld initialization on some
 # newer macOS/toolchain combinations. Always prove the ASan-instrumented binary
 # links; run it only when explicitly requested on a known-good host.
@@ -132,10 +162,19 @@ sed -n '/./p' "$build_dir/protocol-v2-benchmark.txt"
   "$ROOT/modern/core/zs407_ui_model.c" \
   "$ROOT/modern/core/zs407_waveform.c" "$ROOT/tests/host/test_core.c" \
   -lm -o "$build_dir/test_core_asan"
+"$host_cc" $common_flags -fsanitize=address -fno-omit-frame-pointer -O1 \
+  -DZS407_RELEASE_PROTOCOL_V2=1 -DZS407_RELEASE_PASSIVE_V04=1 -I"$ROOT" \
+  "$ROOT/modern/core/zs407_core.c" \
+  "$ROOT/modern/core/zs407_fft.c" \
+  "$ROOT/modern/core/zs407_waveform.c" \
+  "$ROOT/modern/core/zs407_passive.c" \
+  "$ROOT/tests/host/test_passive.c" -pthread -lm \
+  -o "$build_dir/test_passive_asan"
 asan_status=linked-not-run
 if [ "${ZS407_RUN_ASAN:-0}" = 1 ]; then
   "$build_dir/test_core_asan" \
     "$ROOT/tests/fixtures/protocol_v1_capabilities.hex"
+  "$build_dir/test_passive_asan"
   asan_status=passed
 fi
 
@@ -198,10 +237,11 @@ printf 'Host compiler: %s\n' "$("$host_cc" --version | sed -n '1p')"
 printf 'Native UBSan tests: passed\n'
 printf 'Embedded single-precision policy tests: passed\n'
 printf 'Protocol-v2 UBSan tests: passed\n'
+printf 'Passive-v0.4 manifest/ABI tests: passed\n'
 printf 'Passive acquisition UBSan/threaded tests: passed\n'
 printf 'Protocol mutation fuzz: passed\n'
 printf 'SPSC threaded stress: passed\n'
-printf 'Native ASan binary: %s\n' "$asan_status"
+printf 'Native core/passive ASan binaries: %s\n' "$asan_status"
 printf 'Cortex-M4 freestanding compile: passed\n'
 printf 'Cortex-M4 LLVM compile: %s\n' "$llvm_status"
 printf 'Swift contract typecheck: %s\n' "$swift_status"

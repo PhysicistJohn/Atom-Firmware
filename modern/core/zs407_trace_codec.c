@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "zs407_trace_codec.h"
+#include "zs407_compact.h"
 
 #include <string.h>
 
@@ -36,7 +37,9 @@ zs407_core_status_t zs407_trace_chunk_encode(
     const zs407_db32_t *samples, uint8_t *output,
     size_t output_capacity, size_t *output_length)
 {
-  if (!valid_header(header) || samples == NULL || output == NULL ||
+  if (!valid_header(header) ||
+      (header->flags & ZS407_TRACE_CHUNK_DELTA_ENCODED) != 0U ||
+      samples == NULL || output == NULL ||
       output_length == NULL) {
     return ZS407_CORE_INVALID_ARGUMENT;
   }
@@ -73,7 +76,8 @@ zs407_core_status_t zs407_trace_chunk_decode(
       payload_length < ZS407_TRACE_CHUNK_PAYLOAD_BYTES ||
       !zs407_trace_chunk_payload_decode(
           payload, ZS407_TRACE_CHUNK_PAYLOAD_BYTES, &view->header) ||
-      !valid_header(&view->header)) {
+      !valid_header(&view->header) ||
+      (view->header.flags & ZS407_TRACE_CHUNK_DELTA_ENCODED) != 0U) {
     return ZS407_CORE_BAD_FRAME;
   }
   size_t bitmap_bytes = validity_bytes(view->header.point_count);
@@ -92,6 +96,69 @@ zs407_core_status_t zs407_trace_chunk_decode(
          (uint8_t)~used_mask) != 0U) {
       return ZS407_CORE_BAD_FRAME;
     }
+  }
+  return ZS407_CORE_OK;
+}
+
+zs407_core_status_t zs407_trace_chunk_delta_encode(
+    const zs407_trace_chunk_payload_t *header,
+    const zs407_db32_t *samples, uint8_t *output,
+    size_t output_capacity, size_t *output_length)
+{
+  if (!valid_header(header) || samples == NULL || output == NULL ||
+      output_length == NULL ||
+      output_capacity < ZS407_TRACE_CHUNK_PAYLOAD_BYTES) {
+    return ZS407_CORE_INVALID_ARGUMENT;
+  }
+  zs407_trace_chunk_payload_t wire_header = *header;
+  wire_header.flags |= ZS407_TRACE_CHUNK_DELTA_ENCODED;
+  wire_header.validity_bytes = 0U;
+  if (!zs407_trace_chunk_payload_encode(
+          &wire_header, output, ZS407_TRACE_CHUNK_PAYLOAD_BYTES)) {
+    return ZS407_CORE_INVALID_ARGUMENT;
+  }
+  size_t encoded_length = 0U;
+  zs407_core_status_t status = zs407_trace_delta_encode(
+      samples, header->point_count,
+      &output[ZS407_TRACE_CHUNK_PAYLOAD_BYTES],
+      output_capacity - ZS407_TRACE_CHUNK_PAYLOAD_BYTES, &encoded_length);
+  if (status != ZS407_CORE_OK) {
+    return status;
+  }
+  *output_length = ZS407_TRACE_CHUNK_PAYLOAD_BYTES + encoded_length;
+  return ZS407_CORE_OK;
+}
+
+zs407_core_status_t zs407_trace_chunk_decode_samples(
+    const uint8_t *payload, size_t payload_length,
+    zs407_db32_t *samples, size_t sample_capacity,
+    zs407_trace_chunk_payload_t *header)
+{
+  if (payload == NULL || samples == NULL || header == NULL ||
+      payload_length < ZS407_TRACE_CHUNK_PAYLOAD_BYTES ||
+      !zs407_trace_chunk_payload_decode(
+          payload, ZS407_TRACE_CHUNK_PAYLOAD_BYTES, header) ||
+      !valid_header(header) || sample_capacity < header->point_count) {
+    return ZS407_CORE_BAD_FRAME;
+  }
+  if ((header->flags & ZS407_TRACE_CHUNK_DELTA_ENCODED) != 0U) {
+    if (header->validity_bytes != 0U ||
+        payload_length == ZS407_TRACE_CHUNK_PAYLOAD_BYTES) {
+      return ZS407_CORE_BAD_FRAME;
+    }
+    return zs407_trace_delta_decode(
+        &payload[ZS407_TRACE_CHUNK_PAYLOAD_BYTES],
+        payload_length - ZS407_TRACE_CHUNK_PAYLOAD_BYTES,
+        samples, header->point_count);
+  }
+  zs407_trace_chunk_view_t view;
+  zs407_core_status_t status = zs407_trace_chunk_decode(
+      payload, payload_length, &view);
+  if (status != ZS407_CORE_OK) {
+    return status;
+  }
+  for (uint16_t i = 0U; i < header->point_count; ++i) {
+    samples[i] = zs407_trace_chunk_point(&view, i);
   }
   return ZS407_CORE_OK;
 }

@@ -233,7 +233,7 @@ void zs407_stream_slot_consumer_release(zs407_stream_slot_t *slot)
 
 typedef struct {
   uint16_t index;
-  zs407_db32_t strength;
+  int32_t strength;
 } adaptive_candidate_t;
 
 static uint64_t frequency_at(uint64_t start_hz, uint64_t numerator,
@@ -276,7 +276,7 @@ zs407_core_status_t zs407_adaptive_plan(
     }
     (*candidate_count)++;
     adaptive_candidate_t candidate = {
-        (uint16_t)index, (zs407_db32_t)(samples[index] - noise_floor)};
+        (uint16_t)index, (int32_t)samples[index] - noise_floor};
     size_t insertion = 0U;
     while (insertion < retained &&
            (candidates[insertion].strength > candidate.strength ||
@@ -523,7 +523,8 @@ zs407_core_status_t zs407_zero_span_capture_feed_sweep(
 {
   if (capture == NULL || samples == NULL || sample_count < 2U ||
       sample_count > UINT16_MAX || sweep_start_us == 0U ||
-      sweep_duration_us == 0U) {
+      sweep_duration_us == 0U ||
+      sweep_start_us > UINT64_MAX - sweep_duration_us) {
     return ZS407_CORE_INVALID_ARGUMENT;
   }
   uint64_t denominator = sample_count - 1U;
@@ -538,6 +539,9 @@ zs407_core_status_t zs407_zero_span_capture_feed_sweep(
     if (capture->state == ZS407_CAPTURE_READY) {
       break;
     }
+  }
+  if ((capture->flags & ZS407_CAPTURE_TRIGGERED) != 0U) {
+    capture->flags |= ZS407_CAPTURE_TIMESTAMPS_INTERPOLATED;
   }
   return ZS407_CORE_OK;
 }

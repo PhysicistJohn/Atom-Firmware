@@ -47,10 +47,28 @@
 #if ZS407_FEATURE_PROTOCOL_V2
 #include "modern/embedded/zs407_usb_transport.h"
 #endif
+#if ZS407_FEATURE_PASSIVE_ACQUISITION
+#include "modern/embedded/zs407_passive_runtime.h"
+#endif
 
 #include <chprintf.h>
 #include <string.h>
 #include <math.h>
+
+#if ZS407_FEATURE_DSP_UI
+typedef union {
+  struct {
+    zs407_db32_t trace[POINTS_COUNT];
+    zs407_db32_t sort[POINTS_COUNT];
+  } metrics;
+  struct {
+    int16_t real[ZS407_FFT_MAX_POINTS];
+    int16_t imag[ZS407_FFT_MAX_POINTS];
+  } fft;
+} modern_dsp_scratch_t;
+static modern_dsp_scratch_t _modern_dsp_scratch
+    __attribute__((section(".ccmram"), aligned(8)));
+#endif
 
 freq_t frequencyStart;
 freq_t frequencyStop;
@@ -176,6 +194,11 @@ static THD_FUNCTION(Thread1, arg)
   ui_init();
   //Initialize graph plotting
   plot_init();
+#if ZS407_FEATURE_PASSIVE_ACQUISITION
+  (void)zs407_passive_runtime_init(
+      _modern_dsp_scratch.fft.real, _modern_dsp_scratch.fft.imag,
+      ZS407_FFT_MAX_POINTS);
+#endif
 
 #ifdef __SD_CARD_LOAD__
   sd_card_load_config("autoload.ini");
@@ -235,6 +258,18 @@ static THD_FUNCTION(Thread1, arg)
 #endif
       {
         completed = sweep(true);
+#if ZS407_FEATURE_PASSIVE_ACQUISITION
+        if (completed && MODE_INPUT(setting.mode) && sweep_points > 0U) {
+          zs407_passive_runtime_on_sweep_complete(
+              chVTGetSystemTimeX(), setting.measure_sweep_time_us,
+              measured[TRACE_ACTUAL], sweep_points, getFrequency(0U),
+              getFrequency(sweep_points - 1U),
+              (uint32_t)actual_rbw_x10 * 100U,
+              (uint32_t)actual_rbw_x10 * 100U,
+              (uint8_t)setting.mode, setting.average[TRACE_ACTUAL],
+              FREQ_IS_CW());
+        }
+#endif
 #ifdef __USE_SD_CARD__
         if (setting.trigger_auto_save && (last_auto_save == 0 ||  chVTGetSystemTimeX() - last_auto_save > S2ST(30)) ) { // once every 30 seconds max
           uint16_t old_mode = config._mode;
@@ -1660,18 +1695,6 @@ static freq_t _f_cache[POINTS_COUNT]
     __attribute__((section(".ccmram"), aligned(8)));
 #endif
 #if ZS407_FEATURE_DSP_UI
-typedef union {
-  struct {
-    zs407_db32_t trace[POINTS_COUNT];
-    zs407_db32_t sort[POINTS_COUNT];
-  } metrics;
-  struct {
-    int16_t real[ZS407_FFT_MAX_POINTS];
-    int16_t imag[ZS407_FFT_MAX_POINTS];
-  } fft;
-} modern_dsp_scratch_t;
-static modern_dsp_scratch_t _modern_dsp_scratch
-    __attribute__((section(".ccmram"), aligned(8)));
 _Static_assert(sizeof(_f_cache) + sizeof(_modern_dsp_scratch) <= 8192U,
                "modern DSP scratch exceeds STM32F303 CCM");
 static uint16_t _modern_saved_palette[MAX_PALETTE];
@@ -2528,17 +2551,22 @@ VNA_SHELL_FUNCTION(cmd_modern)
 #else
   bool transport_command = false;
 #endif
+#if ZS407_FEATURE_PASSIVE_ACQUISITION
+  bool passive_command = argc == 2 && strcmp(argv[0], "passive") == 0;
+#else
+  bool passive_command = false;
+#endif
   if (!((argc == 0) || query_radio || run_selftest || show_caps || show_plan ||
         run_dsp_selftest || run_fft_bench || show_metrics || palette_command ||
         rfdiag_command || hop_plan_command || max_plan_command ||
         refine_command || awg_command || rf_wave_command || audit_command ||
-        transport_command)) {
+        transport_command || passive_command)) {
     usage_printf("modern [radio|caps|selftest|dsp-selftest|fft-bench|metrics|"
                  "palette MODE|rfdiag MODE|hop-plan FREQ|max-plan FREQ|"
                  "refine PROMINENCE_DB RADIUS|plan START STOP POINTS|"
                  "awg MODE|awg SHAPE FREQ_HZ SAMPLE_HZ|"
                  "rf-wave MODE BITRATE DEVIATION_HZ|audit|"
-                 "transport MODE]\r\n");
+                 "transport MODE|passive MODE]\r\n");
     return;
   }
 
@@ -2576,6 +2604,10 @@ VNA_SHELL_FUNCTION(cmd_modern)
   shell_printf("protocol_v2=1 typed_codecs=1 streaming_parser=1 "
                "compact_storage=1 transport=locked profile=%u\r\n",
                (uint32_t)ZS407_RELEASE_PROFILE_ID);
+#endif
+#if ZS407_FEATURE_PASSIVE_ACQUISITION
+  shell_printf("passive_v04=1 timestamps=device-monotonic stream=locked "
+               "adaptive=plan-only zero_span_fft=1024 capture=locked\r\n");
 #endif
 
   if (query_radio) {
@@ -2985,6 +3017,117 @@ VNA_SHELL_FUNCTION(cmd_modern)
                        : (status == ZS407_CORE_OK ? "running" : "failed"));
     } else {
       shell_printf("transport mode must be status, selftest, or start\r\n");
+    }
+  }
+#endif
+#if ZS407_FEATURE_PASSIVE_ACQUISITION
+  if (passive_command) {
+    if (strcmp(argv[1], "status") == 0 ||
+        strcmp(argv[1], "clock") == 0) {
+      zs407_passive_runtime_status_t status;
+      zs407_passive_runtime_status(&status);
+      shell_printf("passive initialized=%u qualified=%u stream_qualified=%u "
+                   "capture_qualified=%u state=%u stream=%08x next=%u "
+                   "complete=%u published=%u dropped=%u invalid=%u\r\n",
+                   status.initialized ? 1U : 0U,
+                   status.hardware_qualified ? 1U : 0U,
+                   status.stream_qualified ? 1U : 0U,
+                   status.capture_qualified ? 1U : 0U,
+                   status.acquisition.state, status.acquisition.stream_id,
+                   status.acquisition.next_sequence,
+                   status.acquisition.completed_sweeps,
+                   status.acquisition.published_sweeps,
+                   status.acquisition.dropped_sweeps,
+                   status.acquisition.invalid_sweeps);
+      shell_printf("clock id=%08x flags=%08x tick_hz=%u raw=%u us=%U "
+                   "last_start=%U duration=%u points=%u\r\n",
+                   status.clock.clock_id, status.clock.flags,
+                   status.clock.tick_frequency_hz, status.clock.raw_tick,
+                   status.clock.timestamp_us,
+                   status.acquisition.last_start_us,
+                   status.acquisition.last_duration_us,
+                   status.acquisition.last_point_count);
+      shell_printf("slot committed=%u consumed=%u dropped=%u capture_state=%u "
+                   "capture_summary=%u\r\n",
+                   status.slot_committed_frames,
+                   status.slot_consumed_frames,
+                   status.slot_dropped_frames, status.capture_state,
+                   status.capture_summary_valid ? 1U : 0U);
+    } else if (strcmp(argv[1], "selftest") == 0) {
+      uint32_t failures = zs407_passive_runtime_selftest();
+      shell_printf("passive_selftest=%08x %s execution=locked\r\n",
+                   failures, failures == 0U ? "PASS" : "FAIL");
+    } else if (strcmp(argv[1], "start") == 0) {
+      zs407_core_status_t status = zs407_passive_runtime_start_stream();
+      shell_printf("passive_start status=%u %s\r\n", (uint32_t)status,
+                   status == ZS407_CORE_NOT_QUALIFIED
+                       ? "refused: hardware qualification required"
+                       : (status == ZS407_CORE_OK ? "running" : "failed"));
+    } else if (strcmp(argv[1], "capture") == 0) {
+      zs407_capture_config_t config = {
+          .trigger_level_db32 = (zs407_db32_t)(-70 * 32),
+          .hysteresis_db32 = 32,
+          .sample_count = ZS407_FFT_MAX_POINTS,
+          .pretrigger_samples = 256U,
+          .nominal_period_us = setting.measure_sweep_time_us /
+                               (sweep_points > 1U ? sweep_points - 1U : 1U),
+          .maximum_jitter_us = 10U};
+      if (config.nominal_period_us == 0U) {
+        config.nominal_period_us = 1U;
+      }
+      zs407_core_status_t status = zs407_passive_runtime_arm_capture(
+          1U, &config);
+      shell_printf("passive_capture status=%u %s\r\n", (uint32_t)status,
+                   status == ZS407_CORE_NOT_QUALIFIED
+                       ? "refused: zero-span hardware qualification required"
+                       : (status == ZS407_CORE_OK ? "armed" : "failed"));
+    } else if (strcmp(argv[1], "plan") == 0) {
+      if (sweep_points < 3U || FREQ_IS_CW()) {
+        shell_printf("passive plan requires a completed frequency sweep\r\n");
+        return;
+      }
+      uint16_t valid_points = 0U;
+      for (uint16_t i = 0U; i < sweep_points; ++i) {
+        if (zs407_db32_from_double(
+                measured[TRACE_ACTUAL][i],
+                &_modern_dsp_scratch.metrics.trace[i]) == ZS407_CORE_OK) {
+          _modern_dsp_scratch.metrics.sort[valid_points++] =
+              _modern_dsp_scratch.metrics.trace[i];
+        } else {
+          _modern_dsp_scratch.metrics.trace[i] =
+              ZS407_TRACE_INVALID_SAMPLE;
+        }
+      }
+      zs407_db32_t noise = 0;
+      if (zs407_quantile_db32(
+              _modern_dsp_scratch.metrics.sort, valid_points, 13107U,
+              _modern_dsp_scratch.metrics.sort, POINTS_COUNT, &noise) !=
+          ZS407_CORE_OK) {
+        shell_printf("passive plan noise estimate unavailable\r\n");
+        return;
+      }
+      zs407_adaptive_window_payload_t windows[4];
+      size_t window_count = 0U;
+      size_t candidate_count = 0U;
+      zs407_core_status_t plan_status = zs407_adaptive_plan(
+          1U, 0U, _modern_dsp_scratch.metrics.trace, sweep_points,
+          getFrequency(0U),
+          getFrequency(sweep_points - 1U) - getFrequency(0U),
+          sweep_points - 1U, noise, 6 * 32, 4U, 201U,
+          windows, 4U, &window_count, &candidate_count);
+      shell_printf("passive plan noise=%.2f candidates=%u windows=%u "
+                   "status=%u execution=locked\r\n",
+                   (double)noise / 32.0, (uint32_t)candidate_count,
+                   (uint32_t)window_count, (uint32_t)plan_status);
+      for (size_t i = 0U; i < window_count; ++i) {
+        shell_printf("%u:%U..%U peak=%U priority=%u flags=%04x\r\n",
+                     (uint32_t)i, windows[i].start_hz, windows[i].stop_hz,
+                     getFrequency(windows[i].peak_index),
+                     windows[i].priority, windows[i].flags);
+      }
+    } else {
+      shell_printf("passive mode must be status, clock, selftest, start, "
+                   "plan, or capture\r\n");
     }
   }
 #endif
