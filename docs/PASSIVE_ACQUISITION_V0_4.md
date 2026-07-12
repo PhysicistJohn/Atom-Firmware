@@ -210,7 +210,8 @@ new execution boundary at a time:
 
 1. hand USB ownership to binary mode, validate reconnect/recovery, decode both
    compact and adversarial raw traces, deliberately saturate the host and verify
-   exact drop accounting;
+   exact drop accounting; the transport-only prerequisite is specified in
+   [TRANSPORT_QUALIFICATION_V0_4.md](TRANSPORT_QUALIFICATION_V0_4.md);
 2. measure device/host timestamp offset and drift over at least 30 minutes;
 3. qualify zero-span interval and jitter at several sweep times before arming a
    1,024-point capture;

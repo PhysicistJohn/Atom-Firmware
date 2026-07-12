@@ -90,6 +90,7 @@ Read first
 - [Enhanced ZS407 hardware trial v0.3](docs/HARDWARE_TRIAL_V0_3.md)
 - [Passive acquisition candidate v0.4](docs/PASSIVE_ACQUISITION_V0_4.md)
 - [Passive acquisition v0.4 Stage 1 hardware receipt](docs/HARDWARE_TRIAL_V0_4.md)
+- [Transport-only v0.4 qualification](docs/TRANSPORT_QUALIFICATION_V0_4.md)
 - [Modernization roadmap](ROADMAP.md)
 - [Upstream contribution candidates](docs/UPSTREAM.md)
 - [Personal-account and contribution policy](CONTRIBUTING.md)
