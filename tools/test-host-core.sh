@@ -83,6 +83,23 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
   -lm -o "$build_dir/test_protocol_v2_passive"
 "$build_dir/test_protocol_v2_passive" "$ROOT/tests/fixtures"
 
+# The qualification profile changes only transport ownership/safety
+# declarations; every passive payload and codec remains schema-3 compatible.
+# shellcheck disable=SC2086
+"$host_cc" $common_flags $sanitizer_flags -O2 \
+  -DZS407_RELEASE_PROTOCOL_V2=1 -DZS407_RELEASE_PASSIVE_V04=1 \
+  -DZS407_RELEASE_TRANSPORT_QUAL=1 -DZS407_RELEASE_PROFILE_ID=3 -I"$ROOT" \
+  "$ROOT/modern/core/zs407_core.c" \
+  "$ROOT/modern/core/zs407_capabilities.c" \
+  "$ROOT/modern/core/zs407_protocol.c" \
+  "$ROOT/modern/core/zs407_trace_codec.c" \
+  "$ROOT/modern/core/zs407_waveform.c" \
+  "$ROOT/modern/core/zs407_compact.c" \
+  "$ROOT/modern/core/zs407_spsc.c" \
+  "$ROOT/tests/host/test_protocol_v2.c" \
+  -lm -o "$build_dir/test_protocol_v2_transport_qual"
+"$build_dir/test_protocol_v2_transport_qual" "$ROOT/tests/fixtures"
+
 # Passive acquisition primitives: wrap-safe clocks, non-blocking publication,
 # adaptive refinement and triggered 256/1024-point zero-span FFT analysis.
 # shellcheck disable=SC2086
@@ -104,6 +121,18 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
   "$ROOT/tests/host/test_spsc_threaded.c" -pthread \
   -o "$build_dir/test_spsc_threaded"
 "$build_dir/test_spsc_threaded"
+
+# The qualification transport uses a one-shot ownership state machine. Prove
+# its complete transition matrix, one-winner concurrent request behavior and
+# one million deterministic mutation transitions without ChibiOS or hardware.
+# shellcheck disable=SC2086
+"$host_cc" $common_flags $sanitizer_flags -O2 -I"$ROOT" \
+  "$ROOT/modern/core/zs407_transport_lifecycle.c" \
+  "$ROOT/tests/host/test_transport_lifecycle.c" -pthread \
+  -o "$build_dir/test_transport_lifecycle"
+"$build_dir/test_transport_lifecycle"
+PYTHONDONTWRITEBYTECODE=1 \
+  python3 "$ROOT/tests/host/test_transport_qualifier.py"
 
 # Deterministic mutation fuzzing is always available. A libFuzzer entry point
 # remains in the same source for hosts that ship the LLVM fuzzer runtime.
@@ -182,7 +211,7 @@ gnu_bin=$($ROOT/tools/bootstrap-toolchain.sh)
 for source in zs407_capabilities zs407_compact zs407_core zs407_fft \
               zs407_measurements zs407_protocol zs407_rf_lab zs407_services \
               zs407_spsc zs407_trace_codec zs407_ui_model zs407_waveform \
-              zs407_passive; do
+              zs407_passive zs407_transport_lifecycle; do
   "$gnu_bin/arm-none-eabi-gcc" $common_flags -ffreestanding -fno-builtin \
     -DZS407_EMBEDDED_MATH=1 -DZS407_RELEASE_PROTOCOL_V2=1 \
     -DZS407_RELEASE_PASSIVE_V04=1 \
@@ -197,7 +226,8 @@ if command -v clang >/dev/null 2>&1; then
   mkdir -p "$build_dir/arm-llvm"
   gnu_root=$(CDPATH= cd -- "$gnu_bin/.." && pwd)
   for source in zs407_compact zs407_core zs407_protocol zs407_spsc \
-                zs407_trace_codec zs407_waveform zs407_fft zs407_passive; do
+                zs407_trace_codec zs407_waveform zs407_fft zs407_passive \
+                zs407_transport_lifecycle; do
     clang $common_flags -target arm-none-eabi -mcpu=cortex-m4 -mthumb \
       -ffreestanding -fno-builtin -DZS407_EMBEDDED_MATH=1 \
       -DZS407_RELEASE_PROTOCOL_V2=1 -DZS407_RELEASE_PASSIVE_V04=1 \
@@ -238,9 +268,12 @@ printf 'Native UBSan tests: passed\n'
 printf 'Embedded single-precision policy tests: passed\n'
 printf 'Protocol-v2 UBSan tests: passed\n'
 printf 'Passive-v0.4 manifest/ABI tests: passed\n'
+printf 'Transport-qualification manifest/ABI tests: passed\n'
 printf 'Passive acquisition UBSan/threaded tests: passed\n'
 printf 'Protocol mutation fuzz: passed\n'
 printf 'SPSC threaded stress: passed\n'
+printf 'Transport ownership lifecycle/thread stress: passed\n'
+printf 'Transport qualifier simulated physical workflow: passed\n'
 printf 'Native core/passive ASan binaries: %s\n' "$asan_status"
 printf 'Cortex-M4 freestanding compile: passed\n'
 printf 'Cortex-M4 LLVM compile: %s\n' "$llvm_status"

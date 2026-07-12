@@ -1,0 +1,20 @@
+$bin = $CWD/build/tinySA4.bin
+$elf = $CWD/build/tinySA4.elf
+include $ORIGIN/../zs407.resc
+
+cpu AddHook `sysbus GetSymbolAddress "zs407_passive_runtime_on_sweep_complete"` "self.InfoLog('ZS407_PASSIVE_HOOK=PASS')"
+
+emulation RunFor "1.5"
+twinStatus AssertBooted
+
+spi1.spiFabric.receiver ClearFixedRssi
+spi1.spiFabric.receiver ClearTones
+spi1.spiFabric.receiver ResetRssiStatistics
+spi1.spiFabric.receiver AddTone 450000000 -20 10000000
+emulation RunFor "1.5"
+twinStatus AssertToneObserved 150
+twinStatus AssertPassiveAcquisition `sysbus GetSymbolAddress "runtime_initialized"` `sysbus GetSymbolAddress "device_clock"` `sysbus GetSymbolAddress "acquisition_ledger"` `sysbus GetSymbolAddress "passive_hardware_qualified"` `sysbus GetSymbolAddress "passive_stream_qualified"` `sysbus GetSymbolAddress "passive_capture_qualified"` `sysbus GetSymbolAddress "stream_frame_storage"`
+twinStatus AssertTransportQualification `sysbus GetSymbolAddress "transport_initialized"` `sysbus GetSymbolAddress "transport_lifecycle"` `sysbus GetSymbolAddress "shell_ownership_released"` `sysbus GetSymbolAddress "transport_thread"` `sysbus GetSymbolAddress "passive_hardware_qualified"` `sysbus GetSymbolAddress "passive_stream_qualified"` `sysbus GetSymbolAddress "passive_capture_qualified"` `sysbus GetSymbolAddress "stream_frame_storage"`
+twinStatus Report
+
+quit

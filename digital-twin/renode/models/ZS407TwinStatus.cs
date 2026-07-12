@@ -195,6 +195,49 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 + $"points={lastPoints} clock_us={clockTimestampUs} locks=closed";
         }
 
+        public string AssertTransportQualification(long initializedAddress,
+            long lifecycleAddress, long shellOwnershipAddress,
+            long workerAddress, long passiveHardwareAddress,
+            long passiveStreamAddress, long passiveCaptureAddress,
+            long streamStorageAddress)
+        {
+            var failures = new List<string>();
+            var initialized = ReadByteFromSram((ulong)initializedAddress);
+            var state = ReadDoubleWordFromSram((ulong)lifecycleAddress);
+            var qualificationEnabled = ReadDoubleWordFromSram((ulong)lifecycleAddress + 4);
+            var oneShotUsed = ReadDoubleWordFromSram((ulong)lifecycleAddress + 8);
+            var attempts = ReadDoubleWordFromSram((ulong)lifecycleAddress + 12);
+            var handoffs = ReadDoubleWordFromSram((ulong)lifecycleAddress + 16);
+            var starts = ReadDoubleWordFromSram((ulong)lifecycleAddress + 20);
+            var recoveries = ReadDoubleWordFromSram((ulong)lifecycleAddress + 24);
+            var lifecycleFailures = ReadDoubleWordFromSram((ulong)lifecycleAddress + 28);
+
+            Require(initialized == 1, $"transport initialized={initialized}", failures);
+            Require(state == 1, $"transport lifecycle state {state} != SHELL_READY", failures);
+            Require(qualificationEnabled == 1,
+                $"transport qualification enabled={qualificationEnabled}", failures);
+            Require(oneShotUsed == 0 && attempts == 0 && handoffs == 0
+                && starts == 0 && recoveries == 0 && lifecycleFailures == 0,
+                $"transport lifecycle is not pristine used={oneShotUsed} attempts={attempts} "
+                + $"handoffs={handoffs} starts={starts} recoveries={recoveries} failures={lifecycleFailures}",
+                failures);
+            Require(ReadByteFromSram((ulong)shellOwnershipAddress) == 0,
+                "shell ownership was released during boot", failures);
+            Require(ReadDoubleWordFromSram((ulong)workerAddress) == 0,
+                "binary worker exists before explicit handoff", failures);
+            Require(ReadByteFromSram((ulong)passiveHardwareAddress) == 0,
+                "passive hardware latch changed", failures);
+            Require(ReadByteFromSram((ulong)passiveStreamAddress) == 0,
+                "passive stream latch changed", failures);
+            Require(ReadByteFromSram((ulong)passiveCaptureAddress) == 0,
+                "passive capture latch changed", failures);
+            Require(ReadDoubleWordFromSram((ulong)streamStorageAddress) == 0,
+                "passive stream leased memory during boot", failures);
+            ThrowIfAny("transport qualification", failures);
+            return "ZS407_TWIN_TRANSPORT_QUAL=PASS state=shell-ready "
+                + "one_shot=unused worker=absent passive_locks=closed";
+        }
+
         public string Report()
         {
             return $"ZS407_TWIN_STATUS spi={Get<ulong>(fabric, "BusTransfers")} pixels={Get<ulong>(display, "PixelWrites")} "
