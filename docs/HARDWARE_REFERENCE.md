@@ -223,6 +223,17 @@ right broad strategy:
 - CPU rendering into one tile while DMA transmits the other;
 - trace-coordinate caches so only intersecting cells are redrawn.
 
+Physical ZS407 capture establishes the byte-level contract as well. The
+ST7796S `capture` response carries canonical RGB565 in panel order, high byte
+then low byte. The firmware's `RGB565` macro stores the corresponding
+byte-reversed 16-bit value for direct SPI transmission. For example, the
+Atomic background request `(9, 11, 12)` is observed on the capture wire as
+`08 41`, canonical RGB565 `0x0841`. Host software that loads those bytes as a
+little-endian word sees `0x4108` and renders false purple/yellow colors. The
+physical Atomizer adapter therefore swaps each pixel exactly once into its
+RGB565LE host-frame contract; the Renode bridge performs the equivalent
+conversion when exporting retained panel GRAM.
+
 SPI1 is shared by LCD and microSD. The ST7796S path selects `SPI_BR_DIV2`; with
 the current 48 MHz APB2 clock, the expected display serial clock is 24 MHz.
 A full-screen RGB565 transfer therefore has a theoretical wire-time floor of
