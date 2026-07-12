@@ -63,7 +63,7 @@ static int test_generated_payloads(const char *fixture_directory)
   char path[512];
 
   zs407_capabilities_payload_t capabilities = {
-      2U, 2U, 6U, 1U, UINT32_C(0x12345678), UINT32_C(0x89abcdef),
+      3U, 2U, 6U, 1U, UINT32_C(0x12345678), UINT32_C(0x89abcdef),
       1024U, 4096U, 450U, 1024U, 256U, 16U};
   CHECK(zs407_capabilities_payload_encode(
       &capabilities, actual, ZS407_CAPABILITIES_PAYLOAD_BYTES));
@@ -78,6 +78,51 @@ static int test_generated_payloads(const char *fixture_directory)
   CHECK(capabilities_copy.feature_bits == capabilities.feature_bits);
   CHECK(capabilities_copy.safety_bits == capabilities.safety_bits);
   CHECK(capabilities_copy.waveform_event_bytes == 16U);
+
+  zs407_clock_snapshot_payload_t clock = {
+      407U, 3U, UINT64_C(0x0102030405060708), 100000U,
+      UINT32_C(0x89abcdef)};
+  CHECK(zs407_clock_snapshot_payload_encode(
+      &clock, actual, ZS407_CLOCK_SNAPSHOT_PAYLOAD_BYTES));
+  CHECK(fixture_path(path, sizeof(path), fixture_directory,
+                     "clock_snapshot") == 0);
+  expected_length = read_hex_fixture(path, expected, sizeof(expected));
+  CHECK(expected_length == ZS407_CLOCK_SNAPSHOT_PAYLOAD_BYTES);
+  CHECK(memcmp(actual, expected, expected_length) == 0);
+
+  zs407_acquisition_status_payload_t acquisition = {
+      UINT32_C(0x11223344), UINT32_C(0x55667788), 1000U, 997U, 2U, 1U,
+      UINT64_C(123456789012345), 45678U, 450U, 2U, 5U};
+  CHECK(zs407_acquisition_status_payload_encode(
+      &acquisition, actual, ZS407_ACQUISITION_STATUS_PAYLOAD_BYTES));
+  CHECK(fixture_path(path, sizeof(path), fixture_directory,
+                     "acquisition_status") == 0);
+  expected_length = read_hex_fixture(path, expected, sizeof(expected));
+  CHECK(expected_length == ZS407_ACQUISITION_STATUS_PAYLOAD_BYTES);
+  CHECK(memcmp(actual, expected, expected_length) == 0);
+
+  zs407_adaptive_window_payload_t adaptive = {
+      407U, 408U, 100U, 140U, 123U, 17U, UINT64_C(915000000),
+      UINT64_C(916000000), 201U, 1U};
+  CHECK(zs407_adaptive_window_payload_encode(
+      &adaptive, actual, ZS407_ADAPTIVE_WINDOW_PAYLOAD_BYTES));
+  CHECK(fixture_path(path, sizeof(path), fixture_directory,
+                     "adaptive_window") == 0);
+  expected_length = read_hex_fixture(path, expected, sizeof(expected));
+  CHECK(expected_length == ZS407_ADAPTIVE_WINDOW_PAYLOAD_BYTES);
+  CHECK(memcmp(actual, expected, expected_length) == 0);
+
+  zs407_capture_summary_payload_t capture = {
+      1024U, 7U, 11U, 1024U, 256U, 73U, 0U, UINT64_C(1000000),
+      UINT64_C(2023000), 1000000U, 998U, 1004U, 0U,
+      UINT32_C(536870912)};
+  CHECK(zs407_capture_summary_payload_encode(
+      &capture, actual, ZS407_CAPTURE_SUMMARY_PAYLOAD_BYTES));
+  CHECK(fixture_path(path, sizeof(path), fixture_directory,
+                     "capture_summary") == 0);
+  expected_length = read_hex_fixture(path, expected, sizeof(expected));
+  CHECK(expected_length == ZS407_CAPTURE_SUMMARY_PAYLOAD_BYTES);
+  CHECK(memcmp(actual, expected, expected_length) == 0);
 
   zs407_trace_chunk_payload_t trace = {
       UINT32_C(0x10203040), 3U, 1U, 900U, 450U, 4096U, 57U,

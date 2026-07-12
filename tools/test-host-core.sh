@@ -68,6 +68,19 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
   -lm -o "$build_dir/test_protocol_v2"
 "$build_dir/test_protocol_v2" "$ROOT/tests/fixtures"
 
+# Passive acquisition primitives: wrap-safe clocks, non-blocking publication,
+# adaptive refinement and triggered 256/1024-point zero-span FFT analysis.
+# shellcheck disable=SC2086
+"$host_cc" $common_flags $sanitizer_flags -O2 \
+  -DZS407_RELEASE_PROTOCOL_V2=1 -DZS407_RELEASE_PASSIVE_V04=1 -I"$ROOT" \
+  "$ROOT/modern/core/zs407_core.c" \
+  "$ROOT/modern/core/zs407_fft.c" \
+  "$ROOT/modern/core/zs407_waveform.c" \
+  "$ROOT/modern/core/zs407_passive.c" \
+  "$ROOT/tests/host/test_passive.c" -pthread -lm \
+  -o "$build_dir/test_passive"
+"$build_dir/test_passive"
+
 # Exercise the release/acquire ring under true producer/consumer concurrency.
 # shellcheck disable=SC2086
 "$host_cc" $common_flags $sanitizer_flags -O2 -I"$ROOT" \
@@ -129,9 +142,11 @@ fi
 gnu_bin=$($ROOT/tools/bootstrap-toolchain.sh)
 for source in zs407_capabilities zs407_compact zs407_core zs407_fft \
               zs407_measurements zs407_protocol zs407_rf_lab zs407_services \
-              zs407_spsc zs407_trace_codec zs407_ui_model zs407_waveform; do
+              zs407_spsc zs407_trace_codec zs407_ui_model zs407_waveform \
+              zs407_passive; do
   "$gnu_bin/arm-none-eabi-gcc" $common_flags -ffreestanding -fno-builtin \
     -DZS407_EMBEDDED_MATH=1 -DZS407_RELEASE_PROTOCOL_V2=1 \
+    -DZS407_RELEASE_PASSIVE_V04=1 \
     -mcpu=cortex-m4 -mthumb -I"$ROOT" \
     -c "$ROOT/modern/core/$source.c" -o "$build_dir/arm/$source.o"
 done
@@ -143,10 +158,11 @@ if command -v clang >/dev/null 2>&1; then
   mkdir -p "$build_dir/arm-llvm"
   gnu_root=$(CDPATH= cd -- "$gnu_bin/.." && pwd)
   for source in zs407_compact zs407_core zs407_protocol zs407_spsc \
-                zs407_trace_codec zs407_waveform; do
+                zs407_trace_codec zs407_waveform zs407_fft zs407_passive; do
     clang $common_flags -target arm-none-eabi -mcpu=cortex-m4 -mthumb \
       -ffreestanding -fno-builtin -DZS407_EMBEDDED_MATH=1 \
-      -DZS407_RELEASE_PROTOCOL_V2=1 --sysroot="$gnu_root/arm-none-eabi" \
+      -DZS407_RELEASE_PROTOCOL_V2=1 -DZS407_RELEASE_PASSIVE_V04=1 \
+      --sysroot="$gnu_root/arm-none-eabi" \
       -I"$ROOT" -c "$ROOT/modern/core/$source.c" \
       -o "$build_dir/arm-llvm/$source.o"
   done
@@ -182,6 +198,7 @@ printf 'Host compiler: %s\n' "$("$host_cc" --version | sed -n '1p')"
 printf 'Native UBSan tests: passed\n'
 printf 'Embedded single-precision policy tests: passed\n'
 printf 'Protocol-v2 UBSan tests: passed\n'
+printf 'Passive acquisition UBSan/threaded tests: passed\n'
 printf 'Protocol mutation fuzz: passed\n'
 printf 'SPSC threaded stress: passed\n'
 printf 'Native ASan binary: %s\n' "$asan_status"

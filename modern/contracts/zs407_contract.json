@@ -1,6 +1,6 @@
 {
   "schema_name": "ZS407InstrumentContract",
-  "schema_version": 2,
+  "schema_version": 3,
   "protocol": {
     "magic": 23123,
     "version": 2,
@@ -14,6 +14,10 @@
     "capabilities": 1,
     "sweep_plan": 2,
     "sweep_data": 3,
+    "clock_snapshot": 4,
+    "acquisition_status": 5,
+    "adaptive_plan": 6,
+    "zero_span_capture": 7,
     "generator_arm": 16,
     "generator_configure": 17,
     "generator_enable": 18
@@ -34,7 +38,11 @@
     "derived_measurements": 8,
     "experimental_rf": 16,
     "waveform_sequencer": 32,
-    "audio_awg": 64
+    "audio_awg": 64,
+    "device_timestamps": 128,
+    "passive_streaming": 256,
+    "adaptive_scan_plans": 512,
+    "zero_span_fft": 1024
   },
   "payloads": {
     "capabilities": {
@@ -53,7 +61,7 @@
         {"name": "waveform_event_bytes", "type": "u16"}
       ],
       "golden": {
-        "schema_version": 2,
+        "schema_version": 3,
         "protocol_version": 2,
         "release_phase": 6,
         "profile_id": 1,
@@ -65,6 +73,110 @@
         "maximum_fft_points": 1024,
         "waveform_sample_count": 256,
         "waveform_event_bytes": 16
+      }
+    },
+    "clock_snapshot": {
+      "fields": [
+        {"name": "clock_id", "type": "u32"},
+        {"name": "flags", "type": "u32"},
+        {"name": "timestamp_us", "type": "u64"},
+        {"name": "tick_frequency_hz", "type": "u32"},
+        {"name": "raw_tick", "type": "u32"}
+      ],
+      "golden": {
+        "clock_id": 407,
+        "flags": 3,
+        "timestamp_us": 72623859790382856,
+        "tick_frequency_hz": 100000,
+        "raw_tick": 2309737967
+      }
+    },
+    "acquisition_status": {
+      "fields": [
+        {"name": "stream_id", "type": "u32"},
+        {"name": "next_sequence", "type": "u32"},
+        {"name": "completed_sweeps", "type": "u32"},
+        {"name": "published_sweeps", "type": "u32"},
+        {"name": "dropped_sweeps", "type": "u32"},
+        {"name": "invalid_sweeps", "type": "u32"},
+        {"name": "last_start_us", "type": "u64"},
+        {"name": "last_duration_us", "type": "u32"},
+        {"name": "last_point_count", "type": "u16"},
+        {"name": "state", "type": "u8"},
+        {"name": "flags", "type": "u8"}
+      ],
+      "golden": {
+        "stream_id": 287454020,
+        "next_sequence": 1432778632,
+        "completed_sweeps": 1000,
+        "published_sweeps": 997,
+        "dropped_sweeps": 2,
+        "invalid_sweeps": 1,
+        "last_start_us": 123456789012345,
+        "last_duration_us": 45678,
+        "last_point_count": 450,
+        "state": 2,
+        "flags": 5
+      }
+    },
+    "adaptive_window": {
+      "fields": [
+        {"name": "plan_id", "type": "u32"},
+        {"name": "source_trace_id", "type": "u32"},
+        {"name": "first_index", "type": "u16"},
+        {"name": "last_index", "type": "u16"},
+        {"name": "peak_index", "type": "u16"},
+        {"name": "priority", "type": "u16"},
+        {"name": "start_hz", "type": "u64"},
+        {"name": "stop_hz", "type": "u64"},
+        {"name": "point_count", "type": "u16"},
+        {"name": "flags", "type": "u16"}
+      ],
+      "golden": {
+        "plan_id": 407,
+        "source_trace_id": 408,
+        "first_index": 100,
+        "last_index": 140,
+        "peak_index": 123,
+        "priority": 17,
+        "start_hz": 915000000,
+        "stop_hz": 916000000,
+        "point_count": 201,
+        "flags": 1
+      }
+    },
+    "capture_summary": {
+      "fields": [
+        {"name": "capture_id", "type": "u32"},
+        {"name": "sequence", "type": "u32"},
+        {"name": "flags", "type": "u32"},
+        {"name": "sample_count", "type": "u16"},
+        {"name": "trigger_index", "type": "u16"},
+        {"name": "peak_bin", "type": "u16"},
+        {"name": "reserved", "type": "u16"},
+        {"name": "first_timestamp_us", "type": "u64"},
+        {"name": "last_timestamp_us", "type": "u64"},
+        {"name": "sample_period_ns", "type": "u32"},
+        {"name": "minimum_delta_us", "type": "u32"},
+        {"name": "maximum_delta_us", "type": "u32"},
+        {"name": "discontinuities", "type": "u32"},
+        {"name": "peak_magnitude_q30", "type": "u32"}
+      ],
+      "golden": {
+        "capture_id": 1024,
+        "sequence": 7,
+        "flags": 11,
+        "sample_count": 1024,
+        "trigger_index": 256,
+        "peak_bin": 73,
+        "reserved": 0,
+        "first_timestamp_us": 1000000,
+        "last_timestamp_us": 2023000,
+        "sample_period_ns": 1000000,
+        "minimum_delta_us": 998,
+        "maximum_delta_us": 1004,
+        "discontinuities": 0,
+        "peak_magnitude_q30": 536870912
       }
     },
     "trace_chunk": {

@@ -5,6 +5,14 @@ import {
   decodeCapabilitiesPayload,
   encodeTraceChunkPayload,
   decodeTraceChunkPayload,
+  encodeClockSnapshotPayload,
+  decodeClockSnapshotPayload,
+  encodeAcquisitionStatusPayload,
+  decodeAcquisitionStatusPayload,
+  encodeAdaptiveWindowPayload,
+  decodeAdaptiveWindowPayload,
+  encodeCaptureSummaryPayload,
+  decodeCaptureSummaryPayload,
   encodeWaveformUploadPayload,
   encodeStatusPayload,
 } from "../../modern/generated/zs407-contract.mjs";
@@ -33,7 +41,7 @@ const directory = process.argv[2];
 if (!directory) throw new Error("fixture directory argument");
 
 const capabilities = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   protocolVersion: 2,
   releasePhase: 6,
   profileId: 1,
@@ -77,6 +85,57 @@ const traceCopy = decodeTraceChunkPayload(traceBytes);
 if (traceCopy.timestampUs !== trace.timestampUs ||
     traceCopy.frequencyStepNumeratorHz !== trace.frequencyStepNumeratorHz) {
   throw new Error("trace round trip");
+}
+
+const clock = {
+  clockId: 407, flags: 3, timestampUs: 0x0102030405060708n,
+  tickFrequencyHz: 100_000, rawTick: 0x89abcdef,
+};
+const clockBytes = encodeClockSnapshotPayload(clock);
+requireEqual(clockBytes, fixture(directory, "clock_snapshot"), "clock bytes");
+if (JSON.stringify(decodeClockSnapshotPayload(clockBytes), (_, value) =>
+  typeof value === "bigint" ? value.toString() : value) !==
+    JSON.stringify(clock, (_, value) =>
+      typeof value === "bigint" ? value.toString() : value)) {
+  throw new Error("clock round trip");
+}
+
+const acquisition = {
+  streamId: 0x11223344, nextSequence: 0x55667788,
+  completedSweeps: 1000, publishedSweeps: 997, droppedSweeps: 2,
+  invalidSweeps: 1, lastStartUs: 123_456_789_012_345n,
+  lastDurationUs: 45_678, lastPointCount: 450, state: 2, flags: 5,
+};
+const acquisitionBytes = encodeAcquisitionStatusPayload(acquisition);
+requireEqual(acquisitionBytes, fixture(directory, "acquisition_status"),
+             "acquisition bytes");
+if (decodeAcquisitionStatusPayload(acquisitionBytes).lastStartUs !==
+    acquisition.lastStartUs) throw new Error("acquisition round trip");
+
+const adaptive = {
+  planId: 407, sourceTraceId: 408, firstIndex: 100, lastIndex: 140,
+  peakIndex: 123, priority: 17, startHz: 915_000_000n,
+  stopHz: 916_000_000n, pointCount: 201, flags: 1,
+};
+const adaptiveBytes = encodeAdaptiveWindowPayload(adaptive);
+requireEqual(adaptiveBytes, fixture(directory, "adaptive_window"),
+             "adaptive bytes");
+if (decodeAdaptiveWindowPayload(adaptiveBytes).stopHz !== adaptive.stopHz) {
+  throw new Error("adaptive round trip");
+}
+
+const capture = {
+  captureId: 1024, sequence: 7, flags: 11, sampleCount: 1024,
+  triggerIndex: 256, peakBin: 73, reserved: 0,
+  firstTimestampUs: 1_000_000n, lastTimestampUs: 2_023_000n,
+  samplePeriodNs: 1_000_000, minimumDeltaUs: 998,
+  maximumDeltaUs: 1004, discontinuities: 0, peakMagnitudeQ30: 536_870_912,
+};
+const captureBytes = encodeCaptureSummaryPayload(capture);
+requireEqual(captureBytes, fixture(directory, "capture_summary"),
+             "capture bytes");
+if (decodeCaptureSummaryPayload(captureBytes).peakBin !== 73) {
+  throw new Error("capture round trip");
 }
 
 requireEqual(encodeWaveformUploadPayload({

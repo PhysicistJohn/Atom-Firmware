@@ -28,7 +28,7 @@ private struct ContractTest {
         }
         let directory = CommandLine.arguments[1]
         let capabilities = ZS407Contract.CapabilitiesPayload(
-            schemaVersion: 2, protocolVersion: 2, releasePhase: 6, profileId: 1,
+            schemaVersion: 3, protocolVersion: 2, releasePhase: 6, profileId: 1,
             featureBits: 0x12345678, safetyBits: 0x89abcdef,
             maximumPayloadBytes: 1024, maximumTracePoints: 4096,
             maximumSweepPoints: 450, maximumFftPoints: 1024,
@@ -53,6 +53,54 @@ private struct ContractTest {
                     "trace bytes")
         try require(ZS407Contract.TraceChunkPayload(
             wireBytes: trace.encode()) == trace, "trace round trip")
+
+        let clock = ZS407Contract.ClockSnapshotPayload(
+            clockId: 407, flags: 3, timestampUs: 0x0102030405060708,
+            tickFrequencyHz: 100_000, rawTick: 0x89abcdef)
+        let clockFixture = try fixture(directory, "clock_snapshot")
+        try require(clock.encode() == clockFixture,
+                    "clock bytes")
+        try require(ZS407Contract.ClockSnapshotPayload(
+            wireBytes: clock.encode()) == clock, "clock round trip")
+
+        let acquisition = ZS407Contract.AcquisitionStatusPayload(
+            streamId: 0x11223344, nextSequence: 0x55667788,
+            completedSweeps: 1000, publishedSweeps: 997,
+            droppedSweeps: 2, invalidSweeps: 1,
+            lastStartUs: 123_456_789_012_345, lastDurationUs: 45_678,
+            lastPointCount: 450, state: 2, flags: 5)
+        let acquisitionFixture = try fixture(directory, "acquisition_status")
+        try require(acquisition.encode() == acquisitionFixture,
+                    "acquisition bytes")
+        try require(ZS407Contract.AcquisitionStatusPayload(
+            wireBytes: acquisition.encode()) == acquisition,
+                    "acquisition round trip")
+
+        let adaptive = ZS407Contract.AdaptiveWindowPayload(
+            planId: 407, sourceTraceId: 408, firstIndex: 100,
+            lastIndex: 140, peakIndex: 123, priority: 17,
+            startHz: 915_000_000, stopHz: 916_000_000,
+            pointCount: 201, flags: 1)
+        let adaptiveFixture = try fixture(directory, "adaptive_window")
+        try require(adaptive.encode() == adaptiveFixture,
+                    "adaptive bytes")
+        try require(ZS407Contract.AdaptiveWindowPayload(
+            wireBytes: adaptive.encode()) == adaptive,
+                    "adaptive round trip")
+
+        let capture = ZS407Contract.CaptureSummaryPayload(
+            captureId: 1024, sequence: 7, flags: 11,
+            sampleCount: 1024, triggerIndex: 256, peakBin: 73, reserved: 0,
+            firstTimestampUs: 1_000_000, lastTimestampUs: 2_023_000,
+            samplePeriodNs: 1_000_000, minimumDeltaUs: 998,
+            maximumDeltaUs: 1004, discontinuities: 0,
+            peakMagnitudeQ30: 536_870_912)
+        let captureFixture = try fixture(directory, "capture_summary")
+        try require(capture.encode() == captureFixture,
+                    "capture bytes")
+        try require(ZS407Contract.CaptureSummaryPayload(
+            wireBytes: capture.encode()) == capture,
+                    "capture round trip")
 
         let upload = ZS407Contract.WaveformUploadPayload(
             programId: 407, uncompressedBytes: 96, crc32: 0xcbf43926,

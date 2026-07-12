@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define ZS407_SCHEMA_VERSION 2U
+#define ZS407_SCHEMA_VERSION 3U
 #define ZS407_PROTOCOL_MAGIC 23123U
 #define ZS407_PROTOCOL_VERSION 2U
 #define ZS407_PROTOCOL_MINIMUM_VERSION 1U
@@ -21,6 +21,10 @@
 #define ZS407_COMMAND_CAPABILITIES 1U
 #define ZS407_COMMAND_SWEEP_PLAN 2U
 #define ZS407_COMMAND_SWEEP_DATA 3U
+#define ZS407_COMMAND_CLOCK_SNAPSHOT 4U
+#define ZS407_COMMAND_ACQUISITION_STATUS 5U
+#define ZS407_COMMAND_ADAPTIVE_PLAN 6U
+#define ZS407_COMMAND_ZERO_SPAN_CAPTURE 7U
 #define ZS407_COMMAND_GENERATOR_ARM 16U
 #define ZS407_COMMAND_GENERATOR_CONFIGURE 17U
 #define ZS407_COMMAND_GENERATOR_ENABLE 18U
@@ -40,6 +44,10 @@
 #define ZS407_CAPABILITY_EXPERIMENTAL_RF 16U
 #define ZS407_CAPABILITY_WAVEFORM_SEQUENCER 32U
 #define ZS407_CAPABILITY_AUDIO_AWG 64U
+#define ZS407_CAPABILITY_DEVICE_TIMESTAMPS 128U
+#define ZS407_CAPABILITY_PASSIVE_STREAMING 256U
+#define ZS407_CAPABILITY_ADAPTIVE_SCAN_PLANS 512U
+#define ZS407_CAPABILITY_ZERO_SPAN_FFT 1024U
 
 static inline void zs407_contract_put_u16le(uint8_t *output, uint16_t value)
 {
@@ -131,6 +139,214 @@ static inline bool zs407_capabilities_payload_decode(
   value->maximum_fft_points = (uint16_t)zs407_contract_get_u16le(&input[18]);
   value->waveform_sample_count = (uint16_t)zs407_contract_get_u16le(&input[20]);
   value->waveform_event_bytes = (uint16_t)zs407_contract_get_u16le(&input[22]);
+  return true;
+}
+
+#define ZS407_CLOCK_SNAPSHOT_PAYLOAD_BYTES 24U
+typedef struct {
+  uint32_t clock_id;
+  uint32_t flags;
+  uint64_t timestamp_us;
+  uint32_t tick_frequency_hz;
+  uint32_t raw_tick;
+} zs407_clock_snapshot_payload_t;
+
+static inline bool zs407_clock_snapshot_payload_encode(
+    const zs407_clock_snapshot_payload_t *value, uint8_t *output, size_t output_size)
+{
+  if (value == NULL || output == NULL || output_size != 24U) {
+    return false;
+  }
+  zs407_contract_put_u32le(&output[0], (uint32_t)value->clock_id);
+  zs407_contract_put_u32le(&output[4], (uint32_t)value->flags);
+  zs407_contract_put_u64le(&output[8], (uint64_t)value->timestamp_us);
+  zs407_contract_put_u32le(&output[16], (uint32_t)value->tick_frequency_hz);
+  zs407_contract_put_u32le(&output[20], (uint32_t)value->raw_tick);
+  return true;
+}
+
+static inline bool zs407_clock_snapshot_payload_decode(
+    const uint8_t *input, size_t input_size, zs407_clock_snapshot_payload_t *value)
+{
+  if (input == NULL || value == NULL || input_size != 24U) {
+    return false;
+  }
+  value->clock_id = (uint32_t)zs407_contract_get_u32le(&input[0]);
+  value->flags = (uint32_t)zs407_contract_get_u32le(&input[4]);
+  value->timestamp_us = (uint64_t)zs407_contract_get_u64le(&input[8]);
+  value->tick_frequency_hz = (uint32_t)zs407_contract_get_u32le(&input[16]);
+  value->raw_tick = (uint32_t)zs407_contract_get_u32le(&input[20]);
+  return true;
+}
+
+#define ZS407_ACQUISITION_STATUS_PAYLOAD_BYTES 40U
+typedef struct {
+  uint32_t stream_id;
+  uint32_t next_sequence;
+  uint32_t completed_sweeps;
+  uint32_t published_sweeps;
+  uint32_t dropped_sweeps;
+  uint32_t invalid_sweeps;
+  uint64_t last_start_us;
+  uint32_t last_duration_us;
+  uint16_t last_point_count;
+  uint8_t state;
+  uint8_t flags;
+} zs407_acquisition_status_payload_t;
+
+static inline bool zs407_acquisition_status_payload_encode(
+    const zs407_acquisition_status_payload_t *value, uint8_t *output, size_t output_size)
+{
+  if (value == NULL || output == NULL || output_size != 40U) {
+    return false;
+  }
+  zs407_contract_put_u32le(&output[0], (uint32_t)value->stream_id);
+  zs407_contract_put_u32le(&output[4], (uint32_t)value->next_sequence);
+  zs407_contract_put_u32le(&output[8], (uint32_t)value->completed_sweeps);
+  zs407_contract_put_u32le(&output[12], (uint32_t)value->published_sweeps);
+  zs407_contract_put_u32le(&output[16], (uint32_t)value->dropped_sweeps);
+  zs407_contract_put_u32le(&output[20], (uint32_t)value->invalid_sweeps);
+  zs407_contract_put_u64le(&output[24], (uint64_t)value->last_start_us);
+  zs407_contract_put_u32le(&output[32], (uint32_t)value->last_duration_us);
+  zs407_contract_put_u16le(&output[36], (uint16_t)value->last_point_count);
+  output[38] = (uint8_t)value->state;
+  output[39] = (uint8_t)value->flags;
+  return true;
+}
+
+static inline bool zs407_acquisition_status_payload_decode(
+    const uint8_t *input, size_t input_size, zs407_acquisition_status_payload_t *value)
+{
+  if (input == NULL || value == NULL || input_size != 40U) {
+    return false;
+  }
+  value->stream_id = (uint32_t)zs407_contract_get_u32le(&input[0]);
+  value->next_sequence = (uint32_t)zs407_contract_get_u32le(&input[4]);
+  value->completed_sweeps = (uint32_t)zs407_contract_get_u32le(&input[8]);
+  value->published_sweeps = (uint32_t)zs407_contract_get_u32le(&input[12]);
+  value->dropped_sweeps = (uint32_t)zs407_contract_get_u32le(&input[16]);
+  value->invalid_sweeps = (uint32_t)zs407_contract_get_u32le(&input[20]);
+  value->last_start_us = (uint64_t)zs407_contract_get_u64le(&input[24]);
+  value->last_duration_us = (uint32_t)zs407_contract_get_u32le(&input[32]);
+  value->last_point_count = (uint16_t)zs407_contract_get_u16le(&input[36]);
+  value->state = (uint8_t)input[38];
+  value->flags = (uint8_t)input[39];
+  return true;
+}
+
+#define ZS407_ADAPTIVE_WINDOW_PAYLOAD_BYTES 36U
+typedef struct {
+  uint32_t plan_id;
+  uint32_t source_trace_id;
+  uint16_t first_index;
+  uint16_t last_index;
+  uint16_t peak_index;
+  uint16_t priority;
+  uint64_t start_hz;
+  uint64_t stop_hz;
+  uint16_t point_count;
+  uint16_t flags;
+} zs407_adaptive_window_payload_t;
+
+static inline bool zs407_adaptive_window_payload_encode(
+    const zs407_adaptive_window_payload_t *value, uint8_t *output, size_t output_size)
+{
+  if (value == NULL || output == NULL || output_size != 36U) {
+    return false;
+  }
+  zs407_contract_put_u32le(&output[0], (uint32_t)value->plan_id);
+  zs407_contract_put_u32le(&output[4], (uint32_t)value->source_trace_id);
+  zs407_contract_put_u16le(&output[8], (uint16_t)value->first_index);
+  zs407_contract_put_u16le(&output[10], (uint16_t)value->last_index);
+  zs407_contract_put_u16le(&output[12], (uint16_t)value->peak_index);
+  zs407_contract_put_u16le(&output[14], (uint16_t)value->priority);
+  zs407_contract_put_u64le(&output[16], (uint64_t)value->start_hz);
+  zs407_contract_put_u64le(&output[24], (uint64_t)value->stop_hz);
+  zs407_contract_put_u16le(&output[32], (uint16_t)value->point_count);
+  zs407_contract_put_u16le(&output[34], (uint16_t)value->flags);
+  return true;
+}
+
+static inline bool zs407_adaptive_window_payload_decode(
+    const uint8_t *input, size_t input_size, zs407_adaptive_window_payload_t *value)
+{
+  if (input == NULL || value == NULL || input_size != 36U) {
+    return false;
+  }
+  value->plan_id = (uint32_t)zs407_contract_get_u32le(&input[0]);
+  value->source_trace_id = (uint32_t)zs407_contract_get_u32le(&input[4]);
+  value->first_index = (uint16_t)zs407_contract_get_u16le(&input[8]);
+  value->last_index = (uint16_t)zs407_contract_get_u16le(&input[10]);
+  value->peak_index = (uint16_t)zs407_contract_get_u16le(&input[12]);
+  value->priority = (uint16_t)zs407_contract_get_u16le(&input[14]);
+  value->start_hz = (uint64_t)zs407_contract_get_u64le(&input[16]);
+  value->stop_hz = (uint64_t)zs407_contract_get_u64le(&input[24]);
+  value->point_count = (uint16_t)zs407_contract_get_u16le(&input[32]);
+  value->flags = (uint16_t)zs407_contract_get_u16le(&input[34]);
+  return true;
+}
+
+#define ZS407_CAPTURE_SUMMARY_PAYLOAD_BYTES 56U
+typedef struct {
+  uint32_t capture_id;
+  uint32_t sequence;
+  uint32_t flags;
+  uint16_t sample_count;
+  uint16_t trigger_index;
+  uint16_t peak_bin;
+  uint16_t reserved;
+  uint64_t first_timestamp_us;
+  uint64_t last_timestamp_us;
+  uint32_t sample_period_ns;
+  uint32_t minimum_delta_us;
+  uint32_t maximum_delta_us;
+  uint32_t discontinuities;
+  uint32_t peak_magnitude_q30;
+} zs407_capture_summary_payload_t;
+
+static inline bool zs407_capture_summary_payload_encode(
+    const zs407_capture_summary_payload_t *value, uint8_t *output, size_t output_size)
+{
+  if (value == NULL || output == NULL || output_size != 56U) {
+    return false;
+  }
+  zs407_contract_put_u32le(&output[0], (uint32_t)value->capture_id);
+  zs407_contract_put_u32le(&output[4], (uint32_t)value->sequence);
+  zs407_contract_put_u32le(&output[8], (uint32_t)value->flags);
+  zs407_contract_put_u16le(&output[12], (uint16_t)value->sample_count);
+  zs407_contract_put_u16le(&output[14], (uint16_t)value->trigger_index);
+  zs407_contract_put_u16le(&output[16], (uint16_t)value->peak_bin);
+  zs407_contract_put_u16le(&output[18], (uint16_t)value->reserved);
+  zs407_contract_put_u64le(&output[20], (uint64_t)value->first_timestamp_us);
+  zs407_contract_put_u64le(&output[28], (uint64_t)value->last_timestamp_us);
+  zs407_contract_put_u32le(&output[36], (uint32_t)value->sample_period_ns);
+  zs407_contract_put_u32le(&output[40], (uint32_t)value->minimum_delta_us);
+  zs407_contract_put_u32le(&output[44], (uint32_t)value->maximum_delta_us);
+  zs407_contract_put_u32le(&output[48], (uint32_t)value->discontinuities);
+  zs407_contract_put_u32le(&output[52], (uint32_t)value->peak_magnitude_q30);
+  return true;
+}
+
+static inline bool zs407_capture_summary_payload_decode(
+    const uint8_t *input, size_t input_size, zs407_capture_summary_payload_t *value)
+{
+  if (input == NULL || value == NULL || input_size != 56U) {
+    return false;
+  }
+  value->capture_id = (uint32_t)zs407_contract_get_u32le(&input[0]);
+  value->sequence = (uint32_t)zs407_contract_get_u32le(&input[4]);
+  value->flags = (uint32_t)zs407_contract_get_u32le(&input[8]);
+  value->sample_count = (uint16_t)zs407_contract_get_u16le(&input[12]);
+  value->trigger_index = (uint16_t)zs407_contract_get_u16le(&input[14]);
+  value->peak_bin = (uint16_t)zs407_contract_get_u16le(&input[16]);
+  value->reserved = (uint16_t)zs407_contract_get_u16le(&input[18]);
+  value->first_timestamp_us = (uint64_t)zs407_contract_get_u64le(&input[20]);
+  value->last_timestamp_us = (uint64_t)zs407_contract_get_u64le(&input[28]);
+  value->sample_period_ns = (uint32_t)zs407_contract_get_u32le(&input[36]);
+  value->minimum_delta_us = (uint32_t)zs407_contract_get_u32le(&input[40]);
+  value->maximum_delta_us = (uint32_t)zs407_contract_get_u32le(&input[44]);
+  value->discontinuities = (uint32_t)zs407_contract_get_u32le(&input[48]);
+  value->peak_magnitude_q30 = (uint32_t)zs407_contract_get_u32le(&input[52]);
   return true;
 }
 
