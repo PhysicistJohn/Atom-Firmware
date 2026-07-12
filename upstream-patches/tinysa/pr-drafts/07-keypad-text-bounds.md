@@ -17,9 +17,13 @@ and valid short input is unchanged.
 - GCC `-fanalyzer` reports no analyzer diagnostic.
 - The exact F303 image boots in the ZS407 Renode model with unchanged RF-device
   initialization counts.
-- Physical ZS407 maximum-line transcript: **pending the prepared four-image
-  batch**.
+- The exact F303 image was flashed to a physical tinySA Ultra+ ZS407 (hardware
+  V0.5.4, MAX2871), and its embedded version was verified before testing.
+- A legal 46-byte `text` command exercised the maximum shell-line boundary; the
+  device remained responsive and reported the exact version afterward.
+- The test restored both captured sweep endpoints, verified the complete
+  450-point grid, and the built-in CAL-to-RF self-test passed afterward.
 
 The hardware test opens the ordinary center-frequency keypad, sends a 46-byte
-command line, proves subsequent UI/shell operation, and restores the original
-frequency grid without saving configuration.
+command line, proves subsequent UI/shell operation, and restores both captured
+sweep endpoints without saving configuration.

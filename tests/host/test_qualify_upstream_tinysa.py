@@ -33,7 +33,16 @@ class FakeSession:
             f"correction low {index} {index * 1000000} {index / 10:.1f}"
             for index in range(20)
         ]
-        self.pending_center = False
+        self.pending_frequency: str | None = None
+
+    def rebuild_frequencies(self, start: int, stop: int) -> None:
+        count = len(self.frequencies) - 1
+        span = stop - start
+        step, remainder = divmod(span, count)
+        self.frequencies = [
+            start + step * index + (count // 2 + remainder * index) // count
+            for index in range(count + 1)
+        ]
 
     @staticmethod
     def response(command: str, body: str = "") -> bytes:
@@ -70,15 +79,38 @@ class FakeSession:
         if command.startswith("trace "):
             return self.response(command, "trace {dBm|RAW}\r\n")
         if command.startswith("marker "):
+            fields = command.split()
+            if (len(fields) == 4 and fields[2] == "delta"
+                    and 1 <= int(fields[3]) <= 8):
+                return self.response(command)
             return self.response(command, "marker [n] [on|off] [n|off|on]\r\n")
         if command == "frequencies":
             body = "\r\n".join(str(value) for value in self.frequencies) + "\r\n"
             return self.response(command, body)
-        if command == "menu 3 3":
-            self.pending_center = True
+        if command in ("menu 3 1", "menu 3 2", "menu 3 3"):
+            self.pending_frequency = {
+                "menu 3 1": "start",
+                "menu 3 2": "stop",
+                "menu 3 3": "center",
+            }[command]
             return self.response(command)
-        if command.startswith("text ") and self.pending_center:
-            self.pending_center = False
+        if command.startswith("text ") and self.pending_frequency is not None:
+            value = int(command.split(" ", 1)[1][:13])
+            start, stop = self.frequencies[0], self.frequencies[-1]
+            if self.pending_frequency == "start":
+                start = value
+                if start > stop:
+                    stop = start
+            elif self.pending_frequency == "stop":
+                stop = value
+                if start > stop:
+                    start = stop
+            else:
+                # Model the real edge case conservatively: an extreme CENTER
+                # value can clamp at the limit and collapse the span.
+                start = stop = value
+            self.rebuild_frequencies(start, stop)
+            self.pending_frequency = None
             return self.response(command)
         return self.response(command)
 
@@ -107,16 +139,24 @@ class QualificationLogicTests(unittest.TestCase):
     def test_package_6(self) -> None:
         session = FakeSession(6)
         QUALIFY.qualify_package_6(session)
+        self.assertIn("marker 1 delta 9", session.commands)
+        self.assertNotIn("marker 1 delta 5", session.commands)
         self.assertIn("menu -1", session.commands)
         self.assert_safe_commands(session)
 
     def test_package_7(self) -> None:
         session = FakeSession(7)
+        original_frequencies = list(session.frequencies)
         QUALIFY.qualify_package_7(session)
+        self.assertEqual(session.frequencies, original_frequencies)
         long_commands = [command for command in session.commands
                          if command.startswith("text 123456")]
         self.assertEqual(len(long_commands), 1)
         self.assertEqual(len(long_commands[0].encode("ascii")), 46)
+        self.assertIn("menu 3 1", session.commands)
+        self.assertIn(f"text {original_frequencies[0]}", session.commands)
+        self.assertIn("menu 3 2", session.commands)
+        self.assertIn(f"text {original_frequencies[-1]}", session.commands)
         self.assert_safe_commands(session)
 
 

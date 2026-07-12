@@ -19,7 +19,12 @@ unchanged.
 - GCC `-fanalyzer` reports no analyzer diagnostic.
 - The exact F303 image boots in the ZS407 Renode model with unchanged RF-device
   initialization counts.
-- Physical ZS407 transcript: **pending the prepared four-image batch**.
+- The exact F303 image was flashed to a physical tinySA Ultra+ ZS407 (hardware
+  V0.5.4, MAX2871), and its embedded version was verified before testing.
+- Hardware checks captured all 20 low correction rows, exercised missing,
+  unknown, special-token, negative and index-20 mutation forms, and proved all
+  20 rows were byte-for-byte unchanged afterward.
+- The complete built-in CAL-to-RF self-test passed after the candidate run.
 
 The physical procedure only reads the valid correction table and proves invalid
 commands leave it unchanged; it never resets or writes calibration data.

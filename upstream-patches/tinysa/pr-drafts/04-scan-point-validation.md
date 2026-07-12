@@ -24,7 +24,12 @@ counts.
 - GCC `-fanalyzer` reports no analyzer diagnostic.
 - The exact F303 image boots in the ZS407 Renode model with unchanged RF-device
   initialization counts.
-- Physical ZS407 transcript: **pending the prepared four-image batch**.
+- The exact F303 image was flashed to a physical tinySA Ultra+ ZS407 (hardware
+  V0.5.4, MAX2871), and its embedded version was verified before testing.
+- Hardware checks accepted the valid 2-point `scan` and 1-point `scanraw`
+  boundaries, rejected the prepared invalid counts, restored the original
+  legacy point count, and left the shell responsive.
+- The complete built-in CAL-to-RF self-test passed after the candidate run.
 
 No valid scan format, RF setting, storage layout or persistent configuration is
 changed.

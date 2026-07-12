@@ -1,7 +1,11 @@
 # Remaining upstream firmware hardware batch
 
-Status: hardware-independent qualification complete; physical device untouched
-since the enhanced v0.3 qualification.
+Status: **complete** on 2026-07-11 PDT / 2026-07-12 UTC. All four candidates
+passed targeted hardware qualification and the full built-in self-test. The
+enhanced v0.3 FFT1024 image was restored and passed its final self-test.
+
+The completed evidence and hardware-specific findings are recorded in
+[UPSTREAM_HARDWARE_RESULTS.md](UPSTREAM_HARDWARE_RESULTS.md).
 
 This runbook closes the physical gate for tinySA packages 4 through 7 in one
 ordered session. Every candidate is an independent one-commit branch directly
@@ -33,8 +37,9 @@ Renode boot with the expected Si4468, MAX2871 and PE4302 initialization counts.
   update/reset, SD deletion, or an RF-enabling command.
 - Package 5 compares the correction table before and after invalid commands but
   never changes a valid correction value.
-- Package 7 temporarily changes center frequency in RAM and restores the exact
-  original frequency grid. A power cycle also discards any unsaved state.
+- Package 7 temporarily changes center frequency in RAM and restores the
+  captured START and STOP endpoints in a `finally` block. It verifies the full
+  frequency grid afterward and never issues a save command.
 
 ## Rapid physical sequence
 
@@ -66,17 +71,19 @@ python3 -m venv .artifacts/toolchains/tinysa-hardware-venv
 .artifacts/toolchains/tinysa-hardware-venv/bin/python tools/qualify-upstream-tinysa.py --port /dev/cu.usbmodemXXXX --package 7 --expected-version tinySA4_pr7-text-g89e5d11 --transcript .artifacts/upstream-staging/hardware/pr7.md --confirm TARGETED-RAM-ONLY-TEST
 ```
 
-Finally restore
+The completed batch finally restored
 `.artifacts/hardware-trials/v0.3/43eb0f193c8619cb7ca23726e3062973c65ae958/tinySA4_hw-v0.3-fft1024.bin`,
 whose SHA-256 is
 `6f284a24c4b4ab178da13af97e102e1a624618c9a67e8418b19bbc153e6f0174`.
-Verify `tinySA4_hw-v0.3-fft1024-g43eb0f1`, repeat the cold self-test, then remove
-the CAL-to-RF cable.
+The deployed identity `tinySA4_hw-v0.3-fft1024-g43eb0f1`, ZS407 platform,
+Cortex-M4F architecture and 4222 mV battery reading were verified over USB. The
+final built-in self-test passed.
 
 ## Publication after the batch
 
 Successful transcripts are summarized in the four prepared PR bodies. The
-already staged public-fork branches are then pushed and opened one at a time:
+already staged public-fork branches are ready to be pushed and opened one at a
+time:
 
 | Package | Public branch | Proposed title |
 | --- | --- | --- |

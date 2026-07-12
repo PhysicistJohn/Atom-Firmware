@@ -25,7 +25,12 @@ remain unchanged.
 - GCC `-fanalyzer` reports no analyzer diagnostic.
 - The exact F303 image boots in the ZS407 Renode model with unchanged RF-device
   initialization counts.
-- Physical ZS407 transcript: **pending the prepared four-image batch**.
+- The exact F303 image was flashed to a physical tinySA Ultra+ ZS407 (hardware
+  V0.5.4, MAX2871), and its embedded version was verified before testing.
+- Hardware checks rejected invalid trace copy/subtract/sample indices, marker 9
+  and invalid marker-trace indices, palette IDs -1 and 32, and remote-menu paths
+  -1 and 9999. All 32 palette rows were unchanged afterward.
+- The complete built-in CAL-to-RF self-test passed after the candidate run.
 
 The physical test uses only invalid indices, compares the palette before and
 after, and confirms the shell remains responsive.

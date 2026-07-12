@@ -227,7 +227,9 @@ def qualify_package_6(session: QualificationSession) -> None:
         require(session.command(command), b"trace {", command)
 
     marker_commands = (
-        "marker 1 delta 5",
+        # TINYSA4 exposes eight markers; user-facing marker 9 is the first
+        # out-of-range value. (The smaller TINYSA3 exposes four.)
+        "marker 1 delta 9",
         "marker 1 trace 0",
         "marker 1 trace 5",
     )
@@ -248,18 +250,31 @@ def qualify_package_7(session: QualificationSession) -> None:
     before = numeric_lines(session.command("frequencies", timeout=30.0))
     if len(before) < 2:
         raise AssertionError("could not capture the current frequency grid")
-    center = (before[0] + before[-1]) // 2
+    start = before[0]
+    stop = before[-1]
 
-    session.command("menu 3 3")
     long_argument = "12345678901234567890123456789012345678901"
     command = f"text {long_argument}"
     if len(command.encode("ascii")) != 46:
         raise AssertionError("maximum-line test vector changed unexpectedly")
-    session.command(command)
-    session.command("version")
-
-    session.command("menu 3 3")
-    session.command(f"text {center}")
+    try:
+        session.command("menu 3 3")
+        session.command(command)
+        session.command("version")
+    finally:
+        if session.port.is_open:
+            try:
+                # A clamped CENTER value can shrink the active span. Restore
+                # both endpoints so the complete grid is reconstructed.
+                session.command("menu 3 1")
+                session.command(f"text {start}")
+                session.command("menu 3 2")
+                session.command(f"text {stop}")
+            except Exception:
+                # Preserve the primary failure. These settings are RAM-only
+                # and the required power cycle discards them if transport was
+                # lost.
+                pass
     after = numeric_lines(session.command("frequencies", timeout=30.0))
     if after != before:
         raise AssertionError("frequency grid was not restored after keypad test")
