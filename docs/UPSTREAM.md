@@ -5,17 +5,20 @@ Upstream candidates are isolated from the replacement-firmware roadmap and
 carry the PhysicistJohn noreply identity.
 
 Publication proceeds one explicitly approved contribution at a time. As of
-2026-07-11, tinySA PRs
+2026-07-11, all seven tinySA packages are open as PRs
 [#156](https://github.com/erikkaashoek/tinySA/pull/156),
 [#157](https://github.com/erikkaashoek/tinySA/pull/157), and
-[#158](https://github.com/erikkaashoek/tinySA/pull/158), plus Renode PRs
+[#158](https://github.com/erikkaashoek/tinySA/pull/158),
+[#159](https://github.com/erikkaashoek/tinySA/pull/159),
+[#160](https://github.com/erikkaashoek/tinySA/pull/160),
+[#161](https://github.com/erikkaashoek/tinySA/pull/161), and
+[#162](https://github.com/erikkaashoek/tinySA/pull/162). Renode PRs
 [#217](https://github.com/renode/renode-infrastructure/pull/217) and
-[#218](https://github.com/renode/renode-infrastructure/pull/218), are open.
-No other queued contribution has been published. Packages 4 through 7 are
-staged through their hardware-independent gates and await the single physical
-batch in [UPSTREAM_HARDWARE_BATCH.md](UPSTREAM_HARDWARE_BATCH.md). The upstream
-remote remains fetch-only (`pushurl = no_push`); the only writable firmware
-remote is the private PhysicistJohn repository.
+[#218](https://github.com/renode/renode-infrastructure/pull/218) are open.
+Packages 4 through 7 completed the physical batch documented in
+[UPSTREAM_HARDWARE_RESULTS.md](UPSTREAM_HARDWARE_RESULTS.md). The primary
+worktree's upstream remote remains fetch-only (`pushurl = no_push`); the
+separate publication clone writes only to the PhysicistJohn public fork.
 
 ## tinySA firmware
 
@@ -29,10 +32,10 @@ upstream `c97938697b6c7485e7cab50bca9af76996b7d671` and pinned ChibiOS
 | Reject unknown `TARGET` values | `upstream/fix-target-validation` | `46dc0d8` | Default/F072/F303 builds; invalid target fails | [PR #157](https://github.com/erikkaashoek/tinySA/pull/157) open |
 | Keep CI on pinned ChibiOS | `upstream/fix-pinned-submodule-ci` | `08caa12` | YAML parse and gitlink checkout | [PR #156](https://github.com/erikkaashoek/tinySA/pull/156) open |
 | Derive hardware table length | `upstream/fix-hardware-version-table` | `2a3a2df` | F072/F303 build; exact candidate flashed to ZS407; correct `V0.5.4 max2871` readback; cold-start full self-test passed | [PR #158](https://github.com/erikkaashoek/tinySA/pull/158) open |
-| Reject invalid scan counts | `upstream/fix-scanraw-points` | `1d518af` | Dual reproducible build, GCC analyzer and exact-image twin pass | Physical USB batch ready |
-| Bound correction table access | `upstream/fix-correction-bounds` | `6cba8a9` | Dual reproducible build, GCC analyzer and exact-image twin pass | Physical USB batch ready |
-| Bound shell-controlled indices | `upstream/fix-shell-index-bounds` | `5a029f9` | Dual reproducible build, GCC analyzer and exact-image twin pass | Physical USB batch ready |
-| Bound remote keypad text | `upstream/fix-shell-text-bounds` | `89e5d11` | Dual reproducible build, GCC analyzer and exact-image twin pass | Physical USB batch ready |
+| Reject invalid scan counts | `upstream/fix-scanraw-points` | `1d518af` | Dual reproducible build, GCC analyzer, exact-image twin, targeted ZS407 USB test and built-in self-test pass | [PR #159](https://github.com/erikkaashoek/tinySA/pull/159) open |
+| Bound correction table access | `upstream/fix-correction-bounds` | `6cba8a9` | Dual reproducible build, GCC analyzer, exact-image twin, unchanged-table ZS407 test and built-in self-test pass | [PR #160](https://github.com/erikkaashoek/tinySA/pull/160) open |
+| Bound shell-controlled indices | `upstream/fix-shell-index-bounds` | `5a029f9` | Dual reproducible build, GCC analyzer, exact-image twin, targeted ZS407 index test and built-in self-test pass | [PR #161](https://github.com/erikkaashoek/tinySA/pull/161) open |
+| Bound remote keypad text | `upstream/fix-shell-text-bounds` | `89e5d11` | Dual reproducible build, GCC analyzer, exact-image twin, maximum-line ZS407 test and built-in self-test pass | [PR #162](https://github.com/erikkaashoek/tinySA/pull/162) open |
 
 The tested aggregate is
 `physicistjohn/upstream-firmware-fixes` at

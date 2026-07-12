@@ -85,6 +85,19 @@ These findings changed only the private qualification tooling and runbook. The
 four proposed upstream firmware commits remained byte-for-byte unchanged from
 the images tested on hardware.
 
+## Published pull requests
+
+The four independently tested commits are published from the PhysicistJohn
+fork as:
+
+- [tinySA #159 — Validate scan point counts before division](https://github.com/erikkaashoek/tinySA/pull/159)
+- [tinySA #160 — Validate correction table arguments](https://github.com/erikkaashoek/tinySA/pull/160)
+- [tinySA #161 — Validate shell-controlled array indices](https://github.com/erikkaashoek/tinySA/pull/161)
+- [tinySA #162 — Bound remote keypad text input](https://github.com/erikkaashoek/tinySA/pull/162)
+
+At the final publication audit, all four were open, non-draft, clean and
+mergeable with exact head SHAs matching the physically tested commits.
+
 ## Final restoration
 
 The exact enhanced image at source commit

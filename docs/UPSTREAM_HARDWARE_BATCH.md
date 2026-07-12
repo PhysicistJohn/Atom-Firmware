@@ -85,13 +85,14 @@ Successful transcripts are summarized in the four prepared PR bodies. The
 already staged public-fork branches are ready to be pushed and opened one at a
 time:
 
-| Package | Public branch | Proposed title |
-| --- | --- | --- |
-| 4 | `fix/scan-point-validation` | Validate scan point counts before division |
-| 5 | `fix/correction-argument-bounds` | Validate correction table arguments |
-| 6 | `fix/shell-index-bounds` | Validate shell-controlled array indices |
-| 7 | `fix/keypad-text-bounds` | Bound remote keypad text input |
+| Package | Public branch | Title | Pull request |
+| --- | --- | --- | --- |
+| 4 | `fix/scan-point-validation` | Validate scan point counts before division | [#159](https://github.com/erikkaashoek/tinySA/pull/159) |
+| 5 | `fix/correction-argument-bounds` | Validate correction table arguments | [#160](https://github.com/erikkaashoek/tinySA/pull/160) |
+| 6 | `fix/shell-index-bounds` | Validate shell-controlled array indices | [#161](https://github.com/erikkaashoek/tinySA/pull/161) |
+| 7 | `fix/keypad-text-bounds` | Bound remote keypad text input | [#162](https://github.com/erikkaashoek/tinySA/pull/162) |
 
 The publication clone is local at
-`.artifacts/publish/tinysa-remaining-prs`. No remaining branch has been pushed
-to the public fork and no new public PR has been opened.
+`.artifacts/publish/tinysa-remaining-prs`. All four branches were pushed only to
+the PhysicistJohn fork. Each PR was verified open, non-draft, one-commit,
+personal-authored, clean and mergeable after creation.

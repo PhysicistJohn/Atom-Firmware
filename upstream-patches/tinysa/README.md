@@ -9,13 +9,17 @@ The queue is based on upstream `tinySA` commit
 `ade76dea89cd093650552328e881252a06486094`. All authorship is
 `PhysicistJohn <54456354+PhysicistJohn@users.noreply.github.com>`.
 
-Publication is proceeding one explicitly approved patch at a time. As of
-2026-07-11, packages 1, 2 and 3 are public as tinySA PRs
+Publication proceeded one explicitly approved patch at a time. As of
+2026-07-11, all seven packages are public as tinySA PRs
 [#157](https://github.com/erikkaashoek/tinySA/pull/157),
 [#156](https://github.com/erikkaashoek/tinySA/pull/156), and
-[#158](https://github.com/erikkaashoek/tinySA/pull/158), respectively.
-Packages 4–7 remain private. Package 3 was also flashed to the physical ZS407
-and passed runtime identity and the complete cold-start self-test gate.
+[#158](https://github.com/erikkaashoek/tinySA/pull/158),
+[#159](https://github.com/erikkaashoek/tinySA/pull/159),
+[#160](https://github.com/erikkaashoek/tinySA/pull/160),
+[#161](https://github.com/erikkaashoek/tinySA/pull/161), and
+[#162](https://github.com/erikkaashoek/tinySA/pull/162), respectively. Packages
+3–7 were also flashed to the physical ZS407 and passed their targeted runtime
+checks and complete built-in self-test gates.
 
 ## Queue
 
@@ -186,15 +190,17 @@ that result is a harness/version incompatibility and is not counted as either a
 candidate pass or regression. The current lab image still passes the complete
 boot/jog/touch/UI/RF scenario.
 
-## Remaining hardware gates
+## Completed hardware gates
 
 Package 3 completed its physical version-identification and self-test gate.
-Packages 4–7 now pass independent dual-target reproducible builds, GCC
-`-fanalyzer`, exact-source audits and exact-image Renode boot. Their four F303
-images, hashes, fail-closed test runner and rapid physical order are in
-[UPSTREAM_HARDWARE_BATCH.md](../../docs/UPSTREAM_HARDWARE_BATCH.md).
+Packages 4–7 pass independent dual-target reproducible builds, GCC
+`-fanalyzer`, exact-source audits, exact-image Renode boot, targeted ZS407 USB
+checks and the complete built-in self-test. Their four F303 images, hashes,
+fail-closed test runner, physical order and completed results are in
+[UPSTREAM_HARDWARE_BATCH.md](../../docs/UPSTREAM_HARDWARE_BATCH.md) and
+[UPSTREAM_HARDWARE_RESULTS.md](../../docs/UPSTREAM_HARDWARE_RESULTS.md).
 
-The physical batch deliberately avoids calibration mutation:
+The completed physical batch deliberately avoided calibration mutation:
 
 1. Verify valid `scan`, legacy `s`, and one-point `scanraw` operation.
 2. Confirm zero/one/negative/overflow scan counts are rejected as specified.
@@ -203,7 +209,7 @@ The physical batch deliberately avoids calibration mutation:
 4. Exercise invalid trace/marker/color/menu indices, prove the palette remains
    unchanged, and confirm the shell remains responsive.
 5. Send a 46-byte command line to `text`, confirm normal subsequent UI/USB
-   operation, and restore the original frequency grid without saving.
+   operation, and restore both captured sweep endpoints without saving.
 6. Cold-start and run the complete built-in self-test on every exact candidate.
 7. Restore the qualified enhanced v0.3 image, repeat its self-test, and only
    then remove the CAL-to-RF cable.
