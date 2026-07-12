@@ -5,7 +5,7 @@
 #include "zs407_core.h"
 
 #define ZS407_FFT_MIN_LOG2 8U
-#define ZS407_FFT_MAX_LOG2 9U
+#define ZS407_FFT_MAX_LOG2 10U
 #define ZS407_FFT_MAX_POINTS (1U << ZS407_FFT_MAX_LOG2)
 
 int16_t zs407_q15_saturate(int32_t value);

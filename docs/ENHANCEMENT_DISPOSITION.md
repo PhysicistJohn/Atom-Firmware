@@ -103,17 +103,17 @@ renaming a candidate without closing its disposition fails the host suite.
 | --- | --- | --- | --- |
 | E064 | Store traces as signed dB x32 `int16_t` | experimental | Metrics use a fixed-point trace scratch; legacy display/measurement storage remains floating point. |
 | E065 | Compact fixed-point correction tables | specified | Quantization/error budgets must be proven against saved calibration tables. |
-| E066 | Allocate DSP scratch in the 8 KiB CCM | implemented | 7,456 bytes hold frequency, trace, sort and 512-point FFT scratch; DMA SRAM is untouched. |
+| E066 | Allocate DSP scratch in the 8 KiB CCM | implemented | 7,696 bytes hold the frequency cache plus an overlaid metrics/1,024-point FFT workspace; DMA SRAM is untouched. |
 | E067 | Place selected hot code in CCM | specified | Only after cycle evidence justifies displacing scarce DSP data. |
 | E068 | Explicit buffer ownership | specified | New modules have explicit scratch contracts; the whole legacy image still aliases large buffers. |
-| E069 | Q15 windows, FIRs and FFTs | experimental | Saturating 256/512-point Q15 FFT is tested; live windows/FIR acquisition are pending. |
+| E069 | Q15 windows, FIRs and FFTs | experimental | Saturating 256/512/1,024-point Q15 FFT is tested; live windows/FIR acquisition are pending. |
 | E070 | Q31/scaled integer linear power | implemented | Derived power uses bounded fixed/scaled integer accumulation with host oracles. |
 | E071 | Cortex-M4 `SMLAD` kernels | specified | Portable reference kernels come first; packed-instruction versions need alignment and cycle proof. |
 | E072 | `SSAT`/`USAT` narrowing | specified | Defined C saturation is present; instruction-specific lowering is not yet a required ABI. |
 | E073 | `CLZ` plus LUT logarithm | specified | Current log conversion is qualified for correctness, not replaced by an approximation. |
 | E074 | Fixed-size CMSIS-DSP linkage | specified | Custom fixed-size FFT avoids table bloat; modern CMSIS integration remains a later option. |
 | E075 | 512-point zero-span FFT | experimental | Transform passes impulse, cardinal and off-bin tests; uniform zero-span samples are not yet available. |
-| E076 | 1,024-point zero-span FFT | specified | Current CCM budget and capture path do not support it without a new ownership profile. |
+| E076 | 1,024-point zero-span FFT | experimental | The overlaid CCM workspace, transform, embedded self-test and cycle benchmark are implemented; uniform zero-span acquisition and a calibrated axis remain open. |
 | E077 | Swept-trace FFT/correlation | specified | Allowed only with labeling that it analyzes an already swept sequence, not RF I/Q. |
 | E078 | RBW-kernel deconvolution | host-only | Kept off-device where regularization, diagnostics and original-data comparison are practical. |
 | E079 | Goertzel detector | specified | Efficient after a uniform timestamped envelope stream is proven. |

@@ -42,7 +42,7 @@ const capabilities = {
   maximumPayloadBytes: 1024,
   maximumTracePoints: 4096,
   maximumSweepPoints: 450,
-  maximumFftPoints: 512,
+  maximumFftPoints: 1024,
   waveformSampleCount: 256,
   waveformEventBytes: 16,
 };

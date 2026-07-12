@@ -1660,14 +1660,20 @@ static freq_t _f_cache[POINTS_COUNT]
     __attribute__((section(".ccmram"), aligned(8)));
 #endif
 #if ZS407_FEATURE_DSP_UI
-static zs407_db32_t _modern_trace[POINTS_COUNT]
+typedef union {
+  struct {
+    zs407_db32_t trace[POINTS_COUNT];
+    zs407_db32_t sort[POINTS_COUNT];
+  } metrics;
+  struct {
+    int16_t real[ZS407_FFT_MAX_POINTS];
+    int16_t imag[ZS407_FFT_MAX_POINTS];
+  } fft;
+} modern_dsp_scratch_t;
+static modern_dsp_scratch_t _modern_dsp_scratch
     __attribute__((section(".ccmram"), aligned(8)));
-static zs407_db32_t _modern_sort[POINTS_COUNT]
-    __attribute__((section(".ccmram"), aligned(8)));
-static int16_t _modern_fft_real[ZS407_FFT_MAX_POINTS]
-    __attribute__((section(".ccmram"), aligned(8)));
-static int16_t _modern_fft_imag[ZS407_FFT_MAX_POINTS]
-    __attribute__((section(".ccmram"), aligned(8)));
+_Static_assert(sizeof(_f_cache) + sizeof(_modern_dsp_scratch) <= 8192U,
+               "modern DSP scratch exceeds STM32F303 CCM");
 static uint16_t _modern_saved_palette[MAX_PALETTE];
 static bool _modern_palette_active;
 static const uint16_t _modern_atomic_palette[MAX_PALETTE] = {
@@ -2483,10 +2489,12 @@ VNA_SHELL_FUNCTION(cmd_modern)
 #endif
 #if ZS407_FEATURE_DSP_UI
   bool run_dsp_selftest = argc == 1 && strcmp(argv[0], "dsp-selftest") == 0;
+  bool run_fft_bench = argc == 1 && strcmp(argv[0], "fft-bench") == 0;
   bool show_metrics = argc == 1 && strcmp(argv[0], "metrics") == 0;
   bool palette_command = argc == 2 && strcmp(argv[0], "palette") == 0;
 #else
   bool run_dsp_selftest = false;
+  bool run_fft_bench = false;
   bool show_metrics = false;
   bool palette_command = false;
 #endif
@@ -2521,10 +2529,11 @@ VNA_SHELL_FUNCTION(cmd_modern)
   bool transport_command = false;
 #endif
   if (!((argc == 0) || query_radio || run_selftest || show_caps || show_plan ||
-        run_dsp_selftest || show_metrics || palette_command || rfdiag_command ||
-        hop_plan_command || max_plan_command || refine_command || awg_command ||
-        rf_wave_command || audit_command || transport_command)) {
-    usage_printf("modern [radio|caps|selftest|dsp-selftest|metrics|"
+        run_dsp_selftest || run_fft_bench || show_metrics || palette_command ||
+        rfdiag_command || hop_plan_command || max_plan_command ||
+        refine_command || awg_command || rf_wave_command || audit_command ||
+        transport_command)) {
+    usage_printf("modern [radio|caps|selftest|dsp-selftest|fft-bench|metrics|"
                  "palette MODE|rfdiag MODE|hop-plan FREQ|max-plan FREQ|"
                  "refine PROMINENCE_DB RADIUS|plan START STOP POINTS|"
                  "awg MODE|awg SHAPE FREQ_HZ SAMPLE_HZ|"
@@ -2554,9 +2563,7 @@ VNA_SHELL_FUNCTION(cmd_modern)
 #endif
 #if ZS407_FEATURE_DSP_UI
   shell_printf("dsp_ui=1 ccm_reserved_bytes=%u fft_max_points=%u\r\n",
-               (uint32_t)(sizeof(_f_cache) + sizeof(_modern_trace) +
-                          sizeof(_modern_sort) + sizeof(_modern_fft_real) +
-                          sizeof(_modern_fft_imag)),
+               (uint32_t)(sizeof(_f_cache) + sizeof(_modern_dsp_scratch)),
                (uint32_t)ZS407_FFT_MAX_POINTS);
 #endif
 #if ZS407_FEATURE_WAVEFORM
@@ -2622,11 +2629,52 @@ VNA_SHELL_FUNCTION(cmd_modern)
 #if ZS407_FEATURE_DSP_UI
   if (run_dsp_selftest) {
     uint32_t fft_failures = zs407_fft_selftest(
-        _modern_fft_real, _modern_fft_imag, ZS407_FFT_MAX_POINTS);
+        _modern_dsp_scratch.fft.real, _modern_dsp_scratch.fft.imag,
+        ZS407_FFT_MAX_POINTS);
     uint32_t ui_failures = zs407_ui_model_selftest();
     shell_printf("dsp_selftest fft=0x%08x ui=0x%08x %s\r\n",
                  fft_failures, ui_failures,
                  (fft_failures | ui_failures) == 0U ? "PASS" : "FAIL");
+  }
+  if (run_fft_bench) {
+    for (size_t i = 0U; i < ZS407_FFT_MAX_POINTS; ++i) {
+      _modern_dsp_scratch.fft.real[i] =
+          (i & 1U) == 0U ? 16000 : -16000;
+      _modern_dsp_scratch.fft.imag[i] = 0;
+    }
+    uint32_t saved_demcr = CoreDebug->DEMCR;
+    uint32_t saved_dwt_ctrl = DWT->CTRL;
+    CoreDebug->DEMCR = saved_demcr | CoreDebug_DEMCR_TRCENA_Msk;
+    DWT->CTRL = saved_dwt_ctrl | DWT_CTRL_CYCCNTENA_Msk;
+    __DSB();
+    __ISB();
+    uint32_t start_cycles = DWT->CYCCNT;
+    zs407_core_status_t status = zs407_fft_q15(
+        _modern_dsp_scratch.fft.real, _modern_dsp_scratch.fft.imag,
+        ZS407_FFT_MAX_LOG2);
+    uint32_t elapsed_cycles = DWT->CYCCNT - start_cycles;
+    DWT->CTRL = saved_dwt_ctrl;
+    CoreDebug->DEMCR = saved_demcr;
+
+    uint32_t maximum = 0U;
+    size_t maximum_bin = 0U;
+    for (size_t i = 0U; i < ZS407_FFT_MAX_POINTS; ++i) {
+      uint32_t magnitude = zs407_fft_magnitude_squared_q30(
+          _modern_dsp_scratch.fft.real[i],
+          _modern_dsp_scratch.fft.imag[i]);
+      if (magnitude > maximum) {
+        maximum = magnitude;
+        maximum_bin = i;
+      }
+    }
+    bool passed = status == ZS407_CORE_OK &&
+                  maximum_bin == ZS407_FFT_MAX_POINTS / 2U &&
+                  _modern_dsp_scratch.fft.real[maximum_bin] > 15000;
+    shell_printf("fft_bench points=%u cycles=%u peak_bin=%u peak_q15=%d %s\r\n",
+                 (uint32_t)ZS407_FFT_MAX_POINTS, elapsed_cycles,
+                 (uint32_t)maximum_bin,
+                 _modern_dsp_scratch.fft.real[maximum_bin],
+                 passed ? "PASS" : "FAIL");
   }
   if (show_metrics) {
     if (sweep_points < 2U || setting.frequency_step == 0U) {
@@ -2635,8 +2683,9 @@ VNA_SHELL_FUNCTION(cmd_modern)
     }
     for (uint16_t i = 0U; i < sweep_points; ++i) {
       if (zs407_db32_from_double(measured[TRACE_ACTUAL][i],
-                                 &_modern_trace[i]) != ZS407_CORE_OK) {
-        _modern_trace[i] = ZS407_TRACE_INVALID_SAMPLE;
+                                 &_modern_dsp_scratch.metrics.trace[i]) !=
+          ZS407_CORE_OK) {
+        _modern_dsp_scratch.metrics.trace[i] = ZS407_TRACE_INVALID_SAMPLE;
       }
     }
     uint64_t span = getFrequency(sweep_points - 1U) - getFrequency(0U);
@@ -2649,8 +2698,9 @@ VNA_SHELL_FUNCTION(cmd_modern)
     }
     zs407_measurement_summary_t summary;
     zs407_core_status_t status = zs407_summarize_trace(
-        _modern_trace, sweep_points, (uint32_t)bin_width, (uint32_t)enbw,
-        9900U, _modern_sort, POINTS_COUNT, &summary);
+        _modern_dsp_scratch.metrics.trace, sweep_points,
+        (uint32_t)bin_width, (uint32_t)enbw, 9900U,
+        _modern_dsp_scratch.metrics.sort, POINTS_COUNT, &summary);
     if (status != ZS407_CORE_OK) {
       shell_printf("metrics unavailable status=%u\r\n", (uint32_t)status);
       return;
@@ -2734,15 +2784,18 @@ VNA_SHELL_FUNCTION(cmd_modern)
     uint16_t valid_points = 0U;
     for (uint16_t i = 0U; i < sweep_points; ++i) {
       if (zs407_db32_from_double(measured[TRACE_ACTUAL][i],
-                                 &_modern_trace[i]) != ZS407_CORE_OK) {
-        _modern_trace[i] = ZS407_TRACE_INVALID_SAMPLE;
+                                 &_modern_dsp_scratch.metrics.trace[i]) !=
+          ZS407_CORE_OK) {
+        _modern_dsp_scratch.metrics.trace[i] = ZS407_TRACE_INVALID_SAMPLE;
       } else {
-        _modern_sort[valid_points++] = _modern_trace[i];
+        _modern_dsp_scratch.metrics.sort[valid_points++] =
+            _modern_dsp_scratch.metrics.trace[i];
       }
     }
     zs407_db32_t noise;
-    if (zs407_quantile_db32(_modern_sort, valid_points, 13107U,
-                            _modern_sort, POINTS_COUNT, &noise) !=
+    if (zs407_quantile_db32(_modern_dsp_scratch.metrics.sort, valid_points,
+                            13107U, _modern_dsp_scratch.metrics.sort,
+                            POINTS_COUNT, &noise) !=
         ZS407_CORE_OK) {
       shell_printf("refine noise estimate unavailable\r\n");
       return;
@@ -2757,8 +2810,8 @@ VNA_SHELL_FUNCTION(cmd_modern)
     zs407_refinement_window_t windows[8];
     size_t count = 0U;
     zs407_core_status_t status = zs407_select_refinement_windows(
-        _modern_trace, sweep_points, noise, (zs407_db32_t)prominence,
-        (uint16_t)radius, windows, 8U, &count);
+        _modern_dsp_scratch.metrics.trace, sweep_points, noise,
+        (zs407_db32_t)prominence, (uint16_t)radius, windows, 8U, &count);
     shell_printf("refine dry-run noise=%.2f dBm windows=%u status=%u\r\n",
                  (double)noise / 32.0, (uint32_t)count, (uint32_t)status);
     for (size_t i = 0U; i < count; ++i) {
@@ -2879,7 +2932,8 @@ VNA_SHELL_FUNCTION(cmd_modern)
     uint32_t manifest_failures = zs407_capabilities_selftest();
     uint32_t service_failures = zs407_services_selftest();
     uint32_t fft_failures = zs407_fft_selftest(
-        _modern_fft_real, _modern_fft_imag, ZS407_FFT_MAX_POINTS);
+        _modern_dsp_scratch.fft.real, _modern_dsp_scratch.fft.imag,
+        ZS407_FFT_MAX_POINTS);
     uint32_t ui_failures = zs407_ui_model_selftest();
     uint32_t awg_failures = zs407_awg_selftest();
     shell_printf("manifest status=%u schema=%u phase=%u protocol=%u "

@@ -382,7 +382,7 @@ These are experiment targets, not promises:
 | first trace evidence | first measured segment shown before sweep completion |
 | completed-sweep UI | labels/metrics committed within one 32×32 tile-frame budget after acquisition |
 | pure metric suite | all common O(N) metrics under 2 ms at 48 MHz |
-| Q15 FFT | 512-point window + transform + magnitude under 10 ms, then tighten from measurement |
+| Q15 FFT | measure the 1,024-point transform in CPU cycles on the F303; establish a safe target from the first physical benchmark |
 | display | no full-screen clear during normal sweep/menu interaction |
 | flash | recover at least 15 KiB before adding a production DSP library |
 | RAM | preserve measured stack margin and at least 1 KiB emergency headroom per active context |

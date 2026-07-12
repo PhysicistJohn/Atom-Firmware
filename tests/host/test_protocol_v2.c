@@ -64,7 +64,7 @@ static int test_generated_payloads(const char *fixture_directory)
 
   zs407_capabilities_payload_t capabilities = {
       2U, 2U, 6U, 1U, UINT32_C(0x12345678), UINT32_C(0x89abcdef),
-      1024U, 4096U, 450U, 512U, 256U, 16U};
+      1024U, 4096U, 450U, 1024U, 256U, 16U};
   CHECK(zs407_capabilities_payload_encode(
       &capabilities, actual, ZS407_CAPABILITIES_PAYLOAD_BYTES));
   CHECK(fixture_path(path, sizeof(path), fixture_directory,

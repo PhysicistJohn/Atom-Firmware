@@ -44,7 +44,7 @@ static int test_release_capabilities(void)
   CHECK((manifest.feature_bits & ZS407_CAP_FINAL_DISPOSITION_AUDIT) != 0U);
   CHECK((manifest.safety_bits & ZS407_SAFETY_AWG_EXECUTION_LOCKED) != 0U);
   CHECK(manifest.maximum_sweep_points == 450U);
-  CHECK(manifest.maximum_fft_points == 512U);
+  CHECK(manifest.maximum_fft_points == ZS407_FFT_MAX_POINTS);
   CHECK(manifest.waveform_sample_count == 256U);
   CHECK(manifest.waveform_event_bytes == sizeof(zs407_wave_event_t));
   return 0;
@@ -337,9 +337,9 @@ static int test_measurements(void)
 
 static int test_fft(void)
 {
-  int16_t real[512];
-  int16_t imag[512];
-  CHECK(zs407_fft_selftest(real, imag, 512U) == 0U);
+  int16_t real[ZS407_FFT_MAX_POINTS];
+  int16_t imag[ZS407_FFT_MAX_POINTS];
+  CHECK(zs407_fft_selftest(real, imag, ZS407_FFT_MAX_POINTS) == 0U);
 
   for (size_t i = 0U; i < 512U; ++i) {
     real[i] = (i & 1U) == 0U ? 16000 : -16000;
@@ -358,6 +358,41 @@ static int test_fft(void)
   CHECK(maximum_bin == 256U);
   CHECK(real[256] > 15000);
 
+  for (size_t i = 0U; i < ZS407_FFT_MAX_POINTS; ++i) {
+    real[i] = (i & 1U) == 0U ? 16000 : -16000;
+    imag[i] = 0;
+  }
+  CHECK(zs407_fft_q15(real, imag, ZS407_FFT_MAX_LOG2) == ZS407_CORE_OK);
+  maximum = 0U;
+  maximum_bin = 0U;
+  for (size_t i = 0U; i < ZS407_FFT_MAX_POINTS; ++i) {
+    uint32_t magnitude = zs407_fft_magnitude_squared_q30(real[i], imag[i]);
+    if (magnitude > maximum) {
+      maximum = magnitude;
+      maximum_bin = i;
+    }
+  }
+  CHECK(maximum_bin == ZS407_FFT_MAX_POINTS / 2U);
+  CHECK(real[maximum_bin] > 15000);
+
+  for (size_t i = 0U; i < ZS407_FFT_MAX_POINTS; ++i) {
+    double phase = 2.0 * 3.14159265358979323846 * 73.0 * (double)i /
+                   (double)ZS407_FFT_MAX_POINTS;
+    real[i] = (int16_t)lrint(12000.0 * cos(phase));
+    imag[i] = 0;
+  }
+  CHECK(zs407_fft_q15(real, imag, ZS407_FFT_MAX_LOG2) == ZS407_CORE_OK);
+  maximum = 0U;
+  maximum_bin = 0U;
+  for (size_t i = 1U; i < ZS407_FFT_MAX_POINTS / 2U; ++i) {
+    uint32_t magnitude = zs407_fft_magnitude_squared_q30(real[i], imag[i]);
+    if (magnitude > maximum) {
+      maximum = magnitude;
+      maximum_bin = i;
+    }
+  }
+  CHECK(maximum_bin == 73U);
+
   for (size_t i = 0U; i < 256U; ++i) {
     double phase = 2.0 * 3.14159265358979323846 * 37.0 * (double)i / 256.0;
     real[i] = (int16_t)lrint(12000.0 * cos(phase));
@@ -375,6 +410,8 @@ static int test_fft(void)
   }
   CHECK(maximum_bin == 37U);
   CHECK(zs407_fft_q15(real, imag, 7U) == ZS407_CORE_INVALID_ARGUMENT);
+  CHECK(zs407_fft_q15(real, imag, ZS407_FFT_MAX_LOG2 + 1U) ==
+        ZS407_CORE_INVALID_ARGUMENT);
   CHECK(zs407_q15_saturate(40000) == 32767);
   CHECK(zs407_q15_saturate(-40000) == -32768);
   return 0;

@@ -86,6 +86,7 @@ Read first
 - [Known issues and community research](docs/KNOWN_ISSUES.md)
 - [Reverse-engineering workflow](docs/REVERSE_ENGINEERING.md)
 - [Hardware bring-up and recovery gate](docs/HARDWARE_BRINGUP.md)
+- [Enhanced ZS407 hardware trial v0.3](docs/HARDWARE_TRIAL_V0_3.md)
 - [Modernization roadmap](ROADMAP.md)
 - [Upstream contribution candidates](docs/UPSTREAM.md)
 - [Personal-account and contribution policy](CONTRIBUTING.md)

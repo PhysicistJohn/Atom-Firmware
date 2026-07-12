@@ -31,7 +31,7 @@ private struct ContractTest {
             schemaVersion: 2, protocolVersion: 2, releasePhase: 6, profileId: 1,
             featureBits: 0x12345678, safetyBits: 0x89abcdef,
             maximumPayloadBytes: 1024, maximumTracePoints: 4096,
-            maximumSweepPoints: 450, maximumFftPoints: 512,
+            maximumSweepPoints: 450, maximumFftPoints: 1024,
             waveformSampleCount: 256, waveformEventBytes: 16)
         let capabilitiesFixture = try fixture(directory, "capabilities")
         try require(capabilities.encode() == capabilitiesFixture,

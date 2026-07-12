@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "zs407_capabilities.h"
+#include "zs407_fft.h"
 
 #include "../../zs407_features.h"
 
@@ -41,7 +42,7 @@ zs407_core_status_t zs407_release_manifest_for_phase(
   if (phase >= 3U) {
     manifest->feature_bits |=
         ZS407_CAP_FIXED_POINT_DSP | ZS407_CAP_ATOMIC_UI_MODEL;
-    manifest->maximum_fft_points = 512U;
+    manifest->maximum_fft_points = ZS407_FFT_MAX_POINTS;
   }
   if (phase >= 4U) {
     manifest->feature_bits |= ZS407_CAP_RF_DRY_RUN_LAB;
@@ -111,7 +112,7 @@ uint32_t zs407_capabilities_selftest(void)
              ZS407_SAFETY_HARDWARE_CRC_UNQUALIFIED
 #endif
           ) ||
-      final_manifest.maximum_fft_points != 512U ||
+      final_manifest.maximum_fft_points != ZS407_FFT_MAX_POINTS ||
       final_manifest.waveform_event_bytes != 16U) {
     failures |= 8U;
   }

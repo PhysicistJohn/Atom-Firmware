@@ -12,7 +12,7 @@ typedef struct {
 static const q15_complex_t stage_step[ZS407_FFT_MAX_LOG2 + 1U] = {
     {0, 0},          {-32768, 0},   {0, -32768},    {23170, -23170},
     {30274, -12540}, {32138, -6393}, {32610, -3212}, {32729, -1608},
-    {32758, -804},   {32766, -402}};
+    {32758, -804},   {32766, -402}, {32767, -201}};
 
 int16_t zs407_q15_saturate(int32_t value)
 {
@@ -107,7 +107,8 @@ uint32_t zs407_fft_magnitude_squared_q30(int16_t real, int16_t imag)
 uint32_t zs407_fft_selftest(int16_t *real, int16_t *imag,
                             size_t scratch_points)
 {
-  if (real == NULL || imag == NULL || scratch_points < 256U) {
+  if (real == NULL || imag == NULL ||
+      scratch_points < ZS407_FFT_MAX_POINTS) {
     return UINT32_C(1) << 0;
   }
   for (size_t i = 0U; i < 256U; ++i) {
@@ -122,6 +123,28 @@ uint32_t zs407_fft_selftest(int16_t *real, int16_t *imag,
     if (real[i] < 124 || real[i] > 130 || imag[i] < -2 || imag[i] > 2) {
       return UINT32_C(1) << 2;
     }
+  }
+
+  for (size_t i = 0U; i < ZS407_FFT_MAX_POINTS; ++i) {
+    real[i] = (i & 1U) == 0U ? 16000 : -16000;
+    imag[i] = 0;
+  }
+  if (zs407_fft_q15(real, imag, ZS407_FFT_MAX_LOG2) != ZS407_CORE_OK) {
+    return UINT32_C(1) << 3;
+  }
+  uint32_t maximum = 0U;
+  size_t maximum_bin = 0U;
+  for (size_t i = 0U; i < ZS407_FFT_MAX_POINTS; ++i) {
+    uint32_t magnitude = zs407_fft_magnitude_squared_q30(real[i], imag[i]);
+    if (magnitude > maximum) {
+      maximum = magnitude;
+      maximum_bin = i;
+    }
+  }
+  if (maximum_bin != ZS407_FFT_MAX_POINTS / 2U ||
+      real[maximum_bin] < 15000 || imag[maximum_bin] < -2 ||
+      imag[maximum_bin] > 2) {
+    return UINT32_C(1) << 4;
   }
   return 0U;
 }

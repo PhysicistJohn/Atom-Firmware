@@ -62,7 +62,7 @@
         "maximum_payload_bytes": 1024,
         "maximum_trace_points": 4096,
         "maximum_sweep_points": 450,
-        "maximum_fft_points": 512,
+        "maximum_fft_points": 1024,
         "waveform_sample_count": 256,
         "waveform_event_bytes": 16
       }
