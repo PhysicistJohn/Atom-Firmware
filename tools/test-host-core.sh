@@ -13,6 +13,7 @@ command -v "$host_cc" >/dev/null 2>&1 || die "host compiler not found: $host_cc"
 "$ROOT/tools/compile-waveform.py" --self-test
 "$ROOT/tools/audit-enhancement-dispositions.py"
 "$ROOT/tools/audit-document-links.py"
+/usr/bin/python3 "$ROOT/tests/host/test_qualify_upstream_tinysa.py"
 
 build_dir="$ROOT/.artifacts/host-tests"
 rm -rf "$build_dir"

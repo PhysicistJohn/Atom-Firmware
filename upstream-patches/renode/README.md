@@ -10,16 +10,17 @@ Publication is proceeding one explicitly approved patch at a time. Issues
 [#941](https://github.com/renode/renode-infrastructure/issues/941) and
 [#942](https://github.com/renode/renode-infrastructure/issues/942) support the
 open NVIC [PR #217](https://github.com/renode/renode-infrastructure/pull/217)
-and IDR/ODR [PR #218](https://github.com/renode/renode-infrastructure/pull/218).
-The BSRR-priority patch and its public branch remain gated.
+and two-commit GPIO
+[PR #218](https://github.com/renode/renode-infrastructure/pull/218). The latter
+contains both independent IDR/ODR state and BSRR set-priority semantics.
 
 ## Patch queue
 
 | Patch | Failure fixed | Upstream shape | Confidence |
 | --- | --- | --- | --- |
 | `0001` NVIC RETTOBASE | ICSR bit 11 was a tag that always read zero | [PR #217](https://github.com/renode/renode-infrastructure/pull/217) | High |
-| `0002` STM32 IDR/ODR | Output-latch writes changed input pin state | [PR #218](https://github.com/renode/renode-infrastructure/pull/218) | High |
-| `0003` STM32 BSRR priority | Simultaneous set/reset incorrectly let reset win | Private follow-up; depends on `0002` as packaged | Very high |
+| `0002` STM32 IDR/ODR | Output-latch writes changed input pin state | [PR #218](https://github.com/renode/renode-infrastructure/pull/218), commit 1 | High |
+| `0003` STM32 BSRR priority | Simultaneous set/reset incorrectly let reset win | [PR #218](https://github.com/renode/renode-infrastructure/pull/218), commit 2 | Very high |
 
 Apply the complete audited series from the stated Infrastructure base:
 
@@ -159,8 +160,9 @@ number. The clean publication path is therefore:
 6. Repeat the targeted, full managed, Robot, and ZS407 matrices.
 7. Keep discussion and commits under the PhysicistJohn identity.
 
-The technical recommendation is to upstream all three. The remaining gate is
-process/hardware confirmation, not a known correctness defect in the patches.
+All three recommended fixes are now public in two mergeable PRs. Their CLA
+checks pass, and there is no maintainer feedback or known correctness defect to
+address at this time.
 
 Primary register references used in the audit are Arm's
 [Cortex-M4 Devices Generic User Guide](https://documentation-service.arm.com/static/5f2ac76d60a93e65927bbdc5)

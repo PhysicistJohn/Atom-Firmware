@@ -6,13 +6,16 @@ carry the PhysicistJohn noreply identity.
 
 Publication proceeds one explicitly approved contribution at a time. As of
 2026-07-11, tinySA PRs
-[#156](https://github.com/erikkaashoek/tinySA/pull/156) and
-[#157](https://github.com/erikkaashoek/tinySA/pull/157), plus Renode PRs
+[#156](https://github.com/erikkaashoek/tinySA/pull/156),
+[#157](https://github.com/erikkaashoek/tinySA/pull/157), and
+[#158](https://github.com/erikkaashoek/tinySA/pull/158), plus Renode PRs
 [#217](https://github.com/renode/renode-infrastructure/pull/217) and
 [#218](https://github.com/renode/renode-infrastructure/pull/218), are open.
-No other queued contribution has been published. The upstream remote remains
-fetch-only (`pushurl = no_push`); the only writable firmware remote is the
-private PhysicistJohn repository.
+No other queued contribution has been published. Packages 4 through 7 are
+staged through their hardware-independent gates and await the single physical
+batch in [UPSTREAM_HARDWARE_BATCH.md](UPSTREAM_HARDWARE_BATCH.md). The upstream
+remote remains fetch-only (`pushurl = no_push`); the only writable firmware
+remote is the private PhysicistJohn repository.
 
 ## tinySA firmware
 
@@ -26,10 +29,10 @@ upstream `c97938697b6c7485e7cab50bca9af76996b7d671` and pinned ChibiOS
 | Reject unknown `TARGET` values | `upstream/fix-target-validation` | `46dc0d8` | Default/F072/F303 builds; invalid target fails | [PR #157](https://github.com/erikkaashoek/tinySA/pull/157) open |
 | Keep CI on pinned ChibiOS | `upstream/fix-pinned-submodule-ci` | `08caa12` | YAML parse and gitlink checkout | [PR #156](https://github.com/erikkaashoek/tinySA/pull/156) open |
 | Derive hardware table length | `upstream/fix-hardware-version-table` | `2a3a2df` | F072/F303 build; exact candidate flashed to ZS407; correct `V0.5.4 max2871` readback; cold-start full self-test passed | [PR #158](https://github.com/erikkaashoek/tinySA/pull/158) open |
-| Reject invalid scan counts | `upstream/fix-scanraw-points` | `1d518af` | F072/F303 build; static audit | USB boundary transcript |
-| Bound correction table access | `upstream/fix-correction-bounds` | `6cba8a9` | F072/F303 build; static audit | USB mutation/boundary transcript |
-| Bound shell-controlled indices | `upstream/fix-shell-index-bounds` | `5a029f9` | F072/F303 build; static audit | USB command transcript |
-| Bound remote keypad text | `upstream/fix-shell-text-bounds` | `89e5d11` | F072/F303 build; static/string audit | Maximum-line USB test |
+| Reject invalid scan counts | `upstream/fix-scanraw-points` | `1d518af` | Dual reproducible build, GCC analyzer and exact-image twin pass | Physical USB batch ready |
+| Bound correction table access | `upstream/fix-correction-bounds` | `6cba8a9` | Dual reproducible build, GCC analyzer and exact-image twin pass | Physical USB batch ready |
+| Bound shell-controlled indices | `upstream/fix-shell-index-bounds` | `5a029f9` | Dual reproducible build, GCC analyzer and exact-image twin pass | Physical USB batch ready |
+| Bound remote keypad text | `upstream/fix-shell-text-bounds` | `89e5d11` | Dual reproducible build, GCC analyzer and exact-image twin pass | Physical USB batch ready |
 
 The tested aggregate is
 `physicistjohn/upstream-firmware-fixes` at
@@ -62,10 +65,13 @@ M0/M0+/M1/M4/M23/M33, and the exact ZS407 boot/jog/touch/RF integration passes.
 
 Renode's contribution guide asks for an issue and issue-numbered branch before
 a PR. Issues 941 and 942 were opened under PhysicistJohn after explicit
-approval. The NVIC change is [PR #217](https://github.com/renode/renode-infrastructure/pull/217),
-and the independent-IDR/ODR GPIO change is
-[PR #218](https://github.com/renode/renode-infrastructure/pull/218). The BSRR
-set-priority candidate remains private pending its own review and approval.
+approval. The NVIC change is
+[PR #217](https://github.com/renode/renode-infrastructure/pull/217). The
+independent-IDR/ODR GPIO change and its tightly related BSRR set-priority
+follow-up are the two commits in
+[PR #218](https://github.com/renode/renode-infrastructure/pull/218). Both Renode
+PRs are mergeable and their CLA checks pass; neither has maintainer feedback
+yet.
 
 ## Exact-build finding for tinySA issue 152
 

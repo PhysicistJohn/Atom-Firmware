@@ -189,18 +189,24 @@ boot/jog/touch/UI/RF scenario.
 ## Remaining hardware gates
 
 Package 3 completed its physical version-identification and self-test gate.
-Before publishing packages 4–7, exercise their exact candidates on the actual
-ZS407 over USB:
+Packages 4–7 now pass independent dual-target reproducible builds, GCC
+`-fanalyzer`, exact-source audits and exact-image Renode boot. Their four F303
+images, hashes, fail-closed test runner and rapid physical order are in
+[UPSTREAM_HARDWARE_BATCH.md](../../docs/UPSTREAM_HARDWARE_BATCH.md).
 
-1. Verify valid `scan`, legacy `s`, and `scanraw` commands still work.
+The physical batch deliberately avoids calibration mutation:
+
+1. Verify valid `scan`, legacy `s`, and one-point `scanraw` operation.
 2. Confirm zero/one/negative/overflow scan counts are rejected as specified.
-3. Exercise correction read, valid update/reset, invalid table, and slots
-   `-1`, last-valid, and first-invalid.
-4. Exercise valid and invalid trace/marker/color/menu indices without a reset or
-   configuration mutation.
-5. Send the maximum shell line to `text` and confirm deterministic truncation,
-   no crash, and normal subsequent UI/USB operation.
-6. Reboot and confirm saved calibration/configuration remains intact.
+3. Read the complete correction table, exercise missing/invalid tables and
+   slots `-1`/first-invalid, then prove the table is byte-for-byte unchanged.
+4. Exercise invalid trace/marker/color/menu indices, prove the palette remains
+   unchanged, and confirm the shell remains responsive.
+5. Send a 46-byte command line to `text`, confirm normal subsequent UI/USB
+   operation, and restore the original frequency grid without saving.
+6. Cold-start and run the complete built-in self-test on every exact candidate.
+7. Restore the qualified enhanced v0.3 image, repeat its self-test, and only
+   then remove the CAL-to-RF cable.
 
 ## Suggested upstream grouping
 
