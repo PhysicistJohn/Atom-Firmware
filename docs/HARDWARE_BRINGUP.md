@@ -213,6 +213,12 @@ current/stale uncalibrated sweep and are not RF qualification evidence. Live
 calibrated metric accuracy, analyzer cadence across operating modes, and RF
 performance remain separate open gates.
 
+Release decision on 2026-07-11: this exact enhanced v0.3 image is frozen as the
+current physical checkpoint. Making the qualified 1,024-point FFT live is
+sufficient for now. Custom waveform upload, DAC output and experimental RF
+polar/IQ work remain documented future candidates; none is enabled by this
+decision and no follow-on hardware image is implied.
+
 ## Commands excluded from initial automation
 
 Until backup and recovery are demonstrated, do not automate configuration

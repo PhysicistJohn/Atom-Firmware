@@ -97,12 +97,21 @@ phase lists the major directions; the register is the detailed working backlog.
 The cumulative branch and image gates are defined in
 [`docs/PHASE_IMPLEMENTATION.md`](docs/PHASE_IMPLEMENTATION.md).
 
+Current hardware decision (2026-07-11): enhanced v0.3/FFT-1024 is physically
+qualified and frozen. The waveform and modulation directions below are a
+deferred queue, not work enabled in the deployed image. See
+[`docs/WAVEFORM_GENERATOR.md`](docs/WAVEFORM_GENERATOR.md).
+
 Candidate directions, to be prioritized from measurements rather than novelty:
 
 - a versioned, machine-readable USB protocol alongside the compatible shell;
 - richer error/status telemetry and crash records;
 - faster or more deterministic trace streaming;
 - safer generator state and explicit output indication;
+- bounded custom low-frequency DAC waveform upload and playback after PA4 load,
+  bandwidth, ownership and restore qualification;
+- native Si4468 structured modulation and a separately measured, low-rate
+  MAX2871/attenuator polar-IQ feasibility experiment;
 - the Atomic 480×320 dirty-tile UI described in `docs/EMBEDDED_UI.md`;
 - progressive trace presentation and display/RF deadline scheduling;
 - occupied bandwidth, ACPR, robust noise floor, peak persistence, spectral

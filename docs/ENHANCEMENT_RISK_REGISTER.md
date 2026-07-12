@@ -209,7 +209,7 @@ Priority indicates ordering, not desirability:
 | Frequency-hop/dwell lists | Synthesizer stimulus and channel sequences | Medium-High | PLL settling and transient emissions | P2 |
 | Stepped chirps | Radar/FMCW-like experiments | High | Not phase-continuous and may have strong step sidebands | P3 |
 | MAX2871 manual fast hopping | Faster high-frequency sequences | High | VCO table, lock and spectral splatter | P3 |
-| MAX2871 phase adjustment | Slow phase-coded or PSK-like experiments | High | Phase repeatability and update transients | Research |
+| MAX2871 phase adjustment | Slow PSK and narrowband polar-IQ feasibility | High | Phase repeatability, attenuation synchronization and update transients | Research |
 | Generator leveling calibration | Better frequency/level/path accuracy | High | Large campaign with a reference power instrument | P2 |
 | Report the actual quantized waveform | Honest frequency, level, timing and phase limits | Low-Medium | Protocol and UI work | P1 |
 | Emissions-limit warnings | Warn about excessive power, band or duty settings | Medium | Jurisdiction-specific rules change | P2 |
@@ -251,8 +251,8 @@ map; they do not replace it.
 | Desired enhancement | Why blocked | Required hardware | Status |
 | --- | --- | --- | --- |
 | Instantaneous wideband RF FFT | MCU receives RSSI rather than sampled IF/IQ | Accessible IF plus ADC, or SDR transceiver | Blocked |
-| True arbitrary RF waveform | No high-rate RF DAC or IQ modulator | Dual DAC plus IQ modulator, or direct-RF DAC | Blocked |
-| QAM/OFDM | No independently controlled I/Q path | Coherent IQ transmitter | Blocked |
+| True broadband arbitrary RF waveform | No high-rate RF DAC or IQ modulator | Dual DAC plus IQ modulator, or direct-RF DAC | Blocked |
+| Broadband/high-order QAM or OFDM | No continuous independently controlled complex-sample path | Coherent IQ transmitter | Blocked |
 | Clean simultaneous arbitrary multitone | Current sources are PLL/modem based | RF DAC or IQ modulator | Blocked |
 | Phase-coherent arbitrary chirp | PLL register stepping is not a continuous sample stream | DDS, FPGA or IQ transmitter | Blocked |
 | Receive phase/vector measurements | RSSI detection discards phase | Coherent I/Q receiver | Blocked |
@@ -260,6 +260,15 @@ map; they do not replace it.
 | Uninterrupted display DMA and RF SPI | All relevant devices share SPI1 | Separate display and RF buses | Hardware v2 |
 | MAX manual VCO when MUX is unconnected | Register 6 cannot be read back | Route MUX/LD to MCU or a test pad | Hardware-dependent |
 | Synchronous Si direct mode without a clock connection | Other Si GPIOs control RF switches | Dedicated TX-data and clock nets | Hardware-dependent |
+
+The blocked boundary is broadband, coherent and general-purpose I/Q—not the
+mathematics of quadrature modulation. Any complex envelope can be expressed as
+amplitude and phase. The stock attenuation and synthesizer controls may be able
+to approximate a low-symbol-rate polar signal, but that remains deferred
+research until phase repeatability, command timing, synchronization, EVM and
+spectral emissions are measured. See
+[WAVEFORM_GENERATOR.md](WAVEFORM_GENERATOR.md) for the bounded experiment and
+the distinction from a hardware-v2 I/Q transmitter.
 
 ## Recommended implementation order
 
@@ -276,8 +285,8 @@ map; they do not replace it.
    overload reporting and calibration surfaces.
 6. Add generator capabilities in the order DAC AWG, Si4468 FIFO OOK, FIFO
    FSK/GFSK, then the general event sequencer.
-7. Keep direct GPIO modulation, MAX phase control, 72 MHz, LTO and RTOS changes
-   as stretch work after the analyzer baseline is qualified.
+7. Keep direct GPIO modulation, MAX phase/polar-IQ control, 72 MHz, LTO and RTOS
+   changes as stretch work after the analyzer baseline is qualified.
 8. Treat I/Q acquisition and true RF AWG as hardware-v2 requirements.
 
 The best value/risk combination is not a raw CPU-clock increase. It is faster

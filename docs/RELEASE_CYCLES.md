@@ -4,6 +4,24 @@ The Phase 0–6 chain is immutable. Post-phase work starts at the Phase 6 tag an
 uses sequential private laboratory releases. Each release branch starts from
 the previous release tag, not from a moving default branch.
 
+## Current hardware freeze
+
+The actual enhanced v0.3 hardware checkpoint is source commit
+`43eb0f193c8619cb7ca23726e3062973c65ae958`, embedded version
+`tinySA4_hw-v0.3-fft1024-g43eb0f1`. It passed the cold self-test, modern
+diagnostics and repeatable on-device 1,024-point FFT execution recorded in
+[HARDWARE_BRINGUP.md](HARDWARE_BRINGUP.md). It is now frozen: getting FFT-1024
+live was sufficient for this checkpoint, and no waveform or new RF-modulation
+executor is scheduled for immediate deployment.
+
+The table below is the original prospective theme map, not an as-built version
+history. Its old v0.3/v0.5 allocation was superseded when FFT-1024 was selected
+for the actual v0.3 hardware trial. Future version numbers and themes remain
+provisional until work explicitly resumes; the deferred generator queue is in
+[WAVEFORM_GENERATOR.md](WAVEFORM_GENERATOR.md).
+
+## Original prospective theme map
+
 | Release | Branch theme | Hardware behavior | Exit evidence |
 |---|---|---|---|
 | v0.2 | typed protocol, marshalling, async USB laboratory | binary worker and hardware CRC locked | cross-language vectors, fuzz, GNU/LLVM compile, binary lock audit |

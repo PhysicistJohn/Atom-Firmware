@@ -189,7 +189,7 @@ renaming a candidate without closing its disposition fails the host suite.
 | E134 | Frequency-hop/dwell lists | specified | Event ABI expresses schedules; settling, gating and transient limits need an executor and captures. |
 | E135 | Stepped chirps | specified | Possible only as honestly labeled non-phase-continuous PLL steps. |
 | E136 | MAX2871 manual fast hopping | experimental | Register planner exists; VCO table, lock detect and transient control are disabled. |
-| E137 | MAX2871 phase adjustment | avoided | Repeatability and update splatter make it a poor substitute for coherent I/Q generation. |
+| E137 | MAX2871 phase adjustment | specified | Deferred feasibility study only: measure locked phase steps, attenuation synchronization, EVM and splatter; no executor or coherent-I/Q claim exists. |
 | E138 | Generator leveling calibration | specified | Requires a traceable power instrument, shielded load and automated frequency/level campaign. |
 | E139 | Report the actual quantized waveform | implemented | DAC timer/frequency, FIFO symbol rate and PE4302 attenuation report requested versus actual values. |
 | E140 | Emissions-limit warnings | specified | Needs region/profile input and cannot replace operator responsibility or measured spectral safety. |
@@ -197,6 +197,9 @@ renaming a candidate without closing its disposition fails the host suite.
 ## Hardware-blocked capabilities beyond the candidate rows
 
 The current board also cannot provide instantaneous wideband RF FFT, coherent
-receive phase, QAM/OFDM, phase-continuous arbitrary RF chirps or simultaneous
-arbitrary RF multitone. Those are not deferred firmware tasks; they are inputs
-to [HARDWARE_V2.md](HARDWARE_V2.md).
+receive phase, general-purpose broadband/high-fidelity QAM or OFDM,
+phase-continuous arbitrary RF chirps or simultaneous arbitrary RF multitone.
+Those are not deferred firmware tasks; they are inputs to
+[HARDWARE_V2.md](HARDWARE_V2.md). The separately specified MAX2871 experiment
+is only an attempt to measure low-rate polar modulation feasibility; it does
+not weaken this hardware boundary.
