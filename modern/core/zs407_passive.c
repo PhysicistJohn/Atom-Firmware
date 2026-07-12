@@ -271,7 +271,9 @@ zs407_core_status_t zs407_adaptive_plan(
   for (size_t index = 1U; index + 1U < count; ++index) {
     if (samples[index] == ZS407_TRACE_INVALID_SAMPLE ||
         samples[index] < threshold || samples[index] < samples[index - 1U] ||
-        samples[index] < samples[index + 1U]) {
+        samples[index] < samples[index + 1U] ||
+        (samples[index] == samples[index - 1U] &&
+         samples[index] == samples[index + 1U])) {
       continue;
     }
     (*candidate_count)++;
