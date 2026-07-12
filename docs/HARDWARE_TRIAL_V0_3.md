@@ -62,3 +62,16 @@ It is never saved automatically and a reboot restores the persisted palette.
 
 Any boot, identity, self-test or DSP failure ends the trial and returns the
 unit to the cached official image before further development.
+
+## Reproducible build
+
+From the committed trial branch:
+
+```sh
+tools/build-hardware-trial.sh
+```
+
+The builder runs the complete host suite, builds F072 and F303 twice, requires
+identical clean-build hashes, audits every RF-output and binary-transport lock,
+checks flash/heap/CCM limits, verifies the official rollback hash, and emits a
+manifest beside the local BIN/ELF/HEX artifacts. It contains no flash command.
