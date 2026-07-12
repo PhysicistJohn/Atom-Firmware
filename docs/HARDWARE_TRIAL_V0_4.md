@@ -110,6 +110,31 @@ capture_state=0 capture_summary=0
 Those zeros are the expected locked-image behavior: the completion hook and
 ledger are live, while no stream buffer is leased and nothing is published.
 
+### Short host-clock comparison
+
+The remaining hardware window allowed a short read-only clock comparison. An
+initial 179.891-second run collected 91 samples at two-second intervals. It
+kept device time and the completion ledger monotonic, advanced 180 completed
+sweeps and retained zero published, dropped or invalid traces. One request
+waited 231 ms at a sweep boundary, so its 4,316.6 ppm regression was retained
+as a latency-contaminated observation rather than the clock estimate.
+
+A warmed follow-up collected 36 samples across 45.502 seconds. All request
+round trips were between 4.719 and 8.061 ms, with a 5.043 ms median. Fits using
+host request, midpoint and response timestamps produced respectively 4,213.2,
+4,216.9 and 4,220.5 ppm. The midpoint estimate therefore places this unit's
+free-running 10 kHz device clock about **4,217 ppm (0.422%) fast** relative to
+the Mac monotonic clock during this short run. Device time advanced 45.6961
+seconds while host response time advanced 45.502124 seconds. The ledger moved
+from 1,603 to 1,638 completed sweeps with zero publication, drops or invalid
+traces.
+
+This result proves the clock is stable enough to fit over a short interval and
+also proves that raw timestamps must not be treated as UTC or nominal-rate time.
+Per-unit offset/drift fitting is mandatory for multi-instrument timestamp
+alignment. The result does not provide sample- or RF-phase coherence and does
+not replace the planned 30-minute, temperature-aware and multi-unit test.
+
 `modern passive plan` completed against real 0–900 MHz sweep data with status
 zero and `execution=locked`. It produced bounded windows around observed local
 maxima without modifying start, stop, RBW or sweep cadence. `modern metrics`

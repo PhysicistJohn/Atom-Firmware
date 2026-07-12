@@ -195,6 +195,11 @@ boot-relative timestamps, dry-run adaptive planning, RF readback and the LCD
 capture path also behaved correctly. Every output, streaming, capture and fast
 RF execution latch remained closed.
 
+A subsequent short host comparison measured the free-running device clock
+about 4,217 ppm (0.422%) fast relative to the Mac monotonic clock. This is an
+important expected-calibration input, not a claim of disciplined time: the
+full 30-minute and multi-unit drift gate remains open.
+
 The exact commands, counters, hashes and safety observations are recorded in
 [HARDWARE_TRIAL_V0_4.md](HARDWARE_TRIAL_V0_4.md). The immutable pre-flash
 manifest correctly remains a record of the candidate before physical evidence;
