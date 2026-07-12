@@ -184,24 +184,36 @@ for the complete 1,024-point preprocessing/FFT pipeline. The physical v0.3
 Cortex-M4 FFT benchmark remains the relevant device budget: about 1.923 million
 cycles, or 40 ms at 48 MHz, before the additional linear preprocessing pass.
 
-## Physical qualification still required
+## Physical qualification status
 
-Another agent currently owns the hardware, so none of these steps has been run
-for v0.4. When it is available, test one gate at a time:
+Stage 1 passed on the physical ZS407 on 2026-07-12. The exact committed image
+booted, reported the expected source identity, passed the complete built-in
+CAL-to-RF self-test and passed every embedded deterministic, DSP, passive,
+transport, AWG and final-audit fixture. Five 1,024-point FFT runs averaged
+1,836,926 DWT cycles (38.269 ms at 48 MHz). Live completed-sweep accounting,
+boot-relative timestamps, dry-run adaptive planning, RF readback and the LCD
+capture path also behaved correctly. Every output, streaming, capture and fast
+RF execution latch remained closed.
 
-1. flash only the committed/reproducible v0.4 candidate and cold-start it;
-2. run the full built-in self-test, `modern selftest`, `modern dsp-selftest`,
-   `modern passive selftest`, `modern audit` and `modern fft-bench`;
-3. leave streaming/capture locked and compare ordinary sweep time, UI response,
-   battery reporting and RF self-test with v0.3;
-4. in a separate qualification-only build, hand USB ownership to binary mode,
-   validate reconnect/recovery, decode both compact and adversarial raw traces,
-   saturate the host deliberately and verify exact drop accounting;
-5. measure device/host timestamp offset and drift over at least 30 minutes;
-6. qualify zero-span interval and jitter at several sweep times before arming a
-   1,024-point capture; and
-7. compare envelope FFT bins against a known pulsed source while checking that
-   analyzer and self-test behavior remain unchanged after a cold restart.
+The exact commands, counters, hashes and safety observations are recorded in
+[HARDWARE_TRIAL_V0_4.md](HARDWARE_TRIAL_V0_4.md). The immutable pre-flash
+manifest correctly remains a record of the candidate before physical evidence;
+the hardware receipt is the later qualification record.
 
-Until those steps pass, the correct release statement is: **implemented,
-cross-compiled and executable-twin verified; physical execution locked**.
+The remaining gates must use separate qualification-only images and test one
+new execution boundary at a time:
+
+1. hand USB ownership to binary mode, validate reconnect/recovery, decode both
+   compact and adversarial raw traces, deliberately saturate the host and verify
+   exact drop accounting;
+2. measure device/host timestamp offset and drift over at least 30 minutes;
+3. qualify zero-span interval and jitter at several sweep times before arming a
+   1,024-point capture;
+4. compare envelope FFT bins against a known pulsed source while checking that
+   analyzer and self-test behavior remain unchanged after a cold restart; and
+5. qualify adaptive execution separately against intermittent RF fixtures and
+   UI interaction before it is allowed to alter analyzer settings.
+
+The correct Stage 1 release statement is: **physically qualified for normal
+analyzer regression and locked passive foundations; live binary streaming,
+zero-span capture and adaptive execution remain unqualified and disabled**.
