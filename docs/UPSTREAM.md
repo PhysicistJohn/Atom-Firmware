@@ -25,7 +25,7 @@ upstream `c97938697b6c7485e7cab50bca9af76996b7d671` and pinned ChibiOS
 | --- | --- | --- | --- | --- |
 | Reject unknown `TARGET` values | `upstream/fix-target-validation` | `46dc0d8` | Default/F072/F303 builds; invalid target fails | [PR #157](https://github.com/erikkaashoek/tinySA/pull/157) open |
 | Keep CI on pinned ChibiOS | `upstream/fix-pinned-submodule-ci` | `08caa12` | YAML parse and gitlink checkout | [PR #156](https://github.com/erikkaashoek/tinySA/pull/156) open |
-| Derive hardware table length | `upstream/fix-hardware-version-table` | `2a3a2df` | F072/F303 build; exact candidate flashed to ZS407; correct `V0.5.4 max2871` readback; cold-start full self-test passed | Hardware-qualified; awaiting explicit publication approval |
+| Derive hardware table length | `upstream/fix-hardware-version-table` | `2a3a2df` | F072/F303 build; exact candidate flashed to ZS407; correct `V0.5.4 max2871` readback; cold-start full self-test passed | [PR #158](https://github.com/erikkaashoek/tinySA/pull/158) open |
 | Reject invalid scan counts | `upstream/fix-scanraw-points` | `1d518af` | F072/F303 build; static audit | USB boundary transcript |
 | Bound correction table access | `upstream/fix-correction-bounds` | `6cba8a9` | F072/F303 build; static audit | USB mutation/boundary transcript |
 | Bound shell-controlled indices | `upstream/fix-shell-index-bounds` | `5a029f9` | F072/F303 build; static audit | USB command transcript |

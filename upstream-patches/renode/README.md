@@ -6,16 +6,20 @@ This directory contains three PhysicistJohn-authored fixes prepared against
 2026-07-11). The matching `renode/renode` checkout was
 `4a4f575ec92f830fb9c26a857374e4a05e097162`.
 
-No issue, pull request, public branch, or comment has been created. Publication
-and hardware flashing remain explicitly gated.
+Publication is proceeding one explicitly approved patch at a time. Issues
+[#941](https://github.com/renode/renode-infrastructure/issues/941) and
+[#942](https://github.com/renode/renode-infrastructure/issues/942) support the
+open NVIC [PR #217](https://github.com/renode/renode-infrastructure/pull/217)
+and IDR/ODR [PR #218](https://github.com/renode/renode-infrastructure/pull/218).
+The BSRR-priority patch and its public branch remain gated.
 
 ## Patch queue
 
 | Patch | Failure fixed | Upstream shape | Confidence |
 | --- | --- | --- | --- |
-| `0001` NVIC RETTOBASE | ICSR bit 11 was a tag that always read zero | Independent NVIC PR after opening the requested issue | High |
-| `0002` STM32 IDR/ODR | Output-latch writes changed input pin state | First commit of one STM32 GPIO PR | High |
-| `0003` STM32 BSRR priority | Simultaneous set/reset incorrectly let reset win | Second commit of the GPIO PR; depends on `0002` as packaged | Very high |
+| `0001` NVIC RETTOBASE | ICSR bit 11 was a tag that always read zero | [PR #217](https://github.com/renode/renode-infrastructure/pull/217) | High |
+| `0002` STM32 IDR/ODR | Output-latch writes changed input pin state | [PR #218](https://github.com/renode/renode-infrastructure/pull/218) | High |
+| `0003` STM32 BSRR priority | Simultaneous set/reset incorrectly let reset win | Private follow-up; depends on `0002` as packaged | Very high |
 
 Apply the complete audited series from the stated Infrastructure base:
 

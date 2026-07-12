@@ -9,8 +9,13 @@ The queue is based on upstream `tinySA` commit
 `ade76dea89cd093650552328e881252a06486094`. All authorship is
 `PhysicistJohn <54456354+PhysicistJohn@users.noreply.github.com>`.
 
-No public branch, issue, pull request, comment, or hardware flash has been
-made.
+Publication is proceeding one explicitly approved patch at a time. As of
+2026-07-11, packages 1, 2 and 3 are public as tinySA PRs
+[#157](https://github.com/erikkaashoek/tinySA/pull/157),
+[#156](https://github.com/erikkaashoek/tinySA/pull/156), and
+[#158](https://github.com/erikkaashoek/tinySA/pull/158), respectively.
+Packages 4–7 remain private. Package 3 was also flashed to the physical ZS407
+and passed runtime identity and the complete cold-start self-test gate.
 
 ## Queue
 
@@ -84,8 +89,9 @@ null `hw_text`. Letting the compiler derive the element count makes the loop
 cover exactly the records that exist.
 
 The F303 ELF contains four table records after the change. A physical ZS407
-version-screen and `version` command check is still required before upstream
-publication.
+reported `V0.5.4 max2871` with the exact candidate installed, and the complete
+built-in CAL-to-RF self-test passed after a physical cold start. This exact
+commit is published as PR #158.
 
 ### 4. Scan point validation
 
@@ -180,21 +186,21 @@ that result is a harness/version incompatibility and is not counted as either a
 candidate pass or regression. The current lab image still passes the complete
 boot/jog/touch/UI/RF scenario.
 
-## Hardware gate
+## Remaining hardware gates
 
-Do not flash this image merely because it builds and boots in Renode. Before
-upstream publication, exercise the actual ZS407 over USB:
+Package 3 completed its physical version-identification and self-test gate.
+Before publishing packages 4–7, exercise their exact candidates on the actual
+ZS407 over USB:
 
-1. Confirm the version page and `version` output.
-2. Verify valid `scan`, legacy `s`, and `scanraw` commands still work.
-3. Confirm zero/one/negative/overflow scan counts are rejected as specified.
-4. Exercise correction read, valid update/reset, invalid table, and slots
+1. Verify valid `scan`, legacy `s`, and `scanraw` commands still work.
+2. Confirm zero/one/negative/overflow scan counts are rejected as specified.
+3. Exercise correction read, valid update/reset, invalid table, and slots
    `-1`, last-valid, and first-invalid.
-5. Exercise valid and invalid trace/marker/color/menu indices without a reset or
+4. Exercise valid and invalid trace/marker/color/menu indices without a reset or
    configuration mutation.
-6. Send the maximum shell line to `text` and confirm deterministic truncation,
+5. Send the maximum shell line to `text` and confirm deterministic truncation,
    no crash, and normal subsequent UI/USB operation.
-7. Reboot and confirm saved calibration/configuration remains intact.
+6. Reboot and confirm saved calibration/configuration remains intact.
 
 ## Suggested upstream grouping
 
