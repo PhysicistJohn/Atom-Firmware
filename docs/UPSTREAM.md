@@ -4,9 +4,15 @@ All personal development remains on the private PhysicistJohn repository.
 Upstream candidates are isolated from the replacement-firmware roadmap and
 carry the PhysicistJohn noreply identity.
 
-Nothing in this queue has been published, discussed upstream, or flashed to
-hardware. The upstream remote is fetch-only (`pushurl = no_push`); the only
-writable remote is the private PhysicistJohn repository.
+Publication proceeds one explicitly approved contribution at a time. As of
+2026-07-11, tinySA PRs
+[#156](https://github.com/erikkaashoek/tinySA/pull/156) and
+[#157](https://github.com/erikkaashoek/tinySA/pull/157), plus Renode PRs
+[#217](https://github.com/renode/renode-infrastructure/pull/217) and
+[#218](https://github.com/renode/renode-infrastructure/pull/218), are open.
+No other queued contribution has been published. The upstream remote remains
+fetch-only (`pushurl = no_push`); the only writable firmware remote is the
+private PhysicistJohn repository.
 
 ## tinySA firmware
 
@@ -15,11 +21,11 @@ Seven minimal patches are fully packaged under
 upstream `c97938697b6c7485e7cab50bca9af76996b7d671` and pinned ChibiOS
 `ade76dea89cd093650552328e881252a06486094`.
 
-| Candidate | Independent branch | Commit | Verification | Remaining gate |
+| Candidate | Independent branch | Commit | Verification | Status |
 | --- | --- | --- | --- | --- |
-| Reject unknown `TARGET` values | `upstream/fix-target-validation` | `46dc0d8` | Default/F072/F303 builds; invalid target fails | None |
-| Keep CI on pinned ChibiOS | `upstream/fix-pinned-submodule-ci` | `08caa12` | YAML parse and gitlink checkout | None |
-| Derive hardware table length | `upstream/fix-hardware-version-table` | `2a3a2df` | F072/F303 build; ELF has four records | ZS407 version page/command |
+| Reject unknown `TARGET` values | `upstream/fix-target-validation` | `46dc0d8` | Default/F072/F303 builds; invalid target fails | [PR #157](https://github.com/erikkaashoek/tinySA/pull/157) open |
+| Keep CI on pinned ChibiOS | `upstream/fix-pinned-submodule-ci` | `08caa12` | YAML parse and gitlink checkout | [PR #156](https://github.com/erikkaashoek/tinySA/pull/156) open |
+| Derive hardware table length | `upstream/fix-hardware-version-table` | `2a3a2df` | F072/F303 build; exact candidate flashed to ZS407; correct `V0.5.4 max2871` readback; cold-start full self-test passed | Hardware-qualified; awaiting explicit publication approval |
 | Reject invalid scan counts | `upstream/fix-scanraw-points` | `1d518af` | F072/F303 build; static audit | USB boundary transcript |
 | Bound correction table access | `upstream/fix-correction-bounds` | `6cba8a9` | F072/F303 build; static audit | USB mutation/boundary transcript |
 | Bound shell-controlled indices | `upstream/fix-shell-index-bounds` | `5a029f9` | F072/F303 build; static audit | USB command transcript |
@@ -55,8 +61,11 @@ Eighteen STM32 Robot scenarios pass, the native RETTOBASE matrix covers
 M0/M0+/M1/M4/M23/M33, and the exact ZS407 boot/jog/touch/RF integration passes.
 
 Renode's contribution guide asks for an issue and issue-numbered branch before
-a PR. Rebase first, then open separate NVIC and GPIO issues under
-PhysicistJohn. Do not send them until the publication gate is lifted.
+a PR. Issues 941 and 942 were opened under PhysicistJohn after explicit
+approval. The NVIC change is [PR #217](https://github.com/renode/renode-infrastructure/pull/217),
+and the independent-IDR/ODR GPIO change is
+[PR #218](https://github.com/renode/renode-infrastructure/pull/218). The BSRR
+set-priority candidate remains private pending its own review and approval.
 
 ## Exact-build finding for tinySA issue 152
 

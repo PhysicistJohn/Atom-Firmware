@@ -104,6 +104,44 @@ Changes to frequency planning, correction data, synthesizer setup, timing,
 attenuator/LNA control, persistence layout, or interrupt/RTOS code require a
 larger matrix than display-only changes.
 
+## 6. Executed package-3 qualification (2026-07-11)
+
+The physical unit enumerated as `0483:5740`, identified as
+`tinySA ULTRA+ ZS407`, and reported `HW Version:V0.5.4 max2871`. Battery voltage
+was 4.25–4.27 V throughout the procedure.
+
+Before any locally modified image was written:
+
+- the installed `tinySA4_v1.4-217-gc5dd31f` firmware passed the complete
+  built-in CAL-to-RF self-test;
+- Atomizer wrote the exact official `tinySA4_v1.4-224-gc979386` baseline,
+  SHA-256
+  `3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41`;
+- the official image re-enumerated and its source revision, model, hardware
+  revision, toolchain and battery telemetry were read back successfully; and
+- a physical power-off/power-on was required before its post-update self-test
+  behaved normally. DFU's manifest/leave reboot and successful USB
+  re-enumeration did not replace this cold-start gate.
+
+The first modified image was hardware-table package 3, source commit
+`2a3a2df14283a840f8e650c655296332eea8186a`. Its 185696-byte binary had SHA-256
+`611c33bb11b0f453a8c915c34c7f842edf078b01a92443e7d97a7e31ec421ae3`.
+Preflight found one physical STM32 DFU device and one internal-flash alternate.
+`dfu-util 0.11` completed the erase, download and manifest/leave operation.
+
+Warm-boot readback reported firmware `hardware_table_audit`, model
+`tinySA ULTRA+ ZS407`, and the intended `V0.5.4 max2871` table match. After a
+second physical cold start, the complete built-in self-test passed with a short
+50-ohm cable between CAL and RF. The user performed and directly attested the
+manual cable, cold-start and self-test steps; automation issued only read-only
+`version`, `info`, and `vbat` commands.
+
+Package 3 therefore passed source/build provenance, rollback preparation, DFU
+admission, physical programming, runtime hardware identification and full
+self-test qualification. This evidence supports upstream review of the small
+table-length fix; it does not generalize to later RF, persistence or timing
+patches.
+
 ## Commands excluded from initial automation
 
 Until backup and recovery are demonstrated, do not automate configuration
