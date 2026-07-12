@@ -116,12 +116,14 @@ def audit(elf: Path) -> str:
     drain = disassemble(objdump, elf, "drain_passive_frame")
     required_worker_calls = (
         "zs407_passive_runtime_take_frame",
+        "bounded_usb_write",
         "zs407_passive_runtime_release_frame",
     )
     if any(name not in drain for name in required_worker_calls):
         raise AuditError("transport worker does not own the passive TX drain")
-    if "blx" not in drain:
-        raise AuditError("passive TX drain does not call the stream vtable")
+    bounded_write = disassemble(objdump, elf, "bounded_usb_write")
+    if "obqWriteTimeout" not in bounded_write or "streamWrite" in bounded_write:
+        raise AuditError("passive TX is not a bounded output-queue write")
     if "FromISR" in worker or "FromISR" in drain:
         raise AuditError("passive transport unexpectedly performs ISR work")
 

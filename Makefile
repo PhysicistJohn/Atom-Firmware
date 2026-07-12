@@ -13,7 +13,7 @@ endif
 # Phase 0..6 chain. They must name their feature set explicitly.
 RELEASE_PROFILE ?=
 ifneq ($(RELEASE_PROFILE),)
- ifeq ($(filter $(RELEASE_PROFILE),protocol-v2 passive-v0.4),)
+ ifeq ($(filter $(RELEASE_PROFILE),protocol-v2 passive-v0.4 transport-qual-v0.4),)
   $(error Unsupported RELEASE_PROFILE '$(RELEASE_PROFILE)')
  endif
  ifneq ($(TARGET),F303)
@@ -45,6 +45,12 @@ ifeq ($(RELEASE_PROFILE),passive-v0.4)
   USE_COPT += -DZS407_RELEASE_PROTOCOL_V2=1 \
               -DZS407_RELEASE_PASSIVE_V04=1 \
               -DZS407_RELEASE_PROFILE_ID=2
+endif
+ifeq ($(RELEASE_PROFILE),transport-qual-v0.4)
+  USE_COPT += -DZS407_RELEASE_PROTOCOL_V2=1 \
+              -DZS407_RELEASE_PASSIVE_V04=1 \
+              -DZS407_RELEASE_TRANSPORT_QUAL=1 \
+              -DZS407_RELEASE_PROFILE_ID=3
 endif
 
 # C++ specific options here (added to USE_OPT).
@@ -196,14 +202,15 @@ endif
 ifneq ($(filter 6,$(PHASE)),)
 MODERN_CSRC += modern/core/zs407_capabilities.c
 endif
-ifneq ($(filter $(RELEASE_PROFILE),protocol-v2 passive-v0.4),)
+ifneq ($(filter $(RELEASE_PROFILE),protocol-v2 passive-v0.4 transport-qual-v0.4),)
 MODERN_CSRC += modern/core/zs407_compact.c \
                modern/core/zs407_spsc.c \
                modern/core/zs407_trace_codec.c \
+               modern/core/zs407_transport_lifecycle.c \
                modern/embedded/zs407_crc_stm32.c \
                modern/embedded/zs407_usb_transport.c
 endif
-ifeq ($(RELEASE_PROFILE),passive-v0.4)
+ifneq ($(filter $(RELEASE_PROFILE),passive-v0.4 transport-qual-v0.4),)
 MODERN_CSRC += modern/core/zs407_passive.c \
                modern/embedded/zs407_passive_runtime.c
 endif

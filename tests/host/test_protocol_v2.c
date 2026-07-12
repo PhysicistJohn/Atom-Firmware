@@ -510,7 +510,19 @@ static int test_release_profile(void)
   CHECK((manifest.feature_bits & ZS407_CAP_STREAMING_MARSHALLING) != 0U);
   CHECK((manifest.feature_bits & ZS407_CAP_COMPACT_STORAGE_CODECS) != 0U);
   CHECK((manifest.feature_bits & ZS407_CAP_ASYNC_USB_LAB) != 0U);
+#if ZS407_RELEASE_TRANSPORT_QUAL
+  CHECK((manifest.feature_bits &
+         ZS407_CAP_BINARY_TRANSPORT_QUALIFICATION) != 0U);
+  CHECK((manifest.safety_bits & ZS407_SAFETY_BINARY_TRANSPORT_LOCKED) == 0U);
+  CHECK((manifest.safety_bits &
+         ZS407_SAFETY_TRANSPORT_QUALIFICATION_ONLY) != 0U);
+#else
+  CHECK((manifest.feature_bits &
+         ZS407_CAP_BINARY_TRANSPORT_QUALIFICATION) == 0U);
   CHECK((manifest.safety_bits & ZS407_SAFETY_BINARY_TRANSPORT_LOCKED) != 0U);
+  CHECK((manifest.safety_bits &
+         ZS407_SAFETY_TRANSPORT_QUALIFICATION_ONLY) == 0U);
+#endif
   CHECK((manifest.safety_bits & ZS407_SAFETY_HARDWARE_CRC_UNQUALIFIED) != 0U);
 #if ZS407_RELEASE_PASSIVE_V04
   CHECK((manifest.feature_bits & ZS407_CAP_DEVICE_TIMESTAMPS) != 0U);

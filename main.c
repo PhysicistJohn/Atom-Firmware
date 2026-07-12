@@ -2546,8 +2546,10 @@ VNA_SHELL_FUNCTION(cmd_modern)
   bool audit_command = false;
 #endif
 #if ZS407_FEATURE_PROTOCOL_V2
-  bool transport_command = argc == 2 &&
-                           strcmp(argv[0], "transport") == 0;
+  bool transport_command =
+      (argc == 2 ||
+       (argc == 3 && strcmp(argv[1], "handoff") == 0)) &&
+      strcmp(argv[0], "transport") == 0;
 #else
   bool transport_command = false;
 #endif
@@ -2566,7 +2568,7 @@ VNA_SHELL_FUNCTION(cmd_modern)
                  "refine PROMINENCE_DB RADIUS|plan START STOP POINTS|"
                  "awg MODE|awg SHAPE FREQ_HZ SAMPLE_HZ|"
                  "rf-wave MODE BITRATE DEVIATION_HZ|audit|"
-                 "transport MODE|passive MODE]\r\n");
+                 "transport MODE [TOKEN]|passive MODE]\r\n");
     return;
   }
 
@@ -2602,7 +2604,12 @@ VNA_SHELL_FUNCTION(cmd_modern)
 #endif
 #if ZS407_FEATURE_PROTOCOL_V2
   shell_printf("protocol_v2=1 typed_codecs=1 streaming_parser=1 "
-               "compact_storage=1 transport=locked profile=%u\r\n",
+               "compact_storage=1 transport=%s profile=%u\r\n",
+#if ZS407_FEATURE_TRANSPORT_QUALIFICATION
+               "qualification-only",
+#else
+               "locked",
+#endif
                (uint32_t)ZS407_RELEASE_PROFILE_ID);
 #endif
 #if ZS407_FEATURE_PASSIVE_ACQUISITION
@@ -2988,7 +2995,13 @@ VNA_SHELL_FUNCTION(cmd_modern)
                      ? "PASS"
                      : "FAIL");
     shell_printf("audit hardware_qualified=0 rf_execution=off "
-                 "awg_execution=locked automated_flash=absent\r\n");
+                 "awg_execution=locked transport=%s automated_flash=absent\r\n",
+#if ZS407_FEATURE_TRANSPORT_QUALIFICATION
+                 "qualification-only"
+#else
+                 "locked"
+#endif
+                 );
   }
 #endif
 #if ZS407_FEATURE_PROTOCOL_V2
@@ -2996,27 +3009,67 @@ VNA_SHELL_FUNCTION(cmd_modern)
     if (strcmp(argv[1], "status") == 0) {
       zs407_usb_transport_status_t status;
       zs407_usb_transport_status(&status);
-      shell_printf("transport compiled=%u running=%u qualified=%u "
-                   "shell_released=%u accepted=%u rejected=%u discarded=%u "
+      shell_printf("transport compiled=%u running=%u qual_build=%u admitted=%u "
+                   "qualified=%u shell_released=%u worker=%u state=%u one_shot=%u "
+                   "attempts=%u handoffs=%u starts=%u recoveries=%u "
+                   "failures=%u accepted=%u rejected=%u discarded=%u "
                    "tx=%u errors=%u\r\n",
                    status.compiled ? 1U : 0U, status.running ? 1U : 0U,
+                   status.qualification_build ? 1U : 0U,
+                   status.admission_enabled ? 1U : 0U,
                    status.hardware_qualified ? 1U : 0U,
                    status.shell_ownership_released ? 1U : 0U,
+                   status.worker_present ? 1U : 0U,
+                   status.lifecycle_state, status.one_shot_used,
+                   status.request_attempts, status.accepted_handoffs,
+                   status.starts, status.recoveries, status.failures,
                    status.accepted_frames, status.rejected_frames,
                    status.discarded_bytes, status.transmitted_frames,
                    status.transport_errors);
     } else if (strcmp(argv[1], "selftest") == 0) {
       uint32_t failures = zs407_usb_transport_selftest();
-      shell_printf("transport_selftest=%08x %s binary_transport=off\r\n",
-                   failures, failures == 0U ? "PASS" : "FAIL");
+      shell_printf("transport_selftest=%08x %s binary_transport=%s\r\n",
+                   failures, failures == 0U ? "PASS" : "FAIL",
+#if ZS407_FEATURE_TRANSPORT_QUALIFICATION
+                   "qualification-only"
+#else
+                   "off"
+#endif
+                   );
     } else if (strcmp(argv[1], "start") == 0) {
+#if ZS407_FEATURE_TRANSPORT_QUALIFICATION
+      shell_printf("transport_start status=%u refused: use handoff with the "
+                   "qualification token\r\n",
+                   (uint32_t)ZS407_CORE_NOT_QUALIFIED);
+#else
       zs407_core_status_t status = zs407_usb_transport_start();
       shell_printf("transport_start status=%u %s\r\n", (uint32_t)status,
                    status == ZS407_CORE_NOT_QUALIFIED
                        ? "refused: hardware qualification and shell handoff required"
                        : (status == ZS407_CORE_OK ? "running" : "failed"));
+#endif
+    } else if (strcmp(argv[1], "handoff") == 0) {
+#if ZS407_FEATURE_TRANSPORT_QUALIFICATION
+      if (argc != 3 ||
+          strcmp(argv[2], ZS407_TRANSPORT_QUALIFICATION_TOKEN) != 0) {
+        shell_printf("transport_handoff status=%u refused: exact token required\r\n",
+                     (uint32_t)ZS407_CORE_INVALID_ARGUMENT);
+      } else if (shell_stream != (BaseSequentialStream *)&SDU1) {
+        shell_printf("transport_handoff status=%u refused: USB shell required\r\n",
+                     (uint32_t)ZS407_CORE_NOT_QUALIFIED);
+      } else {
+        zs407_core_status_t status = zs407_usb_transport_start();
+        shell_printf("transport_handoff status=%u %s\r\n", (uint32_t)status,
+                     status == ZS407_CORE_OK
+                         ? "armed: binary ownership begins after this prompt; unplug USB to recover shell"
+                         : "refused: one-shot handoff unavailable");
+      }
+#else
+      shell_printf("transport_handoff status=%u refused: qualification profile absent\r\n",
+                   (uint32_t)ZS407_CORE_NOT_QUALIFIED);
+#endif
     } else {
-      shell_printf("transport mode must be status, selftest, or start\r\n");
+      shell_printf("transport mode must be status, selftest, start, or handoff\r\n");
     }
   }
 #endif
@@ -3777,8 +3830,28 @@ void sd_card_load_config(char *filename){
 }
 #endif
 
+#if ZS407_FEATURE_PROTOCOL_V2
+static bool shell_complete_transport_handoff(void)
+{
+  if (!zs407_usb_transport_handoff_requested()) {
+    return false;
+  }
+  zs407_core_status_t status = zs407_usb_transport_complete_handoff();
+  if (status == ZS407_CORE_OK) {
+    /* The final ASCII prompt is already queued. No later shell output is legal. */
+    shell_stream = NULL;
+    return true;
+  }
+  shell_printf("transport_handoff completion status=%u failed; shell retained\r\n",
+               (uint32_t)status);
+  shell_printf(VNA_SHELL_PROMPT_STR);
+  return false;
+}
+#endif
+
 #ifdef VNA_SHELL_THREAD
 static THD_WORKING_AREA(waThread2, /* cmd_* max stack size + alpha */450);
+
 THD_FUNCTION(myshellThread, p)
 {
   (void)p;
@@ -3786,9 +3859,14 @@ THD_FUNCTION(myshellThread, p)
   shell_printf(VNA_SHELL_NEWLINE_STR"tinySA Shell"VNA_SHELL_NEWLINE_STR);
   shell_printf(VNA_SHELL_PROMPT_STR);
   while (true) {
-    if (VNAShell_readLine(shell_line, VNA_SHELL_MAX_LENGTH))
+    if (VNAShell_readLine(shell_line, VNA_SHELL_MAX_LENGTH)) {
       VNAShell_executeLine(shell_line);
-    else // Putting a delay in order to avoid an endless loop trying to read an unavailable stream.
+#if ZS407_FEATURE_PROTOCOL_V2
+      if (shell_complete_transport_handoff()) {
+        return;
+      }
+#endif
+    } else // Putting a delay in order to avoid an endless loop trying to read an unavailable stream.
       osalThreadSleepMilliseconds(100);
   }
 }
@@ -4103,6 +4181,9 @@ int main(void)
  */
 
   shell_init_connection();
+#if ZS407_FEATURE_PROTOCOL_V2
+  zs407_usb_transport_init();
+#endif
 
   set_sweep_points(POINTS_COUNT);
 
@@ -4225,7 +4306,13 @@ int main(void)
 
   while (1) {
 //    if (SDU1.config->usbp->state == USB_ACTIVE) {
-    if (shell_check_connect()) {
+    if (shell_check_connect()
+#if ZS407_FEATURE_PROTOCOL_V2
+        && zs407_usb_transport_shell_may_spawn()
+#endif
+        ) {
+      /* A recovered USB link must restore the stream nulled at handoff. */
+      PREPARE_STREAM;
 #ifdef VNA_SHELL_THREAD
 #if CH_CFG_USE_WAITEXIT == FALSE
 #error "VNA_SHELL_THREAD use chThdWait, need enable CH_CFG_USE_WAITEXIT in chconf.h"
@@ -4238,9 +4325,14 @@ int main(void)
       shell_printf(VNA_SHELL_NEWLINE_STR"tinySA Shell"VNA_SHELL_NEWLINE_STR);
       shell_printf(VNA_SHELL_PROMPT_STR);
       do {
-        if (VNAShell_readLine(shell_line, VNA_SHELL_MAX_LENGTH))
+        if (VNAShell_readLine(shell_line, VNA_SHELL_MAX_LENGTH)) {
           VNAShell_executeLine(shell_line);
-        else
+#if ZS407_FEATURE_PROTOCOL_V2
+          if (shell_complete_transport_handoff()) {
+            break;
+          }
+#endif
+        } else
           chThdSleepMilliseconds(200);
 //      } while (SDU1.config->usbp->state == USB_ACTIVE);
       } while (shell_check_connect());
