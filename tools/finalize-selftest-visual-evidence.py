@@ -74,6 +74,18 @@ ERROR_PATTERN = re.compile(
 )
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 SCENARIO_ASSIGNMENT_RE = re.compile(r"^\$(bin|elf|symbols)\s*=\s*@(.+?)\s*$")
+SCENARIO_INCLUDE_RE = re.compile(r"^include\s+@(.+?)\s*$")
+SCENARIO_SYMBOL_DIRECTIVE_RE = re.compile(r"^\$symbols\b")
+MAIN_ZS407_SCENARIO = (ROOT / "digital-twin/renode/zs407.resc").resolve()
+SELFTEST_VISUAL_BODY = (
+    ROOT / "digital-twin/renode/tests/selftest-visual-body.resc"
+).resolve()
+PINNED_LAB_SYMBOLS = (
+    ROOT / "digital-twin/renode/symbols/v0.2.0-protocol-v2.symbols"
+).resolve()
+PINNED_LAB_SYMBOL_DEFAULT = (
+    "$symbols ?= $ORIGIN/symbols/v0.2.0-protocol-v2.symbols"
+)
 
 BASELINES = {
     "lab": {
@@ -181,11 +193,82 @@ def png_dimensions(path: Path) -> tuple[int, int]:
     return struct.unpack(">II", header[16:24])
 
 
-def scenario_artifacts(path: Path) -> dict[str, Path]:
+def prove_lab_default_symbols(path: Path, supplied_symbols: Path) -> Path:
+    reject(
+        supplied_symbols.resolve() == PINNED_LAB_SYMBOLS,
+        "implicit lab symbols require the exact repository-pinned symbol file",
+    )
+    validate_hashed_file(
+        PINNED_LAB_SYMBOLS, BASELINES["lab"]["symbols"], "pinned lab symbols"
+    )
+
+    scenario_lines = path.read_text(errors="strict").splitlines()
+    includes = []
+    for line in scenario_lines:
+        match = SCENARIO_INCLUDE_RE.match(line)
+        if not match:
+            continue
+        include_path = Path(match.group(1))
+        if not include_path.is_absolute():
+            include_path = path.parent / include_path
+        includes.append(include_path.resolve())
+    reject(
+        includes == [MAIN_ZS407_SCENARIO, SELFTEST_VISUAL_BODY],
+        "implicit lab symbols require only the exact main zs407.resc followed "
+        "by the exact self-test visual body",
+    )
+    reject(
+        MAIN_ZS407_SCENARIO.is_file() and not MAIN_ZS407_SCENARIO.is_symlink(),
+        "main zs407.resc is not a regular repository file",
+    )
+    reject(
+        SELFTEST_VISUAL_BODY.is_file() and not SELFTEST_VISUAL_BODY.is_symlink(),
+        "self-test visual body is not a regular repository file",
+    )
+    scenario_bytes = MAIN_ZS407_SCENARIO.read_bytes()
+    working_blob = git_output("hash-object", "--stdin", input_bytes=scenario_bytes).decode().strip()
+    tracked_blob = git_output(
+        "rev-parse", "HEAD:digital-twin/renode/zs407.resc"
+    ).decode().strip()
+    reject(
+        working_blob == tracked_blob,
+        "main zs407.resc has uncommitted modifications",
+    )
+    visual_body_bytes = SELFTEST_VISUAL_BODY.read_bytes()
+    visual_body_working_blob = git_output(
+        "hash-object", "--stdin", input_bytes=visual_body_bytes
+    ).decode().strip()
+    visual_body_tracked_blob = git_output(
+        "rev-parse", "HEAD:digital-twin/renode/tests/selftest-visual-body.resc"
+    ).decode().strip()
+    reject(
+        visual_body_working_blob == visual_body_tracked_blob,
+        "self-test visual body has uncommitted modifications",
+    )
+    default_count = scenario_bytes.decode(errors="strict").splitlines().count(
+        PINNED_LAB_SYMBOL_DEFAULT
+    )
+    reject(
+        default_count == 1,
+        "main zs407.resc does not contain the exact pinned lab-symbol default",
+    )
+    return PINNED_LAB_SYMBOLS
+
+
+def scenario_artifacts(
+    path: Path,
+    *,
+    allow_lab_default_symbols: bool,
+    supplied_symbols: Path,
+) -> tuple[dict[str, Path], str]:
     assignments: dict[str, Path] = {}
     for line in path.read_text(errors="strict").splitlines():
         match = SCENARIO_ASSIGNMENT_RE.match(line)
         if not match:
+            reject(
+                SCENARIO_SYMBOL_DIRECTIVE_RE.match(line) is None,
+                f"unrecognized symbol directive in {path}: {line}",
+            )
             continue
         name, raw_path = match.groups()
         reject(name not in assignments, f"duplicate ${name} assignment in {path}")
@@ -193,8 +276,19 @@ def scenario_artifacts(path: Path) -> dict[str, Path]:
         if not candidate.is_absolute():
             candidate = path.parent / candidate
         assignments[name] = candidate.resolve()
-    reject(set(assignments) == {"bin", "elf", "symbols"}, f"{path} must bind bin, elf, and symbols")
-    return assignments
+    binding = "explicit"
+    if "symbols" not in assignments:
+        reject(
+            allow_lab_default_symbols,
+            f"{path} must bind symbols explicitly",
+        )
+        assignments["symbols"] = prove_lab_default_symbols(path, supplied_symbols)
+        binding = "zs407-pinned-default"
+    reject(
+        set(assignments) == {"bin", "elf", "symbols"},
+        f"{path} must bind bin, elf, and symbols",
+    )
+    return assignments, binding
 
 
 def marker_count(log: str, marker: str) -> int:
@@ -216,7 +310,10 @@ def validate_capture(
     capture: Path,
     label: str,
     artifact_hashes: dict[str, str],
-) -> dict[str, int]:
+    symbol_profile: Path,
+    *,
+    allow_lab_default_symbols: bool = False,
+) -> tuple[dict[str, int], str]:
     capture = capture.expanduser().resolve()
     reject(capture.is_dir() and not capture.is_symlink(), f"{label} capture is not a directory: {capture}")
     expected_names = set(required_capture_names())
@@ -264,13 +361,28 @@ def validate_capture(
     reject(all(value == 14 for value in counts.values()), f"{label} capture counters are incomplete: {counts}")
     reject(ERROR_PATTERN.search(log) is None, f"{label} run.log contains a harness/error marker")
     reject("Renode is quitting" in log, f"{label} run.log does not contain a clean Renode quit")
+    loaded_profile_marker = (
+        f"ZS407_TWIN_SYMBOLS=LOADED profile={symbol_profile.name}"
+    )
+    loaded_profile_count = sum(
+        line == loaded_profile_marker or line.startswith(loaded_profile_marker + " ")
+        for line in log.splitlines()
+    )
+    reject(
+        loaded_profile_count == 1,
+        f"{label} run.log has {loaded_profile_count} exact loaded-symbol-profile markers; expected 1",
+    )
     raw_log = raw_bytes.decode(errors="strict")
     reject(ERROR_PATTERN.search(raw_log) is None, f"{label} run.raw.log contains a harness/error marker")
 
-    assignments = scenario_artifacts(capture / "run.resc")
+    assignments, symbol_binding = scenario_artifacts(
+        capture / "run.resc",
+        allow_lab_default_symbols=allow_lab_default_symbols,
+        supplied_symbols=symbol_profile,
+    )
     for name, expected in artifact_hashes.items():
         validate_hashed_file(assignments[name], expected, f"{label} scenario ${name}")
-    return counts
+    return counts, symbol_binding
 
 
 def capture_inventory_hash(capture: Path) -> str:
@@ -516,6 +628,8 @@ def write_summary(
     candidate_hashes: dict[str, str],
     reference_counts: dict[str, int],
     candidate_counts: dict[str, int],
+    reference_symbol_binding: str,
+    candidate_symbol_binding: str,
     report: dict[str, object],
     historical: dict[str, object],
 ) -> None:
@@ -550,6 +664,8 @@ def write_summary(
         f"candidate_bin_sha256={candidate_hashes['bin']}",
         f"candidate_elf_sha256={candidate_hashes['elf']}",
         f"candidate_symbol_profile_sha256={candidate_hashes['symbols']}",
+        f"reference_symbol_binding={reference_symbol_binding}",
+        f"candidate_symbol_binding={candidate_symbol_binding}",
         f"reference_counters={counter(reference_counts)}",
         f"candidate_counters={counter(candidate_counts)}",
         "reference_error_patterns=0",
@@ -658,6 +774,8 @@ def write_provenance(
     candidate_capture: Path,
     reference_capture_hash: str,
     candidate_capture_hash: str,
+    reference_symbol_binding: str,
+    candidate_symbol_binding: str,
 ) -> None:
     lines = [
         "schema=tinysa-selftest-visual-provenance-v1",
@@ -670,6 +788,7 @@ def write_provenance(
         f"reference_symbol_profile={artifacts['reference_symbols']}",
         f"reference_symbol_profile_sha256={baseline['symbols']}",
         f"packaged_reference_symbol_profile=reference/{artifacts['reference_symbols'].name}",
+        f"reference_symbol_binding={reference_symbol_binding}",
         f"reference_capture_source={reference_capture}",
         f"reference_capture_source_inventory_sha256={reference_capture_hash}",
         f"candidate_release={args.candidate_release}",
@@ -680,6 +799,7 @@ def write_provenance(
         f"candidate_symbol_profile={artifacts['candidate_symbols']}",
         f"candidate_symbol_profile_sha256={candidate_hashes['symbols']}",
         f"packaged_candidate_symbol_profile=candidate/{artifacts['candidate_symbols'].name}",
+        f"candidate_symbol_binding={candidate_symbol_binding}",
         f"candidate_capture_source={candidate_capture}",
         f"candidate_capture_source_inventory_sha256={candidate_capture_hash}",
         f"historical_comparator_commit={HISTORICAL_COMMIT}",
@@ -833,15 +953,18 @@ def main() -> int:
     }
     reference_capture = args.reference_capture.expanduser().resolve()
     candidate_capture = args.candidate_capture.expanduser().resolve()
-    reference_counts = validate_capture(
+    reference_counts, reference_symbol_binding = validate_capture(
         reference_capture,
         "reference",
         {"bin": baseline["bin"], "elf": baseline["elf"], "symbols": baseline["symbols"]},
+        artifacts["reference_symbols"],
+        allow_lab_default_symbols=args.mode == "lab",
     )
-    candidate_counts = validate_capture(
+    candidate_counts, candidate_symbol_binding = validate_capture(
         candidate_capture,
         "candidate",
         {"bin": candidate_hashes["bin"], "elf": candidate_hashes["elf"], "symbols": candidate_hashes["symbols"]},
+        artifacts["candidate_symbols"],
     )
     reference_capture_hash = capture_inventory_hash(reference_capture)
     candidate_capture_hash = capture_inventory_hash(candidate_capture)
@@ -974,6 +1097,8 @@ def main() -> int:
             candidate_hashes,
             reference_counts,
             candidate_counts,
+            reference_symbol_binding,
+            candidate_symbol_binding,
             current_report,
             historical_report,
         )
@@ -993,6 +1118,8 @@ def main() -> int:
             candidate_capture,
             reference_capture_hash,
             candidate_capture_hash,
+            reference_symbol_binding,
+            candidate_symbol_binding,
         )
         write_supplemental(stage, args, current_report, historical_report)
         write_inventory(stage)

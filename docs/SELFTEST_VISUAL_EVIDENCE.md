@@ -68,12 +68,24 @@ becomes `EVIDENCE/selftest-visual`. The historical comparator is still
 retained in the compatibility-named `comparison-original-rejected/` directory;
 for the direct lab baseline that older classifier may itself pass.
 
+The lab reference wrapper may omit an explicit `$symbols` assignment because
+the repository's main `digital-twin/renode/zs407.resc` supplies the pinned
+default. This is the only admitted implicit symbol binding. The finalizer then
+requires all of the following: `--reference-symbols` resolves to that exact
+repository file and pinned hash, `run.resc` includes the exact tracked main
+`zs407.resc` followed only by the exact tracked self-test visual body, the main
+scenario retains its exact `$symbols ?=` default, and `run.log` confirms the loaded
+`v0.2.0-protocol-v2.symbols` profile. Candidate and official-c979 wrappers
+must always bind `$symbols` explicitly.
+
 ## Fail-closed checks
 
 Finalization rejects evidence when any of these conditions is observed:
 
 - a reference or candidate BIN, ELF, or symbol-profile hash differs;
 - `run.resc` points at an artifact with a different hash;
+- an implicit symbol binding is used anywhere except the securely proven lab
+  reference default, or the loaded-profile log marker is missing;
 - any of the 14 PNG, 307,200-byte RGB565, or 7,200-byte trace captures is
   missing, extra, empty, malformed, or incomplete;
 - a framebuffer is blank or a measured trace plane is zero/unpopulated;
