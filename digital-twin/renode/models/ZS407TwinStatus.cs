@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using Antmicro.Renode.Core;
@@ -12,9 +13,9 @@ using Antmicro.Renode.Peripherals.Bus;
 namespace Antmicro.Renode.Peripherals.ZS407
 {
     /// <summary>
-    /// Assertions for the immutable v0.2.0 ZS407 executable twin.
-    /// Static SRAM addresses are deliberately tied to the pinned ELF and are
-    /// guarded by host-side binary and ELF hashes before a scenario starts.
+    /// Assertions for a symbol-profiled ZS407 executable twin. The default
+    /// addresses describe the immutable v0.2.0 image; alternate ELFs must load
+    /// an explicit, generated profile before execution.
     /// </summary>
     public sealed class ZS407TwinStatus : IDoubleWordPeripheral, IKnownSize
     {
@@ -44,6 +45,132 @@ namespace Antmicro.Renode.Peripherals.ZS407
 
         public void WriteDoubleWord(long offset, uint value)
         {
+        }
+
+        public string LoadSymbolProfile(string path)
+        {
+            if(string.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path))
+            {
+                throw new RecoverableException("ZS407 twin symbol profile path must be absolute");
+            }
+            if(!File.Exists(path))
+            {
+                throw new RecoverableException($"ZS407 twin symbol profile does not exist: {path}");
+            }
+
+            var values = new Dictionary<string, ulong>(StringComparer.Ordinal);
+            foreach(var rawLine in File.ReadAllLines(path))
+            {
+                var line = rawLine;
+                var comment = line.IndexOf('#');
+                if(comment >= 0)
+                {
+                    line = line.Substring(0, comment);
+                }
+                line = line.Trim();
+                if(line.Length == 0)
+                {
+                    continue;
+                }
+                var separator = line.IndexOf('=');
+                if(separator <= 0 || separator == line.Length - 1)
+                {
+                    throw new RecoverableException($"ZS407 twin malformed symbol profile line: {rawLine}");
+                }
+                var key = line.Substring(0, separator).Trim();
+                var encoded = line.Substring(separator + 1).Trim();
+                ulong value;
+                var isHex = encoded.StartsWith("0x", StringComparison.OrdinalIgnoreCase);
+                var digits = isHex ? encoded.Substring(2) : encoded;
+                var style = isHex ? NumberStyles.AllowHexSpecifier : NumberStyles.None;
+                if(!ulong.TryParse(digits, style, CultureInfo.InvariantCulture, out value))
+                {
+                    throw new RecoverableException($"ZS407 twin invalid symbol address for {key}: {encoded}");
+                }
+                if(values.ContainsKey(key))
+                {
+                    throw new RecoverableException($"ZS407 twin duplicate symbol profile key: {key}");
+                }
+                values.Add(key, value);
+            }
+
+            foreach(var key in values.Keys)
+            {
+                if(Array.IndexOf(SymbolProfileKeys, key) < 0)
+                {
+                    throw new RecoverableException($"ZS407 twin unknown symbol profile key: {key}");
+                }
+            }
+
+            // Resolve and validate the complete profile before mutating any
+            // active address, so a malformed file cannot leave a mixed image.
+            var chibiOsCurrentThread = GetProfileAddress(values, "chibios_current_thread");
+            var lastTouchX = GetProfileAddress(values, "last_touch_x");
+            var lastTouchY = GetProfileAddress(values, "last_touch_y");
+            var uiMode = GetProfileAddress(values, "ui_mode");
+            var setting = GetProfileAddress(values, "setting");
+            var sweepMode = GetProfileAddress(values, "sweep_mode");
+            var inSelfTest = GetProfileAddress(values, "in_selftest");
+            var selfTestStatus = GetProfileAddress(values, "selftest_status");
+            var selfTestFailCause = GetProfileAddress(values, "selftest_fail_cause");
+            var selfTestWait = GetProfileAddress(values, "selftest_wait");
+            var peakFrequency = GetProfileAddress(values, "peak_frequency");
+            var peakLevel = GetProfileAddress(values, "peak_level");
+            var peakIndex = GetProfileAddress(values, "peak_index");
+            var shellFunction = GetProfileAddress(values, "shell_function");
+            var shellLine = GetProfileAddress(values, "shell_line");
+            var shellNargs = GetProfileAddress(values, "shell_nargs");
+            var shellStream = GetProfileAddress(values, "shell_stream");
+            var measured = GetProfileAddress(values, "measured");
+            var actualRbwX10 = GetProfileAddress(values, "actual_rbw_x10");
+            var dirty = GetProfileAddress(values, "dirty");
+            var scanDirty = GetProfileAddress(values, "scan_dirty");
+            var completed = GetProfileAddress(values, "completed");
+            var sweepCounter = GetProfileAddress(values, "sweep_counter");
+            var avoidSetting = GetProfileAddress(values, "avoid_setting");
+            var frequencyStart = GetProfileAddress(values, "frequency_start");
+            var frequencyStop = GetProfileAddress(values, "frequency_stop");
+            var frequencyCount = GetProfileAddress(values, "frequency_count");
+            var frequencyDelta = GetProfileAddress(values, "frequency_delta");
+            var frequencyError = GetProfileAddress(values, "frequency_error");
+            var frequencyStartInternal = GetProfileAddress(values, "frequency_start_internal");
+            var frequencyCache = GetProfileAddress(values, "frequency_cache", true);
+
+            ChibiOsCurrentThread = chibiOsCurrentThread;
+            LastTouchX = lastTouchX;
+            LastTouchY = lastTouchY;
+            UiMode = uiMode;
+            Setting = setting;
+            SweepMode = sweepMode;
+            InSelfTest = inSelfTest;
+            SelfTestStatus = selfTestStatus;
+            SelfTestFailCause = selfTestFailCause;
+            SelfTestWait = selfTestWait;
+            PeakFrequency = peakFrequency;
+            PeakLevel = peakLevel;
+            PeakIndex = peakIndex;
+            ShellFunction = shellFunction;
+            ShellLine = shellLine;
+            ShellNargs = shellNargs;
+            ShellStream = shellStream;
+            Measured = measured;
+            ActualRbwX10 = actualRbwX10;
+            Dirty = dirty;
+            ScanDirty = scanDirty;
+            Completed = completed;
+            SweepCounter = sweepCounter;
+            AvoidSetting = avoidSetting;
+            FrequencyStart = frequencyStart;
+            FrequencyStop = frequencyStop;
+            FrequencyCount = frequencyCount;
+            FrequencyDelta = frequencyDelta;
+            FrequencyError = frequencyError;
+            FrequencyStartInternal = frequencyStartInternal;
+            FrequencyCache = frequencyCache;
+            symbolProfileName = Path.GetFileName(path);
+
+            return $"ZS407_TWIN_SYMBOLS=LOADED profile={symbolProfileName} count={values.Count} "
+                + $"setting=0x{Setting:X8} measured=0x{Measured:X8}";
         }
 
         public string AssertBooted()
@@ -217,42 +344,81 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 + (ulong)((oneBasedTest - 1) * sizeof(uint)));
             var causeAddress = ReadDoubleWordFromSram(SelfTestFailCause
                 + (ulong)((oneBasedTest - 1) * sizeof(uint)));
+            var points = ReadWordFromSram(Setting + SettingSweepPoints);
+            if(points == 0 || points > MaximumSweepPoints)
+            {
+                throw new RecoverableException($"ZS407 twin self-test points {points} outside 1..{MaximumSweepPoints}");
+            }
             var measuredPeak = float.MinValue;
+            var measuredMinimum = float.MaxValue;
             var measuredPeakIndex = 0;
-            for(var index = 0; index < MaximumSweepPoints; index++)
+            var finiteCount = 0;
+            var populatedCount = 0;
+            var mean = 0.0;
+            var sumSquaredDifferences = 0.0;
+            for(var index = 0; index < points; index++)
             {
                 var value = ReadFloatFromSram(Measured + (ulong)(index * sizeof(float)));
+                if(float.IsNaN(value) || float.IsInfinity(value))
+                {
+                    continue;
+                }
+                finiteCount++;
+                if(Math.Abs(value) > 0.000001f)
+                {
+                    populatedCount++;
+                }
+                var difference = value - mean;
+                mean += difference / finiteCount;
+                sumSquaredDifferences += difference * (value - mean);
                 if(value > measuredPeak)
                 {
                     measuredPeak = value;
                     measuredPeakIndex = index;
                 }
+                if(value < measuredMinimum)
+                {
+                    measuredMinimum = value;
+                }
+            }
+            if(finiteCount == 0)
+            {
+                measuredPeak = float.NaN;
+                measuredMinimum = float.NaN;
             }
             var left = measuredPeakIndex;
             var right = measuredPeakIndex;
-            while(left > 0 && ReadFloatFromSram(Measured
+            while(finiteCount > 0 && left > 0 && ReadFloatFromSram(Measured
                 + (ulong)(left * sizeof(float))) >= measuredPeak - 15.0f)
             {
                 left--;
             }
-            while(right < MaximumSweepPoints - 1 && ReadFloatFromSram(Measured
+            while(finiteCount > 0 && right < points - 1 && ReadFloatFromSram(Measured
                 + (ulong)(right * sizeof(float))) >= measuredPeak - 15.0f)
             {
                 right++;
             }
+            var standardDeviation = finiteCount == 0
+                ? double.NaN : Math.Sqrt(sumSquaredDifferences / finiteCount);
+            var dynamicRange = finiteCount == 0
+                ? double.NaN : measuredPeak - measuredMinimum;
             return $"ZS407_TWIN_SELFTEST_STATUS case={oneBasedTest} status={status} "
                 + $"peak_dbm={ReadFloatFromSram(PeakLevel):F2} "
                 + $"peak_hz={ReadQuadWordFromSram(PeakFrequency)} "
                 + $"peak_index={ReadDoubleWordFromSram(PeakIndex)} "
-                + $"points={ReadWordFromSram(Setting + SettingSweepPoints)} "
+                + $"points={points} "
                 + $"cause={ReadCString(causeAddress, 32)} "
                 + $"measured_peak={measuredPeak:F2}@{measuredPeakIndex} width15={right - left} "
+                + $"measured_min={measuredMinimum:F2} measured_max={measuredPeak:F2} "
+                + $"dynamic_range_db={dynamicRange:F2} mean={mean:F2} stddev={standardDeviation:F2} "
+                + $"populated={populatedCount} finite={finiteCount} "
                 + $"samples={Get<ulong>(receiver, "RssiSampleCount")} "
                 + $"raw={Get<byte>(receiver, "MinimumRssiRaw")}..{Get<byte>(receiver, "PeakRssiRaw")} "
                 + $"fixture={Get<int>(receiver, "SelfTestFixture")} "
                 + $"cal={(Get<bool>(receiver, "CalibrationOutputEnabled") ? 1 : 0)}@{Get<double>(receiver, "CalibrationFrequencyHz"):F0} "
                 + $"tuned_hz={Get<double>(receiver, "MinimumTunedInputFrequencyHz"):F0}..{Get<double>(receiver, "MaximumTunedInputFrequencyHz"):F0} "
-                + $"lo_hz={Get<double>(receiver, "MinimumLocalOscillatorFrequencyHz"):F0}..{Get<double>(receiver, "MaximumLocalOscillatorFrequencyHz"):F0}";
+                + $"lo_hz={Get<double>(receiver, "MinimumLocalOscillatorFrequencyHz"):F0}..{Get<double>(receiver, "MaximumLocalOscillatorFrequencyHz"):F0} "
+                + $"frame=0x{Get<ulong>(display, "FramebufferHash"):X16} nonblack={Get<uint>(display, "NonBlackPixels")}";
         }
 
         public string Report()
@@ -460,6 +626,23 @@ namespace Antmicro.Renode.Peripherals.ZS407
             method.Invoke(peripheral, arguments);
         }
 
+        private static ulong GetProfileAddress(IDictionary<string, ulong> values,
+            string key, bool allowCcm = false)
+        {
+            ulong value;
+            if(!values.TryGetValue(key, out value))
+            {
+                throw new RecoverableException($"ZS407 twin symbol profile is missing: {key}");
+            }
+            var inSram = value >= SramStart && value < SramEnd;
+            var inCcm = allowCcm && value >= CcmStart && value < CcmEnd;
+            if(!inSram && !inCcm)
+            {
+                throw new RecoverableException($"ZS407 twin symbol {key}=0x{value:X8} is outside modeled RAM");
+            }
+            return value;
+        }
+
         private byte ReadByteFromSram(ulong address)
         {
             return machine.GetSystemBus(this).ReadByte(address, this);
@@ -565,38 +748,54 @@ namespace Antmicro.Renode.Peripherals.ZS407
         private ulong analyzerStartHz;
         private ulong analyzerStopHz;
         private int analyzerPoints;
+        private string symbolProfileName = "v0.2.0-default";
 
-        private const ulong ChibiOsCurrentThread = 0x20001698;
-        private const ulong LastTouchX = 0x200071F6;
-        private const ulong LastTouchY = 0x200071F8;
-        private const ulong UiMode = 0x200072E1;
-        private const ulong Setting = 0x20004CE0;
-        private const ulong SweepMode = 0x20001400;
-        private const ulong InSelfTest = 0x20002861;
-        private const ulong SelfTestStatus = 0x20005420;
-        private const ulong SelfTestFailCause = 0x20005384;
-        private const ulong SelfTestWait = 0x200054A8;
-        private const ulong PeakFrequency = 0x20004508;
-        private const ulong PeakLevel = 0x20004514;
-        private const ulong PeakIndex = 0x20004510;
-        private const ulong ShellFunction = 0x20005324;
-        private const ulong ShellLine = 0x20005328;
-        private const ulong ShellNargs = 0x20005358;
-        private const ulong ShellStream = 0x2000535C;
-        private const ulong Measured = 0x2000289C;
-        private const ulong ActualRbwX10 = 0x200020EC;
-        private const ulong Dirty = 0x20001330;
-        private const ulong ScanDirty = 0x200013E4;
-        private const ulong Completed = 0x200022DC;
-        private const ulong SweepCounter = 0x20005378;
-        private const ulong AvoidSetting = 0x200022BC;
-        private const ulong FrequencyStart = 0x20002840;
-        private const ulong FrequencyStop = 0x20002848;
-        private const ulong FrequencyCount = 0x2000208E;
-        private const ulong FrequencyDelta = 0x20002090;
-        private const ulong FrequencyError = 0x20002098;
-        private const ulong FrequencyStartInternal = 0x200020A0;
-        private const ulong FrequencyCache = 0x10000000;
+        private ulong ChibiOsCurrentThread = 0x20001698;
+        private ulong LastTouchX = 0x200071F6;
+        private ulong LastTouchY = 0x200071F8;
+        private ulong UiMode = 0x200072E1;
+        private ulong Setting = 0x20004CE0;
+        private ulong SweepMode = 0x20001400;
+        private ulong InSelfTest = 0x20002861;
+        private ulong SelfTestStatus = 0x20005420;
+        private ulong SelfTestFailCause = 0x20005384;
+        private ulong SelfTestWait = 0x200054A8;
+        private ulong PeakFrequency = 0x20004508;
+        private ulong PeakLevel = 0x20004514;
+        private ulong PeakIndex = 0x20004510;
+        private ulong ShellFunction = 0x20005324;
+        private ulong ShellLine = 0x20005328;
+        private ulong ShellNargs = 0x20005358;
+        private ulong ShellStream = 0x2000535C;
+        private ulong Measured = 0x2000289C;
+        private ulong ActualRbwX10 = 0x200020EC;
+        private ulong Dirty = 0x20001330;
+        private ulong ScanDirty = 0x200013E4;
+        private ulong Completed = 0x200022DC;
+        private ulong SweepCounter = 0x20005378;
+        private ulong AvoidSetting = 0x200022BC;
+        private ulong FrequencyStart = 0x20002840;
+        private ulong FrequencyStop = 0x20002848;
+        private ulong FrequencyCount = 0x2000208E;
+        private ulong FrequencyDelta = 0x20002090;
+        private ulong FrequencyError = 0x20002098;
+        private ulong FrequencyStartInternal = 0x200020A0;
+        private ulong FrequencyCache = 0x10000000;
+        private static readonly string[] SymbolProfileKeys =
+        {
+            "chibios_current_thread", "last_touch_x", "last_touch_y", "ui_mode",
+            "setting", "sweep_mode", "in_selftest", "selftest_status",
+            "selftest_fail_cause", "selftest_wait", "peak_frequency", "peak_level",
+            "peak_index", "shell_function", "shell_line", "shell_nargs", "shell_stream",
+            "measured", "actual_rbw_x10", "dirty", "scan_dirty", "completed",
+            "sweep_counter", "avoid_setting", "frequency_start", "frequency_stop",
+            "frequency_count", "frequency_delta", "frequency_error",
+            "frequency_start_internal", "frequency_cache"
+        };
+        private const ulong SramStart = 0x20000000;
+        private const ulong SramEnd = 0x20010000;
+        private const ulong CcmStart = 0x10000000;
+        private const ulong CcmEnd = 0x10002000;
         private const ulong SettingAutoAttenuation = 5;
         private const ulong SettingTest = 442;
         private const ulong SettingMute = 8;

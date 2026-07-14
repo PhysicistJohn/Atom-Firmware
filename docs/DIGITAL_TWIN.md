@@ -25,6 +25,29 @@ only after confirming that `gh` is authenticated as `PhysicistJohn`.
 `tools/bootstrap-renode.sh` performs the equivalent pinned download and hash
 check for Renode on macOS Arm64, Linux x86-64 and Linux Arm64.
 
+The executable bridge no longer assumes that every ELF shares the baseline's
+absolute SRAM layout. `zs407.resc` loads a complete symbol profile alongside
+the BIN and ELF, rejecting missing, duplicate, unknown or out-of-RAM entries
+before the CPU runs. The checked-in baseline profile remains the default. The
+ChibiOS 21.11.5 RC1 profile was generated from ELF SHA-256
+`84afdfeb83018ef5769d8d89343f1f1501a40726079e0d584d0c12e9fe0e91e7`.
+
+Generate another profile from an F303 ELF with the pinned toolchain's `nm`:
+
+```bash
+toolchain=$(tools/bootstrap-toolchain.sh)
+tools/generate-twin-symbol-profile.py \
+  --elf path/to/tinySA4.elf \
+  --nm "$toolchain/arm-none-eabi-nm" \
+  --chibios-current-thread-offset 12 \
+  --output path/to/image.symbols
+```
+
+The current-thread offset is `offsetof(os_instance_t, rlist.current)` and must
+be verified from that ELF's DWARF when ChibiOS changes. A candidate scenario
+sets `$bin`, `$elf` and `$symbols` before including the standard test, keeping
+the fixture and assertions identical to the immutable baseline.
+
 ## Run it
 
 The short deterministic boot check takes about 30 seconds on the M3 Pro

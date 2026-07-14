@@ -1,5 +1,6 @@
 $bin ?= $ORIGIN/../../.artifacts/lab-releases/v0.2.0/d12bd826555eee51505542a55fd184ade5817d58/tinySA4_v0.2.0_protocol-v2.bin
 $elf ?= $ORIGIN/../../.artifacts/lab-releases/v0.2.0/d12bd826555eee51505542a55fd184ade5817d58/tinySA4_v0.2.0_protocol-v2.elf
+$symbols ?= $ORIGIN/symbols/v0.2.0-protocol-v2.symbols
 
 mach create "zs407"
 machine LoadPlatformDescription $ORIGIN/platforms/zs407.repl
@@ -10,6 +11,7 @@ nvicRetToBaseFix Install
 flash ResetByte 0xFF
 sysbus LoadBinary $bin 0x08000000
 sysbus LoadSymbolsFrom $elf
+twinStatus LoadSymbolProfile $symbols
 
 # Deterministic STM32 factory information for the ZS407 identity path.
 # VREFINT_CAL is a plausible 3.3 V factory calibration code; the remaining
