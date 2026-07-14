@@ -92,10 +92,12 @@ gate with EP0 TX and EP1 TX both at `0x0040`; the RC5 ELF passes same-value
 re-enumeration. The complete gate requires five PMA-distinctness markers and
 three data-endpoint-disabled markers.
 
-The RC5 package is currently `SIM_PENDING` and
-`hardware_qualified=false`. Its remaining full simulation matrix is running,
-and no RC5 physical pass is claimed. The F072 artifact remains build evidence
-only.
+The exact RC5 package is sealed
+`SIMULATION_PASS_HARDWARE_PENDING` and remains
+`hardware_qualified=false`. Its hash-bound general, runtime/reset,
+fault-handler, USB, and paired all-14 visual/trace gates all pass, including
+the official `c979386` exact-or-better comparison. No RC5 physical pass is
+claimed. The F072 artifact remains build evidence only.
 
 The ChibiOS 21.11.5 USBv2 driver contains the same allocator-reset pattern in
 its endpoint-disable path. RC5 does not use USBv2, so this is an analogous

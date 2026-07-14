@@ -13,7 +13,7 @@ was read-only: it did not open an issue, publish a branch, comment, or push.
 | Vendor | Item | Disposition |
 | --- | --- | --- |
 | tinySA | Seven focused safety/build fixes | Already open as PRs #156 through #162; do not duplicate |
-| tinySA | ChibiOS 21.11.5 application port | RC5 is reproducibly built and its exact USB regression passes; the full simulator matrix is running and hardware qualification remains pending |
+| tinySA | ChibiOS 21.11.5 application port | RC5 is reproducibly built and its complete exact-image simulator seal passes; hardware qualification remains pending |
 | tinySA | Current zero-span time grid | New focused application correctness fix; inherited exact simulator evidence is complete, but publish only after the exact RC5 hardware run |
 | tinySA | Deterministic warm-reset backup checksum | New focused application bug fix; retain separately from the RTOS port and publish only after exact hardware reset testing |
 | tinySA | Stack-safe MSP/PSP hard-fault entry | New focused application fix; simulator-qualified, but hold for forced-fault and recovery testing on hardware |
@@ -121,15 +121,16 @@ The exact RC4 ELF now fails the focused twin regression on repeated
 `SET_CONFIGURATION(1)`. The exact RC5 ELF passes same-value `1 -> 1`, explicit
 `1 -> 0 -> 1`, CDC setup and traffic, suspend/wakeup, STALL, and final bus-reset
 re-enumeration. The scenario requires five PMA-distinctness markers and three
-data-endpoint-disabled markers. The remaining complete RC5 simulation matrix is
-running. The package deliberately remains `SIM_PENDING` and
-`hardware_qualified=false`; no RC5 physical pass is claimed.
+data-endpoint-disabled markers. The complete hash-bound RC5 simulator matrix
+and both all-14 visual/trace comparisons pass. The package is sealed
+`SIMULATION_PASS_HARDWARE_PENDING` and remains `hardware_qualified=false`; no
+RC5 physical pass is claimed.
 
 Publication dependencies, in order:
 
-1. Complete and retain the RC5 hash-bound twin evidence: symbol profile,
-   paired all-14 visual/trace captures, UI/RF, USB/reset, runtime-state, and
-   fault scenarios.
+1. Retain the completed RC5 hash-bound twin evidence: symbol profile, paired
+   all-14 visual/trace captures, UI/RF, USB/reset, runtime-state, and fault
+   scenarios.
 2. Qualify the exact packaged F303 binary on the physical device, including
    recovery/DFU, cold boot, complete self-test with paired screenshot review,
    USB traffic, controls, touch, acquisition, RF behavior, warm/cold/power-cycle

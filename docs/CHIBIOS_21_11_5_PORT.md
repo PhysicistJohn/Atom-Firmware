@@ -27,9 +27,10 @@ The ChibiOS gitlink is
   zero's packet-memory reservation when the USB core disables and rebuilds
   nonzero endpoints.
 
-The complete RC5 simulation seal and physical qualification are not complete.
-The exact-image USB regression passes in the twin, while the remaining RC5
-simulator matrix is running. No RC5 hardware pass is claimed here.
+The complete exact-image RC5 simulation seal passes. It includes the general,
+runtime/reset, fault-handler, USB, paired all-14 lab visual/trace, and paired
+official-`c979386` visual/trace gates. Physical qualification is not complete,
+and no RC5 hardware pass is claimed here.
 
 Why RC4 failed
 --------------
@@ -118,8 +119,9 @@ release constraint.
 
 The package is under
 `.artifacts/chibios-releases/v0.4-chibios21.11.5-rc5/6fdf6f307ecb0cef2e3af478b0fc7b80a1fd13e2/`.
-At this point it deliberately carries `SIM_PENDING`,
-`simulation_qualification=SIM_PENDING`, and `hardware_qualified=false`.
+The sealed package carries
+`simulation_qualification=SIMULATION_PASS_HARDWARE_PENDING` and
+`hardware_qualified=false`.
 
 Digital-twin USB regression
 ---------------------------
@@ -151,25 +153,25 @@ driver-level regression on current `main` before publication.
 Qualification boundary
 ----------------------
 
-RC5 is reproducibly built and its focused exact-image USB regression passes.
-The full simulator matrix is still in progress, so the package remains
-`SIM_PENDING`. Physical RC5 testing has not yet been completed and the
-manifest must remain `hardware_qualified=false`.
+RC5 is reproducibly built and its complete hash-bound simulator matrix passes.
+The package is sealed `SIMULATION_PASS_HARDWARE_PENDING`. Physical RC5 testing
+has not yet been completed, so the manifest remains
+`hardware_qualified=false`.
 
-Before release, the exact packaged F303 binary still needs:
+The simulation seal already includes both all-14 screenshot/trace A/B suites,
+non-flat RF checks, runtime/reset, fault, UI, and complete USB gates. Before
+release, the exact packaged F303 binary still needs:
 
-1. the complete hash-bound simulator seal: both all-14 screenshot/trace A/B
-   suites, non-flat RF checks, runtime/reset, fault, UI, and complete USB gates;
-2. cold boot, normal boot, DFU entry, recovery, and rollback on the ZS407;
-3. physical CDC enumeration, same-value and zero-toggle configuration where
+1. cold boot, normal boot, DFU entry, recovery, and rollback on the ZS407;
+2. physical CDC enumeration, same-value and zero-toggle configuration where
    the host exposes them, suspend/resume, unplug/replug, shell traffic, and
    sustained screen transfer;
-4. all fourteen physical self-tests with CAL connected, with each settled
+3. all fourteen physical self-tests with CAL connected, with each settled
    screenshot and trace compared to official `c979386` for exact or
    demonstrably better, non-flat behavior;
-5. the disconnected-CAL failure/recovery control, RF checks, controls/touch,
+4. the disconnected-CAL failure/recovery control, RF checks, controls/touch,
    acquisition, and warm/cold/power-cycle retention; and
-6. forced PSP/MSP fault diagnostics and recovery, if an authorized physical
+5. forced PSP/MSP fault diagnostics and recovery, if an authorized physical
    fault-injection path is available.
 
 The F072 compatibility artifact is build evidence only. It separately needs
