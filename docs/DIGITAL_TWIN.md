@@ -269,6 +269,10 @@ with status zero.
 Those boundaries are intentional test labels, not hidden uncertainty. Hardware
 bring-up remains the release gate in `docs/HARDWARE_BRINGUP.md`.
 
+All-14 release screenshots and trace matrices are assembled and hash-bound
+with the fail-closed workflow in
+[`SELFTEST_VISUAL_EVIDENCE.md`](SELFTEST_VISUAL_EVIDENCE.md).
+
 ## Renode defects exposed by the twin
 
 Six emulator discrepancies were isolated during boot, register audit and the
