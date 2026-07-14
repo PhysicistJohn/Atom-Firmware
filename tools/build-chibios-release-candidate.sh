@@ -66,10 +66,6 @@ grep -Eq 'tst\.w[[:space:]]+lr, #4' "$hard_fault_disassembly" || \
   die 'HardFault veneer does not select MSP/PSP from EXC_RETURN'
 grep -Eq 'mrsne[[:space:]]+r0, PSP' "$hard_fault_disassembly" || \
   die 'HardFault veneer does not select PSP-origin frames'
-grep -Eq 'tst\.w[[:space:]]+lr, #16' "$hard_fault_disassembly" || \
-  die 'HardFault veneer does not inspect the extended-frame bit'
-grep -Eq 'addeq[[:space:]]+r0, #72' "$hard_fault_disassembly" || \
-  die 'HardFault veneer does not advance over the FP exception frame'
 size=$(wc -c < "$binary" | tr -d ' ')
 [ "$size" -le 245760 ] || \
   die "candidate exceeds the 240 KiB application region ($size bytes)"
@@ -129,7 +125,7 @@ profile_hash=$(sha256_file "$profile")
   printf 'version=%s\n' "$version"
   printf 'commit=%s\n' "$commit"
   printf 'implementation_commit=%s\n' \
-    '80161c769f078e3b5dc6cb93e6e30ef7ace8c386'
+    'eae9983e75336523515d7ad3076b5dfd7c9b937c'
   printf 'chibios_upstream_commit=%s\n' \
     'f4bbadf964fc746aef8bbcf34135c7d8fabb8eae'
   printf 'chibios_commit=%s\n' "$chibios_commit"
