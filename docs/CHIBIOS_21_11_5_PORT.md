@@ -32,6 +32,13 @@ runtime/reset, fault-handler, USB, paired all-14 lab visual/trace, and paired
 official-`c979386` visual/trace gates. Physical qualification is not complete,
 and no RC5 hardware pass is claimed here.
 
+The 2026-07-14 official-rollback warm diagnostic is useful staging evidence,
+but does not change that boundary. The exact official image re-enumerated over
+USB and completed all fourteen physical self-tests after DFU's warm reboot;
+however, the unit did not receive the required power-off cold boot. See
+[Physical official-versus-candidate self-test capture](PHYSICAL_SELFTEST_AB.md#2026-07-14-warm-staging-diagnostic-non-qualifying)
+for the hash-bound record and remaining hardware sequence.
+
 Why RC4 failed
 --------------
 

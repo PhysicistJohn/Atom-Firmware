@@ -36,6 +36,69 @@ export PYTHONPATH="$PWD/.artifacts/toolchains/tinysa-hardware-venv/lib/python3.1
 On another checkout, recreate a normal virtual environment from
 `tools/requirements-hardware-test.txt` and substitute its Python executable.
 
+## 2026-07-14 warm staging diagnostic (non-qualifying)
+
+The exact official rollback binary was staged first:
+
+| Fact | Observed value |
+| --- | --- |
+| Rollback file | `ROLLBACK_OFFICIAL_tinySA4_v1.4-224-gc979386.bin` |
+| Rollback SHA-256 | `3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41` |
+| Shell identity | `tinySA4_v1.4-224-gc979386` |
+| Hardware identity | `tinySA ULTRA+ ZS407`; `HW Version:V0.5.4 max2871` |
+| Warm USB enumeration | `0483:5740`, serial `400`, location `0-1`, `/dev/cu.usbmodem4001` |
+
+The rollback file is the copy inside the exact RC5 package at
+`.artifacts/worktrees/chibios-rc5/.artifacts/chibios-releases/`
+`v0.4-chibios21.11.5-rc5/6fdf6f307ecb0cef2e3af478b0fc7b80a1fd13e2/`.
+
+After DFU's manifest/leave warm reboot, the read-only diagnostic under
+`.artifacts/hardware-selftest/official-c979-warm-diagnostic2-20260714/`
+completed all fourteen cases. Every case passed on its first settlement
+attempt with two identical 307,200-byte panel frames read 0.75 seconds apart.
+The palette and all twelve correction-table responses were byte-identical
+before and after the run. Its checksum inventory has SHA-256
+`193fd7cde4c52ffe3a3db0a3fe4bab3cd0f7f26766f1d51634adf81a34f34f5d`;
+`run.json` has SHA-256
+`0c64beed218131af116ced9b7e68a1257dc90567fcbf58251e20523a8927a6e6`.
+
+The validator was then intentionally run with that capture as both reference
+and candidate. The resulting tool self-check under
+`.artifacts/hardware-selftest/official-c979-warm-self-check2-20260714/`
+passed all fourteen cases, all 285 source-inventory entries, persisted-config
+integrity, exact frames and traces, and sweep-time parsing. Its `report.json`
+has SHA-256
+`dc975a06fe9631f43d19d19c694cf9b8c7cc8d09d38e95ceb0b08323a7067c8a`.
+This proves the captured evidence passes the comparison tooling; because the
+same capture occupies both sides, it is not an official-versus-RC5 result.
+
+Human review of both contact sheets confirmed populated screens and genuine
+RF response shapes rather than blank or substituted flat lines. Cases 12 and
+13 retain their intentionally horizontal response portions. The contact-sheet
+SHA-256 values are
+`9d5e14dea93489dc7b8f03073c4d88d6a58cd920a4c29de3c36e521cba702356`
+for cases 1-7 and
+`f39d5798c3a48cb446a0e284bb23d9cf7ad9c1dfe56b45f5a810e562593f6898`
+for cases 8-14.
+
+Two capture-tool defects were exposed and fixed without changing either
+firmware image. Untouched official case 3 emitted the legacy `etoa()` token
+`-:.000000e+01` for `-100.00`; commit
+`d7dad37801c10e37fe4704489b7cdafd19cce1c9` decodes only that narrowly defined
+power-of-ten defect and cross-checks it against the independently formatted
+trace. Commit `0fdab812c55cb1f5bd7cd0be21b37806547eeffb`
+adds correct `ms` as well as `s` sweep-time parsing. The separate upstream
+formatter correction is documented in
+[Vendor upstream queue](VENDOR_UPSTREAM_QUEUE.md#new-tinysa-findings-from-port-qualification).
+
+This run is explicitly **not qualifying evidence**: the unit had no true cold
+boot after the official flash. The next physical action is to switch the unit
+off for at least five seconds, switch it on, and capture a new cold official
+baseline. After that completes, enter TINYSA4 DFU manually, flash the exact
+RC5 binary, perform the same cold boot, and capture RC5. Official TINYSA4 has
+no compiled DFU shell argument or DFU menu, so automation must not claim it
+can make that transition.
+
 ## Capture the A/B pair
 
 After flashing and cold-booting the official image:
