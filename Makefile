@@ -24,6 +24,19 @@ ifneq ($(RELEASE_PROFILE),)
  endif
 endif
 
+# The immutable reproduction build keeps the historical handler. Release
+# candidates can opt into the stack-safe assembly veneer independently of the
+# Phase feature chain.
+RELEASE_HARD_FAULT_VENEER ?= no
+ifeq ($(filter $(RELEASE_HARD_FAULT_VENEER),no yes),)
+  $(error RELEASE_HARD_FAULT_VENEER must be 'no' or 'yes')
+endif
+ifeq ($(RELEASE_HARD_FAULT_VENEER),yes)
+ ifneq ($(TARGET),F303)
+  $(error RELEASE_HARD_FAULT_VENEER=yes is only supported for TARGET=F303)
+ endif
+endif
+
 # Compiler options here.
 ifeq ($(USE_OPT),)
  ifeq ($(TARGET),F303)
@@ -42,6 +55,9 @@ ifeq ($(USE_COPT),)
 endif
 ifeq ($(RELEASE_PROFILE),protocol-v2)
   USE_COPT += -DZS407_RELEASE_PROTOCOL_V2=1 -DZS407_RELEASE_PROFILE_ID=1
+endif
+ifeq ($(RELEASE_HARD_FAULT_VENEER),yes)
+  USE_COPT += -DZS407_RELEASE_HARD_FAULT_VENEER=1
 endif
 
 # C++ specific options here (added to USE_OPT).
@@ -113,6 +129,11 @@ ifeq ($(TARGET),F303)
   USE_FPU = hard
   USE_PROCESS_STACKSIZE = 0x480
   USE_EXCEPTIONS_STACKSIZE = 0x200
+endif
+ifeq ($(RELEASE_HARD_FAULT_VENEER),yes)
+  # The diagnostic handler renders through the LCD/printf stack. Reserve room
+  # for its 32-byte veneer, an extended fault frame, and a nested ISR frame.
+  USE_EXCEPTIONS_STACKSIZE = 0x400
 endif
 
 #

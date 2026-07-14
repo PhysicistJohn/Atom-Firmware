@@ -188,7 +188,9 @@ static THD_FUNCTION(Thread1, arg)
   while (1) {
 //  START_PROFILE
     if (sweep_mode&(SWEEP_ENABLE|SWEEP_ONCE)) {
-      backup_t b;
+      // The checksum covers the reserved byte too. Initialize the full packed
+      // image so warm-reset state is deterministic under optimized builds.
+      backup_t b = {0};
       b.data.frequency0 = setting.frequency0;
       b.data.frequency1 = setting.frequency1;
       if (setting.auto_attenuation)
@@ -4063,6 +4065,12 @@ void HardFault_Handler(void)
       "ite eq\n"
       "mrseq r0, msp\n"
       "mrsne r0, psp\n"
+      /* EXC_RETURN bit 4 is clear when an extended floating-point frame was
+         stacked. Skip s0-s15, FPSCR, and the reserved word so the C handler
+         always receives the eight-word core exception frame. */
+      "tst lr, #16\n"
+      "it eq\n"
+      "addeq r0, r0, #72\n"
       "sub sp, sp, #32\n"
       "str r4, [sp, #0]\n"
       "str r5, [sp, #4]\n"
