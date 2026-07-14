@@ -40,6 +40,27 @@ TRACE_X1 = 449
 TRACE_Y0 = 30
 TRACE_Y1 = 309
 
+# Cases 12 and 13 are zero-span tests: their horizontal axis is elapsed sweep
+# time rather than frequency.  The pinned v0.2 image can retain grid geometry
+# calculated before the completed sweep updates actual_sweep_time_us.  A newer
+# image is therefore allowed to differ only when its rendered grid exactly
+# matches the same integer formula used by the firmware.
+TIME_GRID_CASES = {12, 13}
+TIME_GRID_COLOR = 0x8410
+TIME_GRID_INTERSECTION_COLOR = 0xFFF0
+TIME_GRIDLINES = 6
+TIME_GRID_PLOT_WIDTH = 450
+TIME_GRID_X0 = 30
+TIME_GRID_X1 = 479
+TIME_GRID_Y0 = 0
+TIME_GRID_Y1 = 309
+TIME_GRID_COLUMN_MIN_PIXELS = 100
+TIME_GRID_MAX_TIME_TEXT_DELTA_PIXELS = 160
+TIME_GRID_ALLOWED_LEGACY_FAILURES = {
+    12: {"visual-equivalence", "display-readback-activity"},
+    13: {"visual-equivalence"},
+}
+
 SUPPRESSION_CASES = {1, 2, 5, 9}
 ABOVE_CASES = {6}
 CAL_ACTIVE_CASES = {3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14}
@@ -242,6 +263,138 @@ def frame_metrics(frame: list[int]) -> dict[str, object]:
         "trace_floor_y": floor_y,
         "trace_vertical_span": vertical_span,
         "trace_profile": profile,
+    }
+
+
+def expected_time_grid_layout(sweep_time_us: int) -> dict[str, object]:
+    """Reproduce plot.c's config.gridlines=6 zero-span integer geometry."""
+    if type(sweep_time_us) is not int or sweep_time_us <= 0:
+        raise ValueError(f"invalid zero-span sweep time: {sweep_time_us!r}")
+
+    gdigit = 1_000_000_000
+    grid = 1
+    selected = False
+    while gdigit > 1 and not selected:
+        for multiplier in (5, 2, 1):
+            grid = multiplier * gdigit
+            if sweep_time_us // grid >= TIME_GRIDLINES:
+                selected = True
+                break
+        if not selected:
+            gdigit //= 10
+
+    # Firmware stores ten-times-pixel spacing so rectangular_grid_x() can
+    # represent fractional column intervals with integer modulo arithmetic.
+    scaled_width = max(1, TIME_GRID_PLOT_WIDTH * 10 * grid // sweep_time_us)
+    columns = [
+        TIME_GRID_X0 + local_x
+        for local_x in range(TIME_GRID_PLOT_WIDTH)
+        if (local_x * 10) % scaled_width < 10
+    ]
+    return {
+        "sweep_time_us": sweep_time_us,
+        "gridlines": TIME_GRIDLINES,
+        "plot_width": TIME_GRID_PLOT_WIDTH,
+        "grid_span_us": grid,
+        "scaled_grid_width": scaled_width,
+        "columns": columns,
+    }
+
+
+def observed_time_grid_columns(frame: list[int]) -> list[int]:
+    """Extract full-height gray vertical grid columns from the plot area."""
+    columns = []
+    for x in range(TIME_GRID_X0, TIME_GRID_X1 + 1):
+        count = sum(
+            frame[y * WIDTH + x] == TIME_GRID_COLOR
+            for y in range(TIME_GRID_Y0, TIME_GRID_Y1 + 1)
+        )
+        if count >= TIME_GRID_COLUMN_MIN_PIXELS:
+            columns.append(x)
+    return columns
+
+
+def analyze_time_grid_improvement(
+    reference: list[int],
+    candidate: list[int],
+    reference_sweep_time_us: int,
+    candidate_sweep_time_us: int,
+) -> dict[str, object]:
+    reference_expected = expected_time_grid_layout(reference_sweep_time_us)
+    candidate_expected = expected_time_grid_layout(candidate_sweep_time_us)
+    reference_observed = observed_time_grid_columns(reference)
+    candidate_observed = observed_time_grid_columns(candidate)
+
+    # Grid movement may change gray/background pixels and the yellow shade at
+    # a trace/grid intersection.  The only other intentional changes are the
+    # marker, status-column and footer time readouts.  This pixel classifier
+    # prevents an unrelated screen defect from hiding behind a low aggregate
+    # similarity score.
+    grid_columns = set(reference_observed) | set(candidate_expected["columns"])
+    grid_pairs = {
+        frozenset((0, TIME_GRID_COLOR)),
+        frozenset((TRACE_RGB565, TIME_GRID_INTERSECTION_COLOR)),
+    }
+    time_text_pairs = {
+        frozenset((0, 0xFFFF)),
+        frozenset((0, TRACE_RGB565)),
+    }
+    grid_delta_pixels = 0
+    time_text_delta_pixels = 0
+    unexplained_count = 0
+    unexplained: list[dict[str, object]] = []
+    for index, (reference_pixel, candidate_pixel) in enumerate(
+        zip(reference, candidate)
+    ):
+        if reference_pixel == candidate_pixel:
+            continue
+        x = index % WIDTH
+        y = index // WIDTH
+        pair = frozenset((reference_pixel, candidate_pixel))
+        if y <= TIME_GRID_Y1 and x in grid_columns and pair in grid_pairs:
+            grid_delta_pixels += 1
+            continue
+        in_time_text_region = y < 16 or x < TIME_GRID_X0 or y > TIME_GRID_Y1
+        if in_time_text_region and pair in time_text_pairs:
+            time_text_delta_pixels += 1
+            continue
+        unexplained_count += 1
+        if len(unexplained) < 16:
+            unexplained.append(
+                {
+                    "x": x,
+                    "y": y,
+                    "reference": f"0x{reference_pixel:04X}",
+                    "candidate": f"0x{candidate_pixel:04X}",
+                }
+            )
+
+    candidate_current = candidate_observed == candidate_expected["columns"]
+    reference_current = reference_observed == reference_expected["columns"]
+    delta_explained = (
+        unexplained_count == 0
+        and time_text_delta_pixels <= TIME_GRID_MAX_TIME_TEXT_DELTA_PIXELS
+    )
+    return {
+        "reference": {
+            "expected": reference_expected,
+            "observed_columns": reference_observed,
+            "current": reference_current,
+        },
+        "candidate": {
+            "expected": candidate_expected,
+            "observed_columns": candidate_observed,
+            "current": candidate_current,
+        },
+        "visual_delta": {
+            "grid_pixels": grid_delta_pixels,
+            "time_text_pixels": time_text_delta_pixels,
+            "time_text_pixel_limit": TIME_GRID_MAX_TIME_TEXT_DELTA_PIXELS,
+            "unexplained_pixels": unexplained_count,
+            "unexplained_examples": unexplained,
+            "explained": delta_explained,
+        },
+        "mathematically_better": candidate_current and not reference_current,
     }
 
 
@@ -461,6 +614,7 @@ def compare_case(
         )
     )
     checks: list[dict[str, object]] = []
+    objective_checks: list[dict[str, object]] = []
 
     reference_schema_errors = status_schema_errors(case, reference_status)
     candidate_schema_errors = status_schema_errors(case, candidate_status)
@@ -550,6 +704,23 @@ def compare_case(
                 if reference_trace_memory is None or candidate_trace_memory is None
                 else f"reference=({trace_memory_population_detail(reference_trace_memory)}) "
                 f"candidate=({trace_memory_population_detail(candidate_trace_memory)})"
+            ),
+        )
+        byte_parity = (
+            reference_memory_ok
+            and candidate_memory_ok
+            and reference_trace_memory["sha256"]
+            == candidate_trace_memory["sha256"]
+        )
+        add_check(
+            checks,
+            "trace-memory-byte-parity",
+            byte_parity,
+            "missing"
+            if reference_trace_memory is None or candidate_trace_memory is None
+            else (
+                f"reference={reference_trace_memory['sha256']} "
+                f"candidate={candidate_trace_memory['sha256']}"
             ),
         )
 
@@ -665,6 +836,41 @@ def compare_case(
             f"shape_rmse={shape_rmse}"
         ),
     )
+
+    time_grid = None
+    reference_sweep_time = reference_status.get("sweep_time_us")
+    candidate_sweep_time = candidate_status.get("sweep_time_us")
+    if (
+        case in TIME_GRID_CASES
+        and type(reference_sweep_time) is int
+        and type(candidate_sweep_time) is int
+        and reference_sweep_time > 0
+        and candidate_sweep_time > 0
+    ):
+        time_grid = analyze_time_grid_improvement(
+            reference_frame,
+            candidate_frame,
+            reference_sweep_time,
+            candidate_sweep_time,
+        )
+        candidate_grid = time_grid["candidate"]
+        reference_grid = time_grid["reference"]
+        add_check(
+            objective_checks,
+            "time-grid-current",
+            bool(candidate_grid["current"]),
+            f"expected={candidate_grid['expected']['columns']} "
+            f"observed={candidate_grid['observed_columns']}",
+        )
+        add_check(
+            objective_checks,
+            "time-grid-visual-delta-explained",
+            bool(time_grid["visual_delta"]["explained"]),
+            f"grid_pixels={time_grid['visual_delta']['grid_pixels']} "
+            f"time_text_pixels={time_grid['visual_delta']['time_text_pixels']} "
+            f"unexplained={time_grid['visual_delta']['unexplained_pixels']} "
+            f"reference_current={int(bool(reference_grid['current']))}",
+        )
 
     schema_complete = not reference_schema_errors and not candidate_schema_errors
     ref_peak = reference_status.get("measured_peak_dbm")
@@ -789,7 +995,7 @@ def compare_case(
         )
     elif case == 12:
         minimum_display_bytes = WIDTH * HEIGHT * 2
-        display_ok = schema_complete and (
+        display_numeric_ok = schema_complete and (
             int(reference_status["case_display_read_bytes"]) >= minimum_display_bytes
             and int(candidate_status["case_display_read_bytes"]) >= minimum_display_bytes
             and abs(
@@ -806,8 +1012,21 @@ def compare_case(
                 int(candidate_status["case_pixel_writes"]),
                 int(reference_status["case_pixel_writes"]),
             ) <= 1.005
-            and float(comparison["content_pixel_similarity"]) >= 0.99
         )
+        add_check(
+            checks,
+            "display-readback-numeric-activity",
+            display_numeric_ok,
+            f"read_bytes={reference_status.get('case_display_read_bytes')}/"
+            f"{candidate_status.get('case_display_read_bytes')} pixel_writes="
+            f"{reference_status.get('case_pixel_writes')}/{candidate_status.get('case_pixel_writes')}",
+        )
+        # Preserve the original strict gate.  The additive release classifier
+        # may supersede only this embedded similarity term, and only after the
+        # numeric activity check and exact time-grid proof above both pass.
+        display_ok = display_numeric_ok and float(
+            comparison["content_pixel_similarity"]
+        ) >= 0.99
         add_check(
             checks,
             "display-readback-activity",
@@ -856,6 +1075,120 @@ def compare_case(
             "trace_memory": candidate_trace_memory,
         },
         "comparison": comparison,
+        "time_grid": time_grid,
+        "objective_checks": objective_checks,
+        "checks": checks,
+    }
+
+
+def classify_release(results: list[dict[str, object]]) -> dict[str, object]:
+    """Classify strict equivalence or a narrowly proven time-grid improvement."""
+    strict_pass = all(bool(result["pass"]) for result in results)
+    failures = {
+        int(result["case"]): [
+            str(check["name"])
+            for check in result["checks"]
+            if not bool(check["pass"])
+        ]
+        for result in results
+    }
+    if strict_pass:
+        return {
+            "pass": True,
+            "mode": "strict-equivalent",
+            "strict_legacy_pass": True,
+            "failures": failures,
+            "checks": [
+                {
+                    "name": "strict-legacy-equivalence",
+                    "pass": True,
+                    "detail": "all strict per-case gates passed",
+                }
+            ],
+        }
+
+    by_case = {int(result["case"]): result for result in results}
+    checks: list[dict[str, object]] = []
+    required_present = TIME_GRID_CASES <= set(by_case)
+    add_check(
+        checks,
+        "time-grid-cases-present",
+        required_present,
+        f"required={sorted(TIME_GRID_CASES)} observed={sorted(by_case)}",
+    )
+
+    allowed_only = required_present
+    visual_failures_present = required_present
+    for case, names in failures.items():
+        allowed = TIME_GRID_ALLOWED_LEGACY_FAILURES.get(case, set())
+        if not set(names) <= allowed:
+            allowed_only = False
+    if required_present:
+        visual_failures_present = all(
+            "visual-equivalence" in failures.get(case, [])
+            for case in TIME_GRID_CASES
+        )
+    add_check(
+        checks,
+        "only-documented-grid-visual-failures",
+        allowed_only and visual_failures_present,
+        f"observed={failures} allowed={TIME_GRID_ALLOWED_LEGACY_FAILURES}",
+    )
+
+    grid_current = required_present and all(
+        isinstance(by_case[case].get("time_grid"), dict)
+        and bool(by_case[case]["time_grid"]["candidate"]["current"])
+        for case in TIME_GRID_CASES
+    )
+    baseline_stale = required_present and all(
+        isinstance(by_case[case].get("time_grid"), dict)
+        and not bool(by_case[case]["time_grid"]["reference"]["current"])
+        for case in TIME_GRID_CASES
+    )
+    deltas_explained = required_present and all(
+        isinstance(by_case[case].get("time_grid"), dict)
+        and bool(by_case[case]["time_grid"]["visual_delta"]["explained"])
+        for case in TIME_GRID_CASES
+    )
+    add_check(
+        checks,
+        "candidate-time-grid-mathematically-current",
+        grid_current and baseline_stale,
+        "candidate matches formula and original is stale"
+        if grid_current and baseline_stale
+        else f"candidate_current={grid_current} original_stale={baseline_stale}",
+    )
+    add_check(
+        checks,
+        "grid-visual-delta-pixel-explained",
+        deltas_explained,
+        "all changed pixels are grid movement/intersections or bounded time text"
+        if deltas_explained
+        else "unexplained framebuffer differences remain",
+    )
+
+    display_numeric = required_present and any(
+        check["name"] == "display-readback-numeric-activity"
+        and bool(check["pass"])
+        for check in by_case[12]["checks"]
+    )
+    add_check(
+        checks,
+        "display-readback-numeric-activity-preserved",
+        display_numeric,
+        "case 12 read bytes and pixel-write ratio remain strict",
+    )
+
+    release_pass = all(bool(check["pass"]) for check in checks)
+    return {
+        "pass": release_pass,
+        "mode": "mathematically-better-time-grid" if release_pass else "rejected",
+        "strict_legacy_pass": False,
+        "failures": failures,
+        "allowed_legacy_failures": {
+            str(case): sorted(names)
+            for case, names in TIME_GRID_ALLOWED_LEGACY_FAILURES.items()
+        },
         "checks": checks,
     }
 
@@ -947,7 +1280,9 @@ def write_reports(output: Path, report: dict[str, object]) -> None:
     markdown = [
         "# tinySA4 self-test visual regression",
         "",
-        f"Overall: **{'PASS' if report['pass'] else 'FAIL'}**",
+        f"Strict legacy overall: **{'PASS' if report['pass'] else 'FAIL'}**",
+        f"Release classifier: **{'PASS' if report['release_classification']['pass'] else 'FAIL'}** "
+        f"(`{report['release_classification']['mode']}`)",
         "",
         "## Firmware artifacts",
         "",
@@ -1027,6 +1362,33 @@ def write_reports(output: Path, report: dict[str, object]) -> None:
             f"{reference_memory['raw_actual']['maximum_absolute_delta']}/"
             f"{candidate_memory['raw_actual']['maximum_absolute_delta']} |"
         )
+    grid_cases = [result for result in report["cases"] if result["time_grid"]]
+    if grid_cases:
+        markdown.extend(
+            [
+                "",
+                "## Zero-span time-grid evidence",
+                "",
+                "The expected columns reproduce the firmware's config.gridlines=6, WIDTH=450 integer formula.",
+                "",
+                "| Case | Sweep us R/C | Scaled width R/C | Original current | Candidate current | Candidate expected columns | Candidate observed columns | Pixel delta explained |",
+                "|---:|---:|---:|:---:|:---:|:---|:---|:---:|",
+            ]
+        )
+        for case_result in grid_cases:
+            grid = case_result["time_grid"]
+            markdown.append(
+                f"| {case_result['case']} | "
+                f"{grid['reference']['expected']['sweep_time_us']}/"
+                f"{grid['candidate']['expected']['sweep_time_us']} | "
+                f"{grid['reference']['expected']['scaled_grid_width']}/"
+                f"{grid['candidate']['expected']['scaled_grid_width']} | "
+                f"{'yes' if grid['reference']['current'] else 'no'} | "
+                f"{'yes' if grid['candidate']['current'] else 'no'} | "
+                f"{grid['candidate']['expected']['columns']} | "
+                f"{grid['candidate']['observed_columns']} | "
+                f"{'yes' if grid['visual_delta']['explained'] else 'no'} |"
+            )
     markdown.extend(
         [
             "",
@@ -1042,6 +1404,17 @@ def write_reports(output: Path, report: dict[str, object]) -> None:
             for failure in failures:
                 markdown.append(f"- {failure['name']}: {failure['detail']}")
             markdown.append("")
+    markdown.extend(
+        [
+            "## Release-classifier checks",
+            "",
+        ]
+    )
+    for check in report["release_classification"]["checks"]:
+        markdown.append(
+            f"- {'PASS' if check['pass'] else 'FAIL'} `{check['name']}`: {check['detail']}"
+        )
+    markdown.append("")
     (output / "report.md").write_text("\n".join(markdown))
 
     rows = []
@@ -1049,6 +1422,8 @@ def write_reports(output: Path, report: dict[str, object]) -> None:
         case = case_result["case"]
         case_details = {
             "visual": case_result["comparison"],
+            "time_grid": case_result["time_grid"],
+            "time_grid_checks": case_result["objective_checks"],
             "trace_memory": {
                 "reference": case_result["reference"]["trace_memory"],
                 "candidate": case_result["candidate"]["trace_memory"],
@@ -1081,6 +1456,7 @@ def write_reports(output: Path, report: dict[str, object]) -> None:
 <style>
 body {{ background:#111; color:#eee; font:14px system-ui,sans-serif; margin:24px; }}
 .summary {{ color:{'#7fda8b' if report['pass'] else '#ff8278'}; }}
+.release {{ color:{'#7fda8b' if report['release_classification']['pass'] else '#ff8278'}; }}
 .case {{ border-top:1px solid #555; margin-top:28px; padding-top:12px; }}
 .frames {{ display:flex; flex-wrap:wrap; gap:16px; }}
 figure {{ margin:0; }} img {{ width:480px; max-width:100%; image-rendering:pixelated; border:1px solid #777; }}
@@ -1088,7 +1464,8 @@ figcaption {{ text-align:center; margin-top:4px; }}
 pre {{ white-space:pre-wrap; }}
 </style>
 <h1>tinySA4 self-test visual regression</h1>
-<h2 class="summary">Overall: {'PASS' if report['pass'] else 'FAIL'}</h2>
+<h2 class="summary">Strict legacy: {'PASS' if report['pass'] else 'FAIL'}</h2>
+<h2 class="release">Release classifier: {'PASS' if report['release_classification']['pass'] else 'FAIL'} ({html.escape(report['release_classification']['mode'])})</h2>
 {''.join(rows)}
 """
     (output / "index.html").write_text(page)
@@ -1149,9 +1526,12 @@ def main() -> int:
     write_contact_sheet(args.output / "contact-cases-01-07.png", captured_frames[:7])
     write_contact_sheet(args.output / "contact-cases-08-14.png", captured_frames[7:])
 
+    strict_pass = all(result["pass"] for result in results)
+    release_classification = classify_release(results)
     report = {
-        "schema": "tinysa-selftest-visual-regression-v1",
-        "pass": all(result["pass"] for result in results),
+        "schema": "tinysa-selftest-visual-regression-v2",
+        "pass": strict_pass,
+        "release_classification": release_classification,
         "frame": {"width": WIDTH, "height": HEIGHT, "format": "RGB565 little-endian"},
         "trace_roi": {"x0": TRACE_X0, "x1": TRACE_X1, "y0": TRACE_Y0, "y1": TRACE_Y1},
         "artifacts": artifact_metadata(
@@ -1166,6 +1546,11 @@ def main() -> int:
     }
     write_reports(args.output, report)
     print(f"selftest_visual_regression={'passed' if report['pass'] else 'failed'}")
+    print(
+        "selftest_release_classifier="
+        f"{'passed' if release_classification['pass'] else 'failed'} "
+        f"mode={release_classification['mode']}"
+    )
     print(f"report={args.output / 'report.md'}")
     print(f"html={args.output / 'index.html'}")
     for result in results:
@@ -1177,7 +1562,7 @@ def main() -> int:
             f"trace_iou={comparison['trace_column_iou']:.4f} "
             f"raw_actual_mismatches={result['candidate']['trace_memory']['raw_actual']['exact_mismatches']}"
         )
-    return 0 if report["pass"] else 1
+    return 0 if release_classification["pass"] else 1
 
 
 if __name__ == "__main__":

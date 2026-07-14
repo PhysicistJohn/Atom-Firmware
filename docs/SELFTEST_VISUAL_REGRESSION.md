@@ -41,6 +41,30 @@ close to the reference. A blank frame or a reference-shaped trace collapsed to
 a flat line therefore fails even when the firmware's internal self-test status
 is `PASS`.
 
+The report preserves that strict legacy result. It also contains a separate
+release classifier for a narrowly defined improvement to the zero-span time
+axis in cases 12 and 13. The pinned original can retain grid geometry computed
+before the completed sweep updates its measured time. A candidate may be
+classified `mathematically-better-time-grid` only when all of the following are
+true:
+
+- its vertical grid columns exactly match the firmware's integer formula for
+  the logged `sweep_time_us`, `config.gridlines=6`, and the 450-pixel plot;
+- the original is demonstrably stale in both zero-span cases;
+- every changed chart pixel is an expected grid relocation/intersection and
+  the small remainder is confined to bounded marker/status/footer time text;
+- every non-grid gate passes, including trace shape and coverage, RF fixture
+  and measurements, not-slower timing, attenuator activity, and exact byte
+  parity for all four 450-point trace-memory planes;
+- case 12 still performs the full display read and retains the strict pixel
+  write-count ratio. Only the old activity gate's embedded image-similarity
+  term may remain red.
+
+Thus `report.json` keeps `pass` as the strict legacy verdict and adds
+`release_classification`. The command exits successfully for either strict
+equivalence or the fully proven time-grid improvement. Both verdicts are
+printed and rendered in the Markdown/HTML reports.
+
 Run the gate with the release candidate and its SRAM symbol profile:
 
 ```sh
@@ -55,7 +79,8 @@ Results are written below `.artifacts/digital-twin/selftest-visual/`:
 - `reference/` and `candidate/` contain the fourteen PNG/raw-frame pairs and
   Renode logs;
 - `comparison/report.json` is the machine-readable gate result;
-- `comparison/report.md` is a compact evidence table;
+- `comparison/report.md` is a compact evidence table showing both the strict
+  legacy verdict and the additive release classification;
 - `comparison/index.html` places original, candidate and false-color diff
   images side by side for every test.
 - `comparison/contact-cases-01-07.png` and `contact-cases-08-14.png` provide

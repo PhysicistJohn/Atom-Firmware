@@ -24,13 +24,19 @@ def load_comparator():
 COMPARATOR = load_comparator()
 
 
-def synthetic_frame(flat: bool = False, blank: bool = False) -> list[int]:
+def synthetic_frame(
+    flat: bool = False,
+    blank: bool = False,
+    grid_columns: list[int] | None = None,
+) -> list[int]:
     frame = [0] * (COMPARATOR.WIDTH * COMPARATOR.HEIGHT)
     if blank:
         return frame
-    for x in range(30, 450, 50):
-        for y in range(COMPARATOR.HEIGHT):
-            frame[y * COMPARATOR.WIDTH + x] = 0x8410
+    if grid_columns is None:
+        grid_columns = list(range(30, 450, 50))
+    for x in grid_columns:
+        for y in range(COMPARATOR.TIME_GRID_Y1 + 1):
+            frame[y * COMPARATOR.WIDTH + x] = COMPARATOR.TIME_GRID_COLOR
     for y in range(0, 310, 31):
         for x in range(30, 450):
             frame[y * COMPARATOR.WIDTH + x] = 0x8410
@@ -129,7 +135,8 @@ def require(condition: bool, message: str) -> None:
 
 def failed(result: dict[str, object], name: str) -> bool:
     return any(
-        check["name"] == name and not check["pass"] for check in result["checks"]
+        check["name"] == name and not check["pass"]
+        for check in result["checks"] + result.get("objective_checks", [])
     )
 
 
@@ -139,9 +146,12 @@ def compare(
     candidate_frame: list[int],
     mutate=None,
     candidate_trace_memory: dict[str, object] | None = None,
+    reference_mutate=None,
 ) -> dict[str, object]:
     reference_status = status(case, reference_frame)
     candidate_status = status(case, candidate_frame)
+    if reference_mutate is not None:
+        reference_mutate(reference_status)
     if mutate is not None:
         mutate(candidate_status)
     reference_trace_memory = synthetic_trace_memory()
@@ -302,12 +312,112 @@ def main() -> int:
         "empty STORED2 plane was not rejected",
     )
 
+    # The v0.2 zero-span reference can retain a stale 50-pixel grid. A newer
+    # candidate is releasable only when both factory CW cases render the exact
+    # formula-derived columns and every remaining delta is attributable to the
+    # grid/time readouts.
+    stale_time_grid = synthetic_frame(grid_columns=list(range(30, 480, 50)))
+    current_5300 = synthetic_frame(
+        grid_columns=COMPARATOR.expected_time_grid_layout(5300)["columns"]
+    )
+    current_17700 = synthetic_frame(
+        grid_columns=COMPARATOR.expected_time_grid_layout(17700)["columns"]
+    )
+    improved_12 = compare(
+        12,
+        stale_time_grid,
+        current_5300,
+        lambda candidate: candidate.update(sweep_time_us=5300),
+    )
+    improved_13 = compare(
+        13,
+        stale_time_grid,
+        current_17700,
+        lambda candidate: candidate.update(sweep_time_us=17700),
+        reference_mutate=lambda reference: reference.update(sweep_time_us=17800),
+    )
+    improved_release = COMPARATOR.classify_release([improved_12, improved_13])
+    require(
+        not improved_12["pass"]
+        and not improved_13["pass"]
+        and improved_release["pass"]
+        and improved_release["mode"] == "mathematically-better-time-grid",
+        "exact formula-derived time-grid improvement was not accepted additively",
+    )
+
+    stale_candidate_12 = compare(12, stale_time_grid, copy.copy(stale_time_grid))
+    require(
+        not COMPARATOR.classify_release([stale_candidate_12, improved_13])["pass"],
+        "stale candidate time grid was accepted",
+    )
+
+    arbitrary = copy.copy(current_5300)
+    arbitrary[237 * COMPARATOR.WIDTH + 251] = 0xFFFF
+    arbitrary_result = compare(
+        12,
+        stale_time_grid,
+        arbitrary,
+        lambda candidate: candidate.update(sweep_time_us=5300),
+    )
+    require(
+        failed(arbitrary_result, "time-grid-visual-delta-explained")
+        and not COMPARATOR.classify_release([arbitrary_result, improved_13])["pass"],
+        "arbitrary non-grid framebuffer difference was accepted",
+    )
+
+    flat_current = synthetic_frame(
+        flat=True,
+        grid_columns=COMPARATOR.expected_time_grid_layout(5300)["columns"],
+    )
+    flat_grid_result = compare(
+        12,
+        stale_time_grid,
+        flat_current,
+        lambda candidate: candidate.update(sweep_time_us=5300),
+    )
+    require(
+        failed(flat_grid_result, "trace-not-degraded-to-flat")
+        and not COMPARATOR.classify_release([flat_grid_result, improved_13])["pass"],
+        "flat trace was accepted as a time-grid improvement",
+    )
+
+    def remove_numeric_display_activity(candidate: dict[str, object]) -> None:
+        candidate["sweep_time_us"] = 5300
+        candidate["case_display_read_bytes"] = 0
+        candidate["case_pixel_writes"] = 100
+
+    inactive_grid_result = compare(
+        12,
+        stale_time_grid,
+        current_5300,
+        remove_numeric_display_activity,
+    )
+    require(
+        failed(inactive_grid_result, "display-readback-numeric-activity")
+        and not COMPARATOR.classify_release([inactive_grid_result, improved_13])["pass"],
+        "grid improvement bypassed numeric display activity",
+    )
+
+    mismatched_grid_trace = compare(
+        12,
+        stale_time_grid,
+        current_5300,
+        lambda candidate: candidate.update(sweep_time_us=5300),
+        candidate_trace_memory=synthetic_trace_memory(raw_delta=0.25),
+    )
+    require(
+        failed(mismatched_grid_trace, "trace-memory-byte-parity")
+        and not COMPARATOR.classify_release([mismatched_grid_trace, improved_13])["pass"],
+        "grid improvement bypassed four-plane trace parity",
+    )
+
     print("selftest_visual_comparator_adversarial=passed")
     print(
         "rejected=blank,flat-image,trace-erased,trace-columns-5pct,"
         "missing-status,flat-measured-array,wrong-fixture,wrong-cal,"
         "bpf-flatness,display-readback,attenuator-steps,sweep-time,zero-sweep-time,"
-        "raw-actual-mismatch,empty-stored2"
+        "raw-actual-mismatch,empty-stored2,stale-time-grid,arbitrary-grid-delta,"
+        "flat-grid-trace,grid-display-activity,grid-trace-parity"
     )
     return 0
 
