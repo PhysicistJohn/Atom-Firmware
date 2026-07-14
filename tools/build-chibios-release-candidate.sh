@@ -4,8 +4,8 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 . "$ROOT/tools/lib.sh"
 
-release_id=${1:-v0.4-chibios21.11.5-rc1}
-[ "$release_id" = v0.4-chibios21.11.5-rc1 ] || \
+release_id=${1:-v0.4-chibios21.11.5-rc2}
+[ "$release_id" = v0.4-chibios21.11.5-rc2 ] || \
   die "unsupported ChibiOS candidate: $release_id"
 
 [ -z "$(git -C "$ROOT" status --porcelain)" ] || \
@@ -21,7 +21,7 @@ export PATH="$toolchain_bin:$PATH"
 export LC_ALL=C
 
 source_date_epoch=$(git -C "$ROOT" show -s --format=%ct HEAD)
-version='tinySA4_v0.4-chibios21-rc1'
+version='tinySA4_v0.4-chibios21-rc2'
 artifact_dir="$ROOT/.artifacts/chibios-releases/$release_id/$commit"
 stem="tinySA4_${release_id}"
 first_binary="$artifact_dir/first.bin"
@@ -43,6 +43,10 @@ elf="$ROOT/build/tinySA4.elf"
   die 'F303 build did not produce BIN and ELF'
 [ -z "$(arm-none-eabi-nm -u "$elf")" ] || \
   die 'candidate ELF has unresolved symbols'
+double_helper_calls=$(arm-none-eabi-objdump -d "$elf" | \
+  grep -Ec 'bl[[:space:]].*<__aeabi_d' || true)
+[ "$double_helper_calls" -le 32 ] || \
+  die "candidate regressed to software double arithmetic ($double_helper_calls helper calls)"
 size=$(wc -c < "$binary" | tr -d ' ')
 [ "$size" -le 245760 ] || \
   die "candidate exceeds the 240 KiB application region ($size bytes)"
@@ -80,12 +84,13 @@ hex_hash=$(sha256_file "$artifact_dir/$stem.hex")
   printf 'version=%s\n' "$version"
   printf 'commit=%s\n' "$commit"
   printf 'implementation_commit=%s\n' \
-    '751b62257e9d04fc29a3debc9c74c490628069ee'
+    'acf16b5fc044484c06ab13042843669680733e71'
   printf 'chibios_upstream_commit=%s\n' \
     'f4bbadf964fc746aef8bbcf34135c7d8fabb8eae'
   printf 'chibios_commit=%s\n' "$chibios_commit"
   printf 'source_date_epoch=%s\n' "$source_date_epoch"
   printf 'compiler=%s\n' "$(arm-none-eabi-gcc --version | sed -n '1p')"
+  printf 'double_helper_calls=%s\n' "$double_helper_calls"
   printf 'binary_size=%s\n' "$size"
   printf 'binary_sha256=%s\n' "$binary_hash"
   printf 'elf_sha256=%s\n' "$elf_hash"
