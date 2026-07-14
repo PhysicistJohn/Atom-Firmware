@@ -3,6 +3,10 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 . "$ROOT/tools/lib.sh"
+. "$ROOT/tools/twin-client-lib.sh"
+
+TINYSA_ARTIFACTS_DIR=${TINYSA_ARTIFACTS_DIR:-"$ROOT/.artifacts"}
+export TINYSA_ARTIFACTS_DIR
 
 usage() {
   cat >&2 <<EOF
@@ -79,6 +83,8 @@ binary=$(CDPATH= cd -- "$(dirname -- "$binary")" && pwd)/$(basename "$binary")
 elf=$(CDPATH= cd -- "$(dirname -- "$elf")" && pwd)/$(basename "$elf")
 symbols=$(CDPATH= cd -- "$(dirname -- "$symbols")" && pwd)/$(basename "$symbols")
 twin_root=$(CDPATH= cd -- "$twin_root" && pwd)
+capture_twin_identity "$twin_root"
+twin_root=$TWIN_ROOT
 mkdir -p "$output"
 output=$(CDPATH= cd -- "$output" && pwd)
 
@@ -125,7 +131,10 @@ grep -Fq 'usb AssertEvents 2 1 1' "$usb_test" || \
 if [ -z "$runtime" ]; then
   [ -x "$twin_root/tools/bootstrap-renode.sh" ] || \
     die 'twin root does not provide tools/bootstrap-renode.sh'
-  runtime=$($twin_root/tools/bootstrap-renode.sh)
+  runtime=$("$twin_root/tools/bootstrap-renode.sh")
+  runtime_source=twin-bootstrap
+else
+  runtime_source=caller-supplied
 fi
 [ -d "$runtime" ] || die "Renode runtime not found: $runtime"
 runtime=$(CDPATH= cd -- "$runtime" && pwd)
@@ -133,6 +142,7 @@ runtime=$(CDPATH= cd -- "$runtime" && pwd)
 case "$runtime" in
   *[[:space:]]*) die 'Renode runtime path must not contain whitespace' ;;
 esac
+capture_twin_runtime_identity "$runtime" "$runtime_source"
 
 scenario_dir=$output/scenarios
 screen_dir=$output/.artifacts/digital-twin
@@ -147,6 +157,7 @@ write_wrapper() {
   test_file=$2
   wrapper=$scenario_dir/$name.resc
   {
+    write_twin_scenario_provenance
     printf '$bin=@%s\n' "$binary"
     printf '$elf=@%s\n' "$elf"
     printf '$symbols=@%s\n' "$symbols"
@@ -232,6 +243,8 @@ run_scenario usb
 [ -s "$screen_dir/selftest-complete.png" ] || \
   die 'self-test scenario did not retain its completion screenshot'
 
+verify_twin_identity
+verify_twin_runtime_identity "$runtime"
 python3 - \
   "$output/full.log" "$output/selftest.log" "$output/usb.log" \
   "$scenario_dir/full.resc" "$scenario_dir/selftest.resc" "$scenario_dir/usb.resc" \
@@ -539,6 +552,16 @@ report_lines = [
 ]
 pathlib.Path(report_path).write_text("\n".join(report_lines) + "\n")
 PY
+
+{
+  printf 'twin_source_commit=%s\n' "$TWIN_SOURCE_COMMIT"
+  printf 'twin_renode_tree=%s\n' "$TWIN_RENODE_TREE"
+  printf 'twin_tools_tree=%s\n' "$TWIN_TOOLS_TREE"
+  printf 'twin_bootstrap_blob=%s\n' "$TWIN_BOOTSTRAP_BLOB"
+  printf 'renode_runtime_source=%s\n' "$TWIN_RUNTIME_SOURCE"
+  printf 'renode_runtime_sha256=%s\n' "$TWIN_RUNTIME_SHA256"
+  printf 'renode_runtime_path=%s\n' "$runtime"
+} >> "$report"
 
 cat "$report"
 printf 'full_scenario=%s\n' "$scenario_dir/full.resc"

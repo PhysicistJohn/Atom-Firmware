@@ -40,7 +40,8 @@ For an ordinary development build:
 tools/build-zs407.sh
 ```
 
-Run the exact executable ZS407 digital twin without hardware:
+Run the exact executable ZS407 digital twin from the adjacent `TinySA_Twin`
+checkout without hardware (these compatibility commands delegate there):
 
 ```bash
 tools/test-digital-twin.sh --smoke
@@ -49,7 +50,8 @@ tools/test-digital-twin.sh --full
 
 The twin verifies and executes the immutable private v0.2.0 BIN, renders its
 real 480×320 framebuffer, accepts jog/touch input, initializes SD and RF parts,
-and sweeps deterministic RF tones. It never flashes or transmits.
+and sweeps deterministic RF tones. It never flashes or transmits. Set
+`TINYSA_TWIN_ROOT` when the Twin is not the default sibling checkout.
 
 For the first non-flashing LLVM/GNU hybrid experiment:
 

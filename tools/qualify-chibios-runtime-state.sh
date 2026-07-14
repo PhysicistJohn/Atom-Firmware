@@ -3,6 +3,10 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 . "$ROOT/tools/lib.sh"
+. "$ROOT/tools/twin-client-lib.sh"
+
+TINYSA_ARTIFACTS_DIR=${TINYSA_ARTIFACTS_DIR:-"$ROOT/.artifacts"}
+export TINYSA_ARTIFACTS_DIR
 
 usage() {
   cat >&2 <<EOF
@@ -108,6 +112,8 @@ binary=$(CDPATH= cd -- "$(dirname -- "$binary")" && pwd)/$(basename "$binary")
 elf=$(CDPATH= cd -- "$(dirname -- "$elf")" && pwd)/$(basename "$elf")
 symbols=$(CDPATH= cd -- "$(dirname -- "$symbols")" && pwd)/$(basename "$symbols")
 twin_root=$(CDPATH= cd -- "$twin_root" && pwd)
+capture_twin_identity "$twin_root"
+twin_root=$TWIN_ROOT
 mkdir -p "$output"
 output=$(CDPATH= cd -- "$output" && pwd)
 
@@ -151,9 +157,14 @@ grep -Fq 'RunSelfTestCase' "$twin_model" || \
 if [ -z "$runtime" ]; then
   [ -x "$twin_root/tools/bootstrap-renode.sh" ] || \
     die 'twin root does not provide tools/bootstrap-renode.sh'
-  runtime=$($twin_root/tools/bootstrap-renode.sh)
+  runtime=$("$twin_root/tools/bootstrap-renode.sh")
+  runtime_source=twin-bootstrap
+else
+  runtime_source=caller-supplied
 fi
 [ -x "$runtime/renode" ] || die "Renode runtime is incomplete: $runtime"
+runtime=$(CDPATH= cd -- "$runtime" && pwd)
+capture_twin_runtime_identity "$runtime" "$runtime_source"
 
 scenario="$output/runtime-state.resc"
 raw_log="$output/runtime-state.raw.log"
@@ -193,6 +204,7 @@ heap_size=$((heap_end - heap_base))
   die "ELF heap is $heap_size bytes, expected exactly $expected_heap_size"
 
 {
+  write_twin_scenario_provenance
   printf '$bin=@%s\n' "$binary"
   printf '$elf=@%s\n' "$elf"
   printf '$symbols=@%s\n' "$symbols"
@@ -379,6 +391,8 @@ if grep -Eq 'Errors during compilation|There was an error executing command|No s
   die 'runtime-state scenario reported an error'
 fi
 
+verify_twin_identity
+verify_twin_runtime_identity "$runtime"
 python3 - "$log" "$threads" "$report" "$binary" "$elf" "$symbols" \
   "$warm_only" "$minimum_sweep_stack_free" "$minimum_msp_stack_free" \
   "$msp_base_address" "$msp_end_address" "$msp_size" \
@@ -623,6 +637,16 @@ else:
     report_lines.append("stack_watermark=NOT_RUN")
 pathlib.Path(report_path).write_text("\n".join(report_lines) + "\n")
 PY
+
+{
+  printf 'twin_source_commit=%s\n' "$TWIN_SOURCE_COMMIT"
+  printf 'twin_renode_tree=%s\n' "$TWIN_RENODE_TREE"
+  printf 'twin_tools_tree=%s\n' "$TWIN_TOOLS_TREE"
+  printf 'twin_bootstrap_blob=%s\n' "$TWIN_BOOTSTRAP_BLOB"
+  printf 'renode_runtime_source=%s\n' "$TWIN_RUNTIME_SOURCE"
+  printf 'renode_runtime_sha256=%s\n' "$TWIN_RUNTIME_SHA256"
+  printf 'renode_runtime_path=%s\n' "$runtime"
+} >> "$report"
 
 cat "$report"
 printf 'scenario=%s\n' "$scenario"

@@ -37,6 +37,7 @@ hashes must come from the exact release package being qualified.
 ```sh
 python3 tools/finalize-selftest-visual-evidence.py \
   --mode official-c979 \
+  --twin-root ../TinySA_Twin \
   --reference-capture PATH/official-c979/reference \
   --candidate-capture PATH/fresh-rc5/candidate \
   --reference-bin .artifacts/upstream/v1.4-224-gc979386/tinySA4_v1.4-224-gc979386.bin \
@@ -63,16 +64,16 @@ reviewed `mathematically-better-time-grid` result under `comparison/`.
 ## Lab baseline
 
 Use the same command with `--mode lab`, the pinned lab BIN/ELF, and
-`digital-twin/renode/symbols/v0.2.0-protocol-v2.symbols`. The output normally
-becomes `EVIDENCE/selftest-visual`. The historical comparator is still
+`../TinySA_Twin/digital-twin/renode/symbols/v0.2.0-protocol-v2.symbols`. The
+output normally becomes `EVIDENCE/selftest-visual`. The historical comparator is still
 retained in the compatibility-named `comparison-original-rejected/` directory;
 for the direct lab baseline that older classifier may itself pass.
 
 The lab reference wrapper may omit an explicit `$symbols` assignment because
-the repository's main `digital-twin/renode/zs407.resc` supplies the pinned
+the recorded Twin commit's main `digital-twin/renode/zs407.resc` supplies the pinned
 default. This is the only admitted implicit symbol binding. The finalizer then
 requires all of the following: `--reference-symbols` resolves to that exact
-repository file and pinned hash, `run.resc` includes the exact tracked main
+Twin file and pinned hash, `run.resc` includes the exact recorded main
 `zs407.resc` followed only by the exact tracked self-test visual body, the main
 scenario retains its exact `$symbols ?=` default, and `run.log` confirms the loaded
 `v0.2.0-protocol-v2.symbols` profile. Candidate and official-c979 wrappers
@@ -84,6 +85,9 @@ Finalization rejects evidence when any of these conditions is observed:
 
 - a reference or candidate BIN, ELF, or symbol-profile hash differs;
 - `run.resc` points at an artifact with a different hash;
+- reference and candidate captures omit or disagree on the exact external
+  Twin commit, Renode tree, tools tree, bootstrap blob, or executed Renode
+  runtime identity;
 - an implicit symbol binding is used anywhere except the securely proven lab
   reference default, or the loaded-profile log marker is missing;
 - any of the 14 PNG, 307,200-byte RGB565, or 7,200-byte trace captures is

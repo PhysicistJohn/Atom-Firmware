@@ -1,7 +1,8 @@
 # Self-test visual regression
 
 `tools/test-selftest-visual-regression.sh` qualifies a relocatable firmware
-candidate against the pinned v0.2.0 executable twin. It drives both images
+candidate against the pinned v0.2.0 executable twin in a clean external
+`TinySA_Twin` checkout. It drives both images
 through the same fourteen built-in self-test cases and the same deterministic
 CAL-to-RF fixture profile.
 
@@ -69,6 +70,7 @@ Run the gate with the release candidate and its SRAM symbol profile:
 
 ```sh
 tools/test-selftest-visual-regression.sh \
+  --twin-root ../TinySA_Twin \
   --candidate-bin /absolute/path/to/tinySA4-candidate.bin \
   --candidate-elf /absolute/path/to/tinySA4-candidate.elf \
   --candidate-symbols /absolute/path/to/candidate-symbols.resc

@@ -3,6 +3,10 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 . "$ROOT/tools/lib.sh"
+. "$ROOT/tools/twin-client-lib.sh"
+
+TINYSA_ARTIFACTS_DIR=${TINYSA_ARTIFACTS_DIR:-"$ROOT/.artifacts"}
+export TINYSA_ARTIFACTS_DIR
 
 usage() {
   status=${1:-2}
@@ -11,6 +15,7 @@ usage() {
   printf '  --reference-bin PATH       override the pinned v0.2 reference binary\n' >&2
   printf '  --reference-elf PATH       override the pinned v0.2 reference ELF\n' >&2
   printf '  --reference-symbols PATH   Renode symbol-profile include for the reference\n' >&2
+  printf '  --twin-root PATH           clean TinySA_Twin checkout used for execution\n' >&2
   printf '  --output PATH              artifact directory (default: .artifacts/digital-twin/selftest-visual)\n' >&2
   exit "$status"
 }
@@ -26,6 +31,7 @@ reference_symbols=
 candidate_bin=
 candidate_elf=
 candidate_symbols=
+twin_root=
 output="$ROOT/.artifacts/digital-twin/selftest-visual"
 
 while [ "$#" -gt 0 ]; do
@@ -60,6 +66,11 @@ while [ "$#" -gt 0 ]; do
       candidate_symbols=$2
       shift 2
       ;;
+    --twin-root)
+      [ "$#" -ge 2 ] || usage
+      twin_root=$2
+      shift 2
+      ;;
     --output)
       [ "$#" -ge 2 ] || usage
       output=$2
@@ -77,15 +88,18 @@ done
 [ -n "$candidate_bin" ] || usage
 [ -n "$candidate_elf" ] || usage
 [ -n "$candidate_symbols" ] || usage
+[ -n "$twin_root" ] || usage
 [ -f "$candidate_bin" ] || die "candidate binary not found: $candidate_bin"
 [ -f "$candidate_elf" ] || die "candidate ELF not found: $candidate_elf"
 [ -f "$candidate_symbols" ] || die "candidate symbol profile not found: $candidate_symbols"
 candidate_bin=$(absolute_file "$candidate_bin")
 candidate_elf=$(absolute_file "$candidate_elf")
 candidate_symbols=$(absolute_file "$candidate_symbols")
+capture_twin_identity "$twin_root"
+twin_root=$TWIN_ROOT
 
 if [ -z "$reference_bin" ] || [ -z "$reference_elf" ]; then
-  reference_info=$("$ROOT/tools/fetch-digital-twin-firmware.sh")
+  reference_info=$("$twin_root/tools/fetch-digital-twin-firmware.sh")
   [ -n "$reference_bin" ] || reference_bin=$(printf '%s\n' "$reference_info" | sed -n 's/^binary=//p')
   [ -n "$reference_elf" ] || reference_elf=$(printf '%s\n' "$reference_info" | sed -n 's/^elf=//p')
 fi
@@ -120,7 +134,16 @@ rm -f "$output/reference/run.log" "$output/reference/run.raw.log" \
   "$output/comparison/contact-cases-08-14.png" \
   "$output/SHA256SUMS"
 
-runtime=${RENODE_RUNTIME:-$("$ROOT/tools/bootstrap-renode.sh")}
+if [ -n "${RENODE_RUNTIME:-}" ]; then
+  runtime=$RENODE_RUNTIME
+  runtime_source=caller-supplied
+else
+  runtime=$("$twin_root/tools/bootstrap-renode.sh")
+  runtime_source=twin-bootstrap
+fi
+[ -x "$runtime/renode" ] || die "Renode runtime is incomplete: $runtime"
+runtime=$(CDPATH= cd -- "$runtime" && pwd)
+capture_twin_runtime_identity "$runtime" "$runtime_source"
 
 run_variant() {
   variant=$1
@@ -133,14 +156,15 @@ run_variant() {
   log="$capture/run.log"
 
   {
+    write_twin_scenario_provenance
     printf '$bin = @%s\n' "$binary"
     printf '$elf = @%s\n' "$elf"
     printf '$captureDir = @%s\n' "$capture"
     if [ -n "$symbols" ]; then
       printf '$symbols = @%s\n' "$symbols"
     fi
-    printf 'include @%s/digital-twin/renode/zs407.resc\n' "$ROOT"
-    printf 'include @%s/digital-twin/renode/tests/selftest-visual-body.resc\n' "$ROOT"
+    printf 'include @%s/digital-twin/renode/zs407.resc\n' "$twin_root"
+    printf 'include @%s/digital-twin/renode/tests/selftest-visual-body.resc\n' "$twin_root"
   } > "$scenario"
 
   console_fifo="$capture/console.$$"
@@ -183,6 +207,8 @@ run_variant() {
 
 run_variant reference "$reference_bin" "$reference_elf" "$reference_symbols"
 run_variant candidate "$candidate_bin" "$candidate_elf" "$candidate_symbols"
+verify_twin_identity
+verify_twin_runtime_identity "$runtime"
 
 set +e
 python3 "$ROOT/tools/compare-selftest-visuals.py" \
@@ -199,6 +225,8 @@ set -e
 checksums="$output/SHA256SUMS"
 : > "$checksums"
 for variant in reference candidate; do
+  printf '%s  %s\n' "$(sha256_file "$output/$variant/run.resc")" \
+    "$variant/run.resc" >> "$checksums"
   for case_number in 01 02 03 04 05 06 07 08 09 10 11 12 13 14; do
     for extension in png rgb565 measured.f32le; do
       case "$extension" in

@@ -76,13 +76,15 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 SCENARIO_ASSIGNMENT_RE = re.compile(r"^\$(bin|elf|symbols)\s*=\s*@(.+?)\s*$")
 SCENARIO_INCLUDE_RE = re.compile(r"^include\s+@(.+?)\s*$")
 SCENARIO_SYMBOL_DIRECTIVE_RE = re.compile(r"^\$symbols\b")
-MAIN_ZS407_SCENARIO = (ROOT / "digital-twin/renode/zs407.resc").resolve()
-SELFTEST_VISUAL_BODY = (
-    ROOT / "digital-twin/renode/tests/selftest-visual-body.resc"
-).resolve()
-PINNED_LAB_SYMBOLS = (
-    ROOT / "digital-twin/renode/symbols/v0.2.0-protocol-v2.symbols"
-).resolve()
+TWIN_PROVENANCE_RE = re.compile(
+    r"^# twin_(source_commit|renode_tree|tools_tree|bootstrap_blob)=([0-9a-f]{40})$"
+)
+TWIN_RUNTIME_SOURCE_RE = re.compile(
+    r"^# twin_(runtime_source)=(twin-bootstrap|caller-supplied)$"
+)
+TWIN_RUNTIME_HASH_RE = re.compile(
+    r"^# twin_(runtime_sha256)=([0-9a-f]{64})$"
+)
 PINNED_LAB_SYMBOL_DEFAULT = (
     "$symbols ?= $ORIGIN/symbols/v0.2.0-protocol-v2.symbols"
 )
@@ -112,6 +114,12 @@ class FinalizeError(RuntimeError):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=sorted(BASELINES), required=True)
+    parser.add_argument(
+        "--twin-root",
+        type=Path,
+        required=True,
+        help="TinySA_Twin checkout containing the commit recorded by each capture",
+    )
     parser.add_argument("--reference-capture", type=Path, required=True)
     parser.add_argument("--candidate-capture", type=Path, required=True)
     parser.add_argument("--reference-bin", type=Path, required=True)
@@ -193,13 +201,91 @@ def png_dimensions(path: Path) -> tuple[int, int]:
     return struct.unpack(">II", header[16:24])
 
 
-def prove_lab_default_symbols(path: Path, supplied_symbols: Path) -> Path:
+def twin_paths(twin_root: Path) -> tuple[Path, Path, Path]:
+    renode = twin_root / "digital-twin/renode"
+    return (
+        (renode / "zs407.resc").resolve(),
+        (renode / "tests/selftest-visual-body.resc").resolve(),
+        (renode / "symbols/v0.2.0-protocol-v2.symbols").resolve(),
+    )
+
+
+def scenario_twin_identity(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for line in path.read_text(errors="strict").splitlines():
+        match = TWIN_PROVENANCE_RE.fullmatch(line)
+        if not match:
+            match = TWIN_RUNTIME_SOURCE_RE.fullmatch(line)
+        if not match:
+            match = TWIN_RUNTIME_HASH_RE.fullmatch(line)
+        if not match:
+            continue
+        name, value = match.groups()
+        reject(name not in values, f"duplicate twin provenance {name} in {path}")
+        values[name] = value
     reject(
-        supplied_symbols.resolve() == PINNED_LAB_SYMBOLS,
-        "implicit lab symbols require the exact repository-pinned symbol file",
+        set(values)
+        == {
+            "source_commit",
+            "renode_tree",
+            "tools_tree",
+            "bootstrap_blob",
+            "runtime_source",
+            "runtime_sha256",
+        },
+        f"{path} does not contain complete post-split twin provenance",
+    )
+    return values
+
+
+def validate_twin_identity(twin_root: Path, identity: dict[str, str]) -> None:
+    reject(
+        twin_root.is_dir() and not twin_root.is_symlink(),
+        f"twin root is not a regular directory: {twin_root}",
+    )
+    commit = git_output(
+        "rev-parse", f"{identity['source_commit']}^{{commit}}", root=twin_root
+    ).decode().strip()
+    reject(commit == identity["source_commit"], "recorded twin commit is not exact")
+    tree = git_output(
+        "rev-parse",
+        f"{commit}:digital-twin/renode",
+        root=twin_root,
+    ).decode().strip()
+    bootstrap = git_output(
+        "rev-parse",
+        f"{commit}:tools/bootstrap-renode.sh",
+        root=twin_root,
+    ).decode().strip()
+    tools_tree = git_output(
+        "rev-parse",
+        f"{commit}:tools",
+        root=twin_root,
+    ).decode().strip()
+    reject(tree == identity["renode_tree"], "recorded twin Renode tree does not match its commit")
+    reject(
+        tools_tree == identity["tools_tree"],
+        "recorded twin tools tree does not match its commit",
+    )
+    reject(
+        bootstrap == identity["bootstrap_blob"],
+        "recorded twin bootstrap blob does not match its commit",
+    )
+
+
+def prove_lab_default_symbols(
+    path: Path,
+    supplied_symbols: Path,
+    twin_root: Path,
+    twin_identity: dict[str, str],
+) -> Path:
+    main_scenario, visual_body, pinned_symbols = twin_paths(twin_root)
+    reject(
+        supplied_symbols.resolve() == pinned_symbols,
+        "implicit lab symbols require the exact twin-pinned symbol file",
     )
     validate_hashed_file(
-        PINNED_LAB_SYMBOLS, BASELINES["lab"]["symbols"], "pinned lab symbols"
+        pinned_symbols, BASELINES["lab"]["symbols"], "pinned lab symbols"
     )
 
     scenario_lines = path.read_text(errors="strict").splitlines()
@@ -213,37 +299,40 @@ def prove_lab_default_symbols(path: Path, supplied_symbols: Path) -> Path:
             include_path = path.parent / include_path
         includes.append(include_path.resolve())
     reject(
-        includes == [MAIN_ZS407_SCENARIO, SELFTEST_VISUAL_BODY],
+        includes == [main_scenario, visual_body],
         "implicit lab symbols require only the exact main zs407.resc followed "
         "by the exact self-test visual body",
     )
     reject(
-        MAIN_ZS407_SCENARIO.is_file() and not MAIN_ZS407_SCENARIO.is_symlink(),
-        "main zs407.resc is not a regular repository file",
+        main_scenario.is_file() and not main_scenario.is_symlink(),
+        "main zs407.resc is not a regular twin file",
     )
     reject(
-        SELFTEST_VISUAL_BODY.is_file() and not SELFTEST_VISUAL_BODY.is_symlink(),
-        "self-test visual body is not a regular repository file",
+        visual_body.is_file() and not visual_body.is_symlink(),
+        "self-test visual body is not a regular twin file",
     )
-    scenario_bytes = MAIN_ZS407_SCENARIO.read_bytes()
-    working_blob = git_output("hash-object", "--stdin", input_bytes=scenario_bytes).decode().strip()
-    tracked_blob = git_output(
-        "rev-parse", "HEAD:digital-twin/renode/zs407.resc"
-    ).decode().strip()
-    reject(
-        working_blob == tracked_blob,
-        "main zs407.resc has uncommitted modifications",
+    commit = twin_identity["source_commit"]
+    scenario_bytes = git_output(
+        "show", f"{commit}:digital-twin/renode/zs407.resc", root=twin_root
     )
-    visual_body_bytes = SELFTEST_VISUAL_BODY.read_bytes()
-    visual_body_working_blob = git_output(
-        "hash-object", "--stdin", input_bytes=visual_body_bytes
-    ).decode().strip()
-    visual_body_tracked_blob = git_output(
-        "rev-parse", "HEAD:digital-twin/renode/tests/selftest-visual-body.resc"
-    ).decode().strip()
+    visual_body_bytes = git_output(
+        "show",
+        f"{commit}:digital-twin/renode/tests/selftest-visual-body.resc",
+        root=twin_root,
+    )
+    recorded_symbol_bytes = git_output(
+        "show",
+        f"{commit}:digital-twin/renode/symbols/v0.2.0-protocol-v2.symbols",
+        root=twin_root,
+    )
     reject(
-        visual_body_working_blob == visual_body_tracked_blob,
-        "self-test visual body has uncommitted modifications",
+        hashlib.sha256(recorded_symbol_bytes).hexdigest()
+        == BASELINES["lab"]["symbols"],
+        "recorded twin commit's lab symbols do not match the baseline",
+    )
+    reject(
+        pinned_symbols.read_bytes() == recorded_symbol_bytes,
+        "current pinned lab symbols differ from the recorded twin commit",
     )
     default_count = scenario_bytes.decode(errors="strict").splitlines().count(
         PINNED_LAB_SYMBOL_DEFAULT
@@ -252,7 +341,8 @@ def prove_lab_default_symbols(path: Path, supplied_symbols: Path) -> Path:
         default_count == 1,
         "main zs407.resc does not contain the exact pinned lab-symbol default",
     )
-    return PINNED_LAB_SYMBOLS
+    reject(bool(visual_body_bytes), "recorded self-test visual body is empty")
+    return pinned_symbols
 
 
 def scenario_artifacts(
@@ -260,7 +350,10 @@ def scenario_artifacts(
     *,
     allow_lab_default_symbols: bool,
     supplied_symbols: Path,
-) -> tuple[dict[str, Path], str]:
+    twin_root: Path,
+) -> tuple[dict[str, Path], str, dict[str, str]]:
+    twin_identity = scenario_twin_identity(path)
+    validate_twin_identity(twin_root, twin_identity)
     assignments: dict[str, Path] = {}
     for line in path.read_text(errors="strict").splitlines():
         match = SCENARIO_ASSIGNMENT_RE.match(line)
@@ -282,13 +375,15 @@ def scenario_artifacts(
             allow_lab_default_symbols,
             f"{path} must bind symbols explicitly",
         )
-        assignments["symbols"] = prove_lab_default_symbols(path, supplied_symbols)
+        assignments["symbols"] = prove_lab_default_symbols(
+            path, supplied_symbols, twin_root, twin_identity
+        )
         binding = "zs407-pinned-default"
     reject(
         set(assignments) == {"bin", "elf", "symbols"},
         f"{path} must bind bin, elf, and symbols",
     )
-    return assignments, binding
+    return assignments, binding, twin_identity
 
 
 def marker_count(log: str, marker: str) -> int:
@@ -311,9 +406,10 @@ def validate_capture(
     label: str,
     artifact_hashes: dict[str, str],
     symbol_profile: Path,
+    twin_root: Path,
     *,
     allow_lab_default_symbols: bool = False,
-) -> tuple[dict[str, int], str]:
+) -> tuple[dict[str, int], str, dict[str, str]]:
     capture = capture.expanduser().resolve()
     reject(capture.is_dir() and not capture.is_symlink(), f"{label} capture is not a directory: {capture}")
     expected_names = set(required_capture_names())
@@ -375,14 +471,15 @@ def validate_capture(
     raw_log = raw_bytes.decode(errors="strict")
     reject(ERROR_PATTERN.search(raw_log) is None, f"{label} run.raw.log contains a harness/error marker")
 
-    assignments, symbol_binding = scenario_artifacts(
+    assignments, symbol_binding, twin_identity = scenario_artifacts(
         capture / "run.resc",
         allow_lab_default_symbols=allow_lab_default_symbols,
         supplied_symbols=symbol_profile,
+        twin_root=twin_root,
     )
     for name, expected in artifact_hashes.items():
         validate_hashed_file(assignments[name], expected, f"{label} scenario ${name}")
-    return counts, symbol_binding
+    return counts, symbol_binding, twin_identity
 
 
 def capture_inventory_hash(capture: Path) -> str:
@@ -398,9 +495,13 @@ def copy_capture(source: Path, destination: Path) -> None:
         shutil.copyfile(source.resolve() / name, destination / name)
 
 
-def git_output(*arguments: str, input_bytes: bytes | None = None) -> bytes:
+def git_output(
+    *arguments: str,
+    input_bytes: bytes | None = None,
+    root: Path = ROOT,
+) -> bytes:
     process = subprocess.run(
-        ["git", "-C", str(ROOT), *arguments],
+        ["git", "-C", str(root), *arguments],
         input=input_bytes,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -776,6 +877,8 @@ def write_provenance(
     candidate_capture_hash: str,
     reference_symbol_binding: str,
     candidate_symbol_binding: str,
+    twin_root: Path,
+    twin_identity: dict[str, str],
 ) -> None:
     lines = [
         "schema=tinysa-selftest-visual-provenance-v1",
@@ -802,6 +905,13 @@ def write_provenance(
         f"candidate_symbol_binding={candidate_symbol_binding}",
         f"candidate_capture_source={candidate_capture}",
         f"candidate_capture_source_inventory_sha256={candidate_capture_hash}",
+        f"twin_root={twin_root}",
+        f"twin_source_commit={twin_identity['source_commit']}",
+        f"twin_renode_tree={twin_identity['renode_tree']}",
+        f"twin_tools_tree={twin_identity['tools_tree']}",
+        f"twin_bootstrap_blob={twin_identity['bootstrap_blob']}",
+        f"renode_runtime_source={twin_identity['runtime_source']}",
+        f"renode_runtime_sha256={twin_identity['runtime_sha256']}",
         f"historical_comparator_commit={HISTORICAL_COMMIT}",
         f"historical_comparator_git_blob={HISTORICAL_BLOB}",
         f"historical_comparator_sha256={historical_blob_sha256}",
@@ -932,6 +1042,7 @@ def install_stage(stage: Path, output: Path) -> None:
 def main() -> int:
     args = parse_args()
     baseline = BASELINES[args.mode]
+    twin_root = args.twin_root.expanduser().resolve()
     reject(args.human_review == "PASS", "human contact-sheet review did not pass")
     reviewer = safe_text(args.human_reviewer, "human reviewer", 2)
     attestation = safe_text(args.human_review_attestation, "human review attestation", 20)
@@ -953,18 +1064,24 @@ def main() -> int:
     }
     reference_capture = args.reference_capture.expanduser().resolve()
     candidate_capture = args.candidate_capture.expanduser().resolve()
-    reference_counts, reference_symbol_binding = validate_capture(
+    reference_counts, reference_symbol_binding, reference_twin_identity = validate_capture(
         reference_capture,
         "reference",
         {"bin": baseline["bin"], "elf": baseline["elf"], "symbols": baseline["symbols"]},
         artifacts["reference_symbols"],
+        twin_root,
         allow_lab_default_symbols=args.mode == "lab",
     )
-    candidate_counts, candidate_symbol_binding = validate_capture(
+    candidate_counts, candidate_symbol_binding, candidate_twin_identity = validate_capture(
         candidate_capture,
         "candidate",
         {"bin": candidate_hashes["bin"], "elf": candidate_hashes["elf"], "symbols": candidate_hashes["symbols"]},
         artifacts["candidate_symbols"],
+        twin_root,
+    )
+    reject(
+        reference_twin_identity == candidate_twin_identity,
+        "reference and candidate captures used different twin identities",
     )
     reference_capture_hash = capture_inventory_hash(reference_capture)
     candidate_capture_hash = capture_inventory_hash(candidate_capture)
@@ -1088,6 +1205,7 @@ def main() -> int:
         reject(sha256(artifacts["candidate_bin"]) == candidate_hashes["bin"], "candidate BIN changed during comparison")
         reject(sha256(artifacts["candidate_elf"]) == candidate_hashes["elf"], "candidate ELF changed during comparison")
         reject(sha256(artifacts["candidate_symbols"]) == candidate_hashes["symbols"], "candidate symbols changed during comparison")
+        validate_twin_identity(twin_root, reference_twin_identity)
 
         shutil.rmtree(scripts)
         write_summary(
@@ -1120,6 +1238,8 @@ def main() -> int:
             candidate_capture_hash,
             reference_symbol_binding,
             candidate_symbol_binding,
+            twin_root,
+            reference_twin_identity,
         )
         write_supplemental(stage, args, current_report, historical_report)
         write_inventory(stage)

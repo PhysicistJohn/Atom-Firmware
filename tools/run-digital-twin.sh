@@ -2,10 +2,11 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+. "$ROOT/tools/lib.sh"
+. "$ROOT/tools/twin-client-lib.sh"
 
-"$ROOT/tools/fetch-digital-twin-firmware.sh" >/dev/null
-runtime=$($ROOT/tools/bootstrap-renode.sh)
-
-cd "$ROOT"
-exec "$runtime/renode" --disable-xwt --console --plain \
-  "$ROOT/digital-twin/renode/zs407.resc"
+TINYSA_ARTIFACTS_DIR=${TINYSA_ARTIFACTS_DIR:-"$ROOT/.artifacts"}
+export TINYSA_ARTIFACTS_DIR
+twin_root=$(resolve_external_twin_root \
+  "${TINYSA_TWIN_ROOT:-$ROOT/../TinySA_Twin}" "$ROOT")
+exec "$twin_root/tools/run-digital-twin.sh" "$@"

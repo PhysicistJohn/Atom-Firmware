@@ -69,8 +69,8 @@ EP1.TX=0x0040 EP1.RX=0x0080 EP2.TX=0x00c0
 
 ## Repository exact-image check
 
-The local executable-twin scenario is
-`digital-twin/renode/tests/usb.resc`; its release gate is
+The executable-twin scenario is
+`../TinySA_Twin/digital-twin/renode/tests/usb.resc`; its firmware release gate is
 `tools/qualify-chibios-general.sh`. A passing complete run has exactly:
 
 ```text
