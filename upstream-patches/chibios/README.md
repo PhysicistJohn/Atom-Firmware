@@ -57,9 +57,10 @@ suspend/wakeup, STALL, and a final bus reset/re-enumeration. The full scenario
 requires five PMA-distinctness markers and three data-endpoint-disabled
 markers.
 
-RC5 is reproducibly built but was still `SIM_PENDING` and
-`hardware_qualified=false` when this handoff was prepared. Do not convert the
-focused twin result into a physical RC5 claim.
+RC5 is reproducibly built and its complete exact-image simulation package is
+sealed `SIMULATION_PASS_HARDWARE_PENDING`. It remains
+`hardware_qualified=false`; do not convert the simulator result or the
+official-firmware warm diagnostic into a physical RC5 claim.
 
 ## Clean-room patch audit
 

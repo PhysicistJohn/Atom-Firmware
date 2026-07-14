@@ -520,8 +520,9 @@ project-local qualification infrastructure.
 
 ## Recommended cross-vendor order
 
-1. Keep RC4 rejected, finish the exact RC5 simulation seal, and complete RC5
-   physical qualification before calling any v0.4 image hardware-qualified.
+1. Keep RC4 rejected, retain the completed exact RC5 simulation seal, and
+   complete RC5 physical qualification before calling any v0.4 image
+   hardware-qualified.
 2. Leave tinySA PRs #156-#162 and Renode PRs #217/#218 alone pending review.
 3. Keep the exact-power scientific formatter as a separate tinySA handoff. It
    is ready for maintainer review when explicitly authorized, but must not be
