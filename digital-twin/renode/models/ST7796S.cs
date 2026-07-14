@@ -29,6 +29,8 @@ namespace Antmicro.Renode.Peripherals.ZS407
 
         public ulong CommandWrites { get; private set; }
 
+        public ulong MemoryReadBytes { get; private set; }
+
         public bool DisplayEnabled { get; private set; }
 
         public byte MemoryAccessControl => memoryAccessControl;
@@ -85,6 +87,7 @@ namespace Antmicro.Renode.Peripherals.ZS407
             DisplayEnabled = false;
             PixelWrites = 0;
             CommandWrites = 0;
+            MemoryReadBytes = 0;
         }
 
         public void OnGPIO(int number, bool value)
@@ -290,6 +293,7 @@ namespace Antmicro.Renode.Peripherals.ZS407
 
         private byte ReadMemoryByte()
         {
+            MemoryReadBytes++;
             if(readDummyPending)
             {
                 readDummyPending = false;

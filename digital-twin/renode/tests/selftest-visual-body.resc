@@ -1,0 +1,180 @@
+# This scenario is included after zs407.resc by the visual-regression runner.
+# The runner supplies $captureDir and, for relocatable builds, installs the
+# matching SRAM symbol profile before this file is evaluated.
+# Each frame is taken from the positive-argument interactive result screen,
+# before modeled touch acknowledgement restores normal sweeping.
+
+emulation RunFor "1.5"
+twinStatus AssertBooted
+twinStatus SetCalibrationLoopback 1 -35.3
+
+twinStatus RunInteractiveSelfTestCase 1
+emulation RunFor "5.00"
+twinStatus AssertInteractiveSelfTestCase 1 1
+twinStatus ReportSelfTestCase 1
+spi1.spiFabric.lcd SaveScreenshot $captureDir/case-01.png
+twinStatus SaveScreenRaw $captureDir/case-01.rgb565
+adc2 SetTouchPixel 200 150
+emulation RunFor "1.50"
+adc2 ReleaseTouch
+emulation RunFor "0.10"
+twinStatus AssertSelfTestCase 1 1
+
+twinStatus RunInteractiveSelfTestCase 2
+emulation RunFor "5.00"
+twinStatus AssertInteractiveSelfTestCase 2 1
+twinStatus ReportSelfTestCase 2
+spi1.spiFabric.lcd SaveScreenshot $captureDir/case-02.png
+twinStatus SaveScreenRaw $captureDir/case-02.rgb565
+adc2 SetTouchPixel 200 150
+emulation RunFor "1.50"
+adc2 ReleaseTouch
+emulation RunFor "0.10"
+twinStatus AssertSelfTestCase 2 1
+
+twinStatus RunInteractiveSelfTestCase 3
+emulation RunFor "3.00"
+twinStatus AssertInteractiveSelfTestCase 3 1
+twinStatus ReportSelfTestCase 3
+spi1.spiFabric.lcd SaveScreenshot $captureDir/case-03.png
+twinStatus SaveScreenRaw $captureDir/case-03.rgb565
+adc2 SetTouchPixel 200 150
+emulation RunFor "1.50"
+adc2 ReleaseTouch
+emulation RunFor "0.10"
+twinStatus AssertSelfTestCase 3 1
+
+twinStatus RunInteractiveSelfTestCase 4
+emulation RunFor "3.00"
+twinStatus AssertInteractiveSelfTestCase 4 1
+twinStatus ReportSelfTestCase 4
+spi1.spiFabric.lcd SaveScreenshot $captureDir/case-04.png
+twinStatus SaveScreenRaw $captureDir/case-04.rgb565
+adc2 SetTouchPixel 200 150
+emulation RunFor "1.50"
+adc2 ReleaseTouch
+emulation RunFor "0.10"
+twinStatus AssertSelfTestCase 4 1
+
+twinStatus RunInteractiveSelfTestCase 5
+emulation RunFor "5.00"
+twinStatus AssertInteractiveSelfTestCase 5 1
+twinStatus ReportSelfTestCase 5
+spi1.spiFabric.lcd SaveScreenshot $captureDir/case-05.png
+twinStatus SaveScreenRaw $captureDir/case-05.rgb565
+adc2 SetTouchPixel 200 150
+emulation RunFor "1.50"
+adc2 ReleaseTouch
+emulation RunFor "0.10"
+twinStatus AssertSelfTestCase 5 1
+
+twinStatus RunInteractiveSelfTestCase 6
+emulation RunFor "3.00"
+twinStatus AssertInteractiveSelfTestCase 6 1
+twinStatus ReportSelfTestCase 6
+spi1.spiFabric.lcd SaveScreenshot $captureDir/case-06.png
+twinStatus SaveScreenRaw $captureDir/case-06.rgb565
+adc2 SetTouchPixel 200 150
+emulation RunFor "1.50"
+adc2 ReleaseTouch
+emulation RunFor "0.10"
+twinStatus AssertSelfTestCase 6 1
+
+twinStatus RunInteractiveSelfTestCase 7
+emulation RunFor "2.00"
+twinStatus AssertInteractiveSelfTestCase 7 1
+twinStatus ReportSelfTestCase 7
+spi1.spiFabric.lcd SaveScreenshot $captureDir/case-07.png
+twinStatus SaveScreenRaw $captureDir/case-07.rgb565
+adc2 SetTouchPixel 200 150
+emulation RunFor "1.50"
+adc2 ReleaseTouch
+emulation RunFor "0.10"
+twinStatus AssertSelfTestCase 7 1
+
+twinStatus RunInteractiveSelfTestCase 8
+emulation RunFor "2.00"
+twinStatus AssertInteractiveSelfTestCase 8 1
+twinStatus ReportSelfTestCase 8
+spi1.spiFabric.lcd SaveScreenshot $captureDir/case-08.png
+twinStatus SaveScreenRaw $captureDir/case-08.rgb565
+adc2 SetTouchPixel 200 150
+emulation RunFor "1.50"
+adc2 ReleaseTouch
+emulation RunFor "0.10"
+twinStatus AssertSelfTestCase 8 1
+
+twinStatus RunInteractiveSelfTestCase 9
+emulation RunFor "5.00"
+twinStatus AssertInteractiveSelfTestCase 9 1
+twinStatus ReportSelfTestCase 9
+spi1.spiFabric.lcd SaveScreenshot $captureDir/case-09.png
+twinStatus SaveScreenRaw $captureDir/case-09.rgb565
+adc2 SetTouchPixel 200 150
+emulation RunFor "1.50"
+adc2 ReleaseTouch
+emulation RunFor "0.10"
+twinStatus AssertSelfTestCase 9 1
+
+twinStatus RunInteractiveSelfTestCase 10
+emulation RunFor "3.00"
+twinStatus AssertInteractiveSelfTestCase 10 1
+twinStatus ReportSelfTestCase 10
+spi1.spiFabric.lcd SaveScreenshot $captureDir/case-10.png
+twinStatus SaveScreenRaw $captureDir/case-10.rgb565
+adc2 SetTouchPixel 200 150
+emulation RunFor "1.50"
+adc2 ReleaseTouch
+emulation RunFor "0.10"
+twinStatus AssertSelfTestCase 10 1
+
+twinStatus RunInteractiveSelfTestCase 11
+emulation RunFor "2.00"
+twinStatus AssertInteractiveSelfTestCase 11 1
+twinStatus ReportSelfTestCase 11
+spi1.spiFabric.lcd SaveScreenshot $captureDir/case-11.png
+twinStatus SaveScreenRaw $captureDir/case-11.rgb565
+adc2 SetTouchPixel 200 150
+emulation RunFor "1.50"
+adc2 ReleaseTouch
+emulation RunFor "0.10"
+twinStatus AssertSelfTestCase 11 1
+
+twinStatus RunInteractiveSelfTestCase 12
+emulation RunFor "5.00"
+twinStatus AssertInteractiveSelfTestCase 12 1
+twinStatus ReportSelfTestCase 12
+spi1.spiFabric.lcd SaveScreenshot $captureDir/case-12.png
+twinStatus SaveScreenRaw $captureDir/case-12.rgb565
+adc2 SetTouchPixel 200 150
+emulation RunFor "1.50"
+adc2 ReleaseTouch
+emulation RunFor "0.10"
+twinStatus AssertSelfTestCase 12 1
+
+twinStatus RunInteractiveSelfTestCase 13
+emulation RunFor "8.00"
+twinStatus AssertInteractiveSelfTestCase 13 1
+twinStatus ReportSelfTestCase 13
+spi1.spiFabric.lcd SaveScreenshot $captureDir/case-13.png
+twinStatus SaveScreenRaw $captureDir/case-13.rgb565
+adc2 SetTouchPixel 200 150
+emulation RunFor "1.50"
+adc2 ReleaseTouch
+emulation RunFor "0.10"
+twinStatus AssertSelfTestCase 13 1
+
+twinStatus RunInteractiveSelfTestCase 14
+emulation RunFor "3.00"
+twinStatus AssertInteractiveSelfTestCase 14 1
+twinStatus ReportSelfTestCase 14
+spi1.spiFabric.lcd SaveScreenshot $captureDir/case-14.png
+twinStatus SaveScreenRaw $captureDir/case-14.rgb565
+adc2 SetTouchPixel 200 150
+emulation RunFor "1.50"
+adc2 ReleaseTouch
+emulation RunFor "0.10"
+twinStatus AssertSelfTestCase 14 1
+
+twinStatus Report
+quit

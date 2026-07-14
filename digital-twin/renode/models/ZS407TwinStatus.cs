@@ -293,6 +293,61 @@ namespace Antmicro.Renode.Peripherals.ZS407
             return $"ZS407_TWIN_SELFTEST=START case={oneBasedTest}";
         }
 
+        public string RunInteractiveSelfTestCase(int oneBasedTest)
+        {
+            if(oneBasedTest < 1 || oneBasedTest > SelfTestCount)
+            {
+                throw new RecoverableException($"ZS407 twin interactive self-test case {oneBasedTest} outside 1..{SelfTestCount}");
+            }
+            visualSelfTestCase = oneBasedTest;
+            visualStartPixelWrites = Get<ulong>(display, "PixelWrites");
+            visualStartDisplayReadBytes = Get<ulong>(display, "MemoryReadBytes");
+            visualStartAttenuatorLatches = Get<ulong>(attenuator, "LatchCount");
+            WriteByteToSram(Setting + SettingTest, 0);
+            // A positive argument runs one case but retains the real result
+            // screen until touch acknowledgement. The normal automation path
+            // uses a negative argument and exits before its caller can capture
+            // the tested trace.
+            WriteQuadWordToSram(Setting + SettingTestArgument, (ulong)oneBasedTest);
+            Invoke(receiver, "SetSelfTestFixture", oneBasedTest);
+            Invoke(receiver, "ResetRssiStatistics");
+            WriteByteToSram(SweepMode, SweepSelfTest);
+            return $"ZS407_TWIN_SELFTEST_VISUAL=START case={oneBasedTest}";
+        }
+
+        public string AssertInteractiveSelfTestCase(int oneBasedTest,
+            int expectedStatus = SelfTestPass)
+        {
+            if(oneBasedTest < 1 || oneBasedTest > SelfTestCount
+                || expectedStatus < SelfTestWaiting || expectedStatus > SelfTestCritical)
+            {
+                throw new RecoverableException("ZS407 twin interactive self-test assertion arguments are invalid");
+            }
+            var actual = (int)ReadDoubleWordFromSram(SelfTestStatus
+                + (ulong)((oneBasedTest - 1) * sizeof(uint)));
+            var inSelfTest = ReadByteFromSram(InSelfTest);
+            var silentFixture = oneBasedTest == 1 || oneBasedTest == 2
+                || oneBasedTest == 5;
+            var failures = new List<string>();
+            Require(actual == expectedStatus,
+                $"case {oneBasedTest} status {actual} != {expectedStatus}", failures);
+            Require(silentFixture ? inSelfTest == 0 : inSelfTest != 0,
+                $"in_selftest {inSelfTest} does not match the {(silentFixture ? "silent" : "active")} fixture", failures);
+            Require(ReadByteFromSram(SweepMode) == SweepSelfTest,
+                $"sweep mode 0x{ReadByteFromSram(SweepMode):X2} is not self-test", failures);
+            Require(ReadDoubleWordFromSram(SelfTestWait) != 0,
+                "firmware did not retain the interactive result screen", failures);
+            Require(ReadQuadWordFromSram(Setting + SettingTestArgument) == (ulong)oneBasedTest,
+                "firmware test argument no longer identifies the requested case", failures);
+            Require(Get<int>(receiver, "SelfTestFixture") == oneBasedTest,
+                $"RF fixture {Get<int>(receiver, "SelfTestFixture")} != {oneBasedTest}", failures);
+            Require(visualSelfTestCase == oneBasedTest,
+                $"visual metrics baseline case {visualSelfTestCase} != {oneBasedTest}", failures);
+            ThrowIfAny("interactive self-test", failures);
+            return $"ZS407_TWIN_SELFTEST_VISUAL=READY case={oneBasedTest} status={actual} "
+                + $"in_selftest={inSelfTest} frame=0x{Get<ulong>(display, "FramebufferHash"):X16}";
+        }
+
         public string AssertSelfTestCase(int oneBasedTest, int expectedStatus = SelfTestPass)
         {
             if(oneBasedTest < 1 || oneBasedTest > SelfTestCount
@@ -402,6 +457,15 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 ? double.NaN : Math.Sqrt(sumSquaredDifferences / finiteCount);
             var dynamicRange = finiteCount == 0
                 ? double.NaN : measuredPeak - measuredMinimum;
+            var pixelWrites = Get<ulong>(display, "PixelWrites");
+            var displayReadBytes = Get<ulong>(display, "MemoryReadBytes");
+            var attenuatorLatches = Get<ulong>(attenuator, "LatchCount");
+            var casePixelWrites = visualSelfTestCase == oneBasedTest
+                ? pixelWrites - visualStartPixelWrites : 0;
+            var caseDisplayReadBytes = visualSelfTestCase == oneBasedTest
+                ? displayReadBytes - visualStartDisplayReadBytes : 0;
+            var caseAttenuatorLatches = visualSelfTestCase == oneBasedTest
+                ? attenuatorLatches - visualStartAttenuatorLatches : 0;
             return $"ZS407_TWIN_SELFTEST_STATUS case={oneBasedTest} status={status} "
                 + $"peak_dbm={ReadFloatFromSram(PeakLevel):F2} "
                 + $"peak_hz={ReadQuadWordFromSram(PeakFrequency)} "
@@ -418,7 +482,11 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 + $"cal={(Get<bool>(receiver, "CalibrationOutputEnabled") ? 1 : 0)}@{Get<double>(receiver, "CalibrationFrequencyHz"):F0} "
                 + $"tuned_hz={Get<double>(receiver, "MinimumTunedInputFrequencyHz"):F0}..{Get<double>(receiver, "MaximumTunedInputFrequencyHz"):F0} "
                 + $"lo_hz={Get<double>(receiver, "MinimumLocalOscillatorFrequencyHz"):F0}..{Get<double>(receiver, "MaximumLocalOscillatorFrequencyHz"):F0} "
-                + $"frame=0x{Get<ulong>(display, "FramebufferHash"):X16} nonblack={Get<uint>(display, "NonBlackPixels")}";
+                + $"frame=0x{Get<ulong>(display, "FramebufferHash"):X16} nonblack={Get<uint>(display, "NonBlackPixels")} "
+                + $"pixel_writes={pixelWrites} case_pixel_writes={casePixelWrites} "
+                + $"display_read_bytes={displayReadBytes} case_display_read_bytes={caseDisplayReadBytes} "
+                + $"attenuation_db={Get<double>(attenuator, "AttenuationDb"):F1} "
+                + $"attenuator_latches={attenuatorLatches} case_attenuator_latches={caseAttenuatorLatches}";
         }
 
         public string Report()
@@ -748,6 +816,10 @@ namespace Antmicro.Renode.Peripherals.ZS407
         private ulong analyzerStartHz;
         private ulong analyzerStopHz;
         private int analyzerPoints;
+        private int visualSelfTestCase;
+        private ulong visualStartPixelWrites;
+        private ulong visualStartDisplayReadBytes;
+        private ulong visualStartAttenuatorLatches;
         private string symbolProfileName = "v0.2.0-default";
 
         private ulong ChibiOsCurrentThread = 0x20001698;
