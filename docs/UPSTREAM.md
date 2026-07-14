@@ -65,6 +65,16 @@ superseded by `ver21.11.5`'s `ALIGN_WITH_INPUT` linker rules. Preserve only a
 small fork delta when the dual-target build, executable twin or hardware
 qualification proves it is still required.
 
+That isolated port is now complete on `codex/chibios-latest` at `ed558b3`
+(implementation commit `751b622`). Both F303 and F072 build with zero warnings
+on pinned GNU 11.3.1, and the F303 candidate reproduces the qualified twin boot
+signature and passes USB enumeration/CDC/reset qualification. Only one ChibiOS
+delta proved necessary: local commit `2b8f425d` restores the generic STM32F0
+TIM14 GPT ISR that F072 uses as `DELAY_TIMER`. Treat it as a focused upstream
+fix or carried hotpatch; do not replace it by disabling TIM14. The F072 image
+is already at 96.76% of its 116 KiB flash region, so further upstream growth is
+a release constraint.
+
 ## Renode
 
 Three emulator fixes are packaged under
