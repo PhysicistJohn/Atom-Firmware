@@ -10,6 +10,31 @@ BASE_URL="https://github.com/renode/renode/releases/download/v$VERSION"
 TOOL_ROOT="$ARTIFACTS/toolchains/renode-$VERSION"
 RUNTIME="$TOOL_ROOT/runtime"
 
+execution_runtime() {
+  if [ "$os" != Darwin ]; then
+    printf '%s\n' "$RUNTIME"
+    return
+  fi
+
+  # On current macOS releases a downloaded self-contained .NET app can remain
+  # parked in dyld before main() when launched from the artifact cache, even
+  # after its checksum and embedded ad-hoc signature have been validated.
+  # A locally signed launcher in the per-user temporary directory avoids that
+  # policy edge while all Renode data directories remain pinned symlinks.
+  staged="${TMPDIR:-/tmp}/tinysa-renode-$VERSION-$(id -u)"
+  mkdir -p "$staged"
+  mkdir -p "$staged/dotnet-bundle"
+  mkdir -p "$staged/home"
+  cp "$RUNTIME/renode" "$staged/renode"
+  cp "$RUNTIME/.renode-root" "$staged/.renode-root"
+  for directory in platforms tools licenses plugins tests scripts; do
+    ln -sfn "$RUNTIME/$directory" "$staged/$directory"
+  done
+  xattr -cr "$staged/renode"
+  codesign --force --sign - "$staged/renode" >/dev/null 2>&1
+  printf '%s\n' "$staged"
+}
+
 os=$(uname -s)
 arch=$(uname -m)
 
@@ -32,10 +57,12 @@ case "$os:$arch" in
 esac
 
 if [ -x "$RUNTIME/renode" ]; then
-  actual_version=$($RUNTIME/renode --version | sed -n '1s/^Renode v\([^ ]*\).*/\1/p')
+  EXECUTION_RUNTIME=$(execution_runtime)
+  actual_version=$(DOTNET_BUNDLE_EXTRACT_BASE_DIR="$EXECUTION_RUNTIME/dotnet-bundle" \
+    $EXECUTION_RUNTIME/renode --version | sed -n '1s/^Renode v\([^ ]*\).*/\1/p')
   [ "$actual_version" = "$VERSION.16858" ] || \
     die "unexpected cached Renode version $actual_version"
-  printf '%s\n' "$RUNTIME"
+  printf '%s\n' "$EXECUTION_RUNTIME"
   exit 0
 fi
 
@@ -77,8 +104,10 @@ esac
 [ -x "$temporary/renode" ] || die 'extracted Renode runtime is incomplete'
 mv "$temporary" "$RUNTIME"
 
-actual_version=$($RUNTIME/renode --version | sed -n '1s/^Renode v\([^ ]*\).*/\1/p')
+EXECUTION_RUNTIME=$(execution_runtime)
+actual_version=$(DOTNET_BUNDLE_EXTRACT_BASE_DIR="$EXECUTION_RUNTIME/dotnet-bundle" \
+  $EXECUTION_RUNTIME/renode --version | sed -n '1s/^Renode v\([^ ]*\).*/\1/p')
 [ "$actual_version" = "$VERSION.16858" ] || \
   die "unexpected Renode version $actual_version"
 
-printf '%s\n' "$RUNTIME"
+printf '%s\n' "$EXECUTION_RUNTIME"

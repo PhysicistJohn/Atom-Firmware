@@ -140,6 +140,121 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 + $"frame=0x{Get<ulong>(display, "FramebufferHash"):X16}";
         }
 
+        public string SetCalibrationLoopback(int connected, double powerDbm = -35.3)
+        {
+            if(connected != 0 && connected != 1)
+            {
+                throw new RecoverableException("ZS407 twin CAL loopback state must be 0 or 1");
+            }
+            Invoke(receiver, "SetCalibrationPowerDbm", powerDbm);
+            Invoke(receiver, "SetCalibrationLoopback", connected == 1);
+            return $"ZS407_TWIN_CAL_LOOPBACK={(connected == 1 ? "connected" : "disconnected")} power_dbm={powerDbm:F1}";
+        }
+
+        public string RunSelfTestCase(int oneBasedTest)
+        {
+            if(oneBasedTest < 1 || oneBasedTest > SelfTestCount)
+            {
+                throw new RecoverableException($"ZS407 twin self-test case {oneBasedTest} outside 1..{SelfTestCount}");
+            }
+            WriteByteToSram(Setting + SettingTest, 0);
+            WriteQuadWordToSram(Setting + SettingTestArgument,
+                unchecked((ulong)-(long)oneBasedTest));
+            Invoke(receiver, "SetSelfTestFixture", oneBasedTest);
+            Invoke(receiver, "ResetRssiStatistics");
+            WriteByteToSram(SweepMode, SweepSelfTest);
+            return $"ZS407_TWIN_SELFTEST=START case={oneBasedTest}";
+        }
+
+        public string AssertSelfTestCase(int oneBasedTest, int expectedStatus = SelfTestPass)
+        {
+            if(oneBasedTest < 1 || oneBasedTest > SelfTestCount
+                || expectedStatus < SelfTestWaiting || expectedStatus > SelfTestCritical)
+            {
+                throw new RecoverableException("ZS407 twin self-test assertion arguments are invalid");
+            }
+            var actual = (int)ReadDoubleWordFromSram(SelfTestStatus
+                + (ulong)((oneBasedTest - 1) * sizeof(uint)));
+            var failures = new List<string>();
+            Require(actual == expectedStatus,
+                $"case {oneBasedTest} status {actual} != {expectedStatus}", failures);
+            Require(ReadByteFromSram(InSelfTest) == 0,
+                "firmware did not leave self-test mode", failures);
+            Require(ReadByteFromSram(SweepMode) == SweepEnabled,
+                $"sweep mode 0x{ReadByteFromSram(SweepMode):X2} was not restored", failures);
+            Require(ReadDoubleWordFromSram(SelfTestWait) == 0,
+                "single-case self-test remained waiting", failures);
+            ThrowIfAny("self-test", failures);
+            return $"ZS407_TWIN_SELFTEST=PASS case={oneBasedTest} status={actual}";
+        }
+
+        public string AssertSelfTestFailureDetected(int oneBasedTest)
+        {
+            if(oneBasedTest < 1 || oneBasedTest > SelfTestCount)
+            {
+                throw new RecoverableException("ZS407 twin self-test failure assertion case is invalid");
+            }
+            var actual = (int)ReadDoubleWordFromSram(SelfTestStatus
+                + (ulong)((oneBasedTest - 1) * sizeof(uint)));
+            var failures = new List<string>();
+            Require(actual == SelfTestFail || actual == SelfTestCritical,
+                $"case {oneBasedTest} status {actual} is not a failure", failures);
+            Require(ReadByteFromSram(InSelfTest) != 0,
+                "firmware did not retain the interactive failure screen", failures);
+            Require(ReadDoubleWordFromSram(SelfTestWait) != 0,
+                "firmware did not wait for failure acknowledgement", failures);
+            ThrowIfAny("self-test negative control", failures);
+            return $"ZS407_TWIN_SELFTEST_FAILURE=PASS case={oneBasedTest} status={actual}";
+        }
+
+        public string ReportSelfTestCase(int oneBasedTest)
+        {
+            if(oneBasedTest < 1 || oneBasedTest > SelfTestCount)
+            {
+                throw new RecoverableException("ZS407 twin self-test report case is invalid");
+            }
+            var status = ReadDoubleWordFromSram(SelfTestStatus
+                + (ulong)((oneBasedTest - 1) * sizeof(uint)));
+            var causeAddress = ReadDoubleWordFromSram(SelfTestFailCause
+                + (ulong)((oneBasedTest - 1) * sizeof(uint)));
+            var measuredPeak = float.MinValue;
+            var measuredPeakIndex = 0;
+            for(var index = 0; index < MaximumSweepPoints; index++)
+            {
+                var value = ReadFloatFromSram(Measured + (ulong)(index * sizeof(float)));
+                if(value > measuredPeak)
+                {
+                    measuredPeak = value;
+                    measuredPeakIndex = index;
+                }
+            }
+            var left = measuredPeakIndex;
+            var right = measuredPeakIndex;
+            while(left > 0 && ReadFloatFromSram(Measured
+                + (ulong)(left * sizeof(float))) >= measuredPeak - 15.0f)
+            {
+                left--;
+            }
+            while(right < MaximumSweepPoints - 1 && ReadFloatFromSram(Measured
+                + (ulong)(right * sizeof(float))) >= measuredPeak - 15.0f)
+            {
+                right++;
+            }
+            return $"ZS407_TWIN_SELFTEST_STATUS case={oneBasedTest} status={status} "
+                + $"peak_dbm={ReadFloatFromSram(PeakLevel):F2} "
+                + $"peak_hz={ReadQuadWordFromSram(PeakFrequency)} "
+                + $"peak_index={ReadDoubleWordFromSram(PeakIndex)} "
+                + $"points={ReadWordFromSram(Setting + SettingSweepPoints)} "
+                + $"cause={ReadCString(causeAddress, 32)} "
+                + $"measured_peak={measuredPeak:F2}@{measuredPeakIndex} width15={right - left} "
+                + $"samples={Get<ulong>(receiver, "RssiSampleCount")} "
+                + $"raw={Get<byte>(receiver, "MinimumRssiRaw")}..{Get<byte>(receiver, "PeakRssiRaw")} "
+                + $"fixture={Get<int>(receiver, "SelfTestFixture")} "
+                + $"cal={(Get<bool>(receiver, "CalibrationOutputEnabled") ? 1 : 0)}@{Get<double>(receiver, "CalibrationFrequencyHz"):F0} "
+                + $"tuned_hz={Get<double>(receiver, "MinimumTunedInputFrequencyHz"):F0}..{Get<double>(receiver, "MaximumTunedInputFrequencyHz"):F0} "
+                + $"lo_hz={Get<double>(receiver, "MinimumLocalOscillatorFrequencyHz"):F0}..{Get<double>(receiver, "MaximumLocalOscillatorFrequencyHz"):F0}";
+        }
+
         public string Report()
         {
             return $"ZS407_TWIN_STATUS spi={Get<ulong>(fabric, "BusTransfers")} pixels={Get<ulong>(display, "PixelWrites")} "
@@ -147,6 +262,25 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 + $"si4468_commands={Get<ulong>(receiver, "CommandCount")} si4468_state=0x{Get<byte>(receiver, "State"):X2} "
                 + $"rssi={Get<byte>(receiver, "MinimumRssiRaw")}..{Get<byte>(receiver, "PeakRssiRaw")} "
                 + $"max2871_hz={Get<double>(synthesizer, "FrequencyHz"):F0} attenuation_db={Get<double>(attenuator, "AttenuationDb"):F1}";
+        }
+
+        public string ReportShell()
+        {
+            var bytes = new List<byte>();
+            for(ulong index = 0; index < ShellLineSize; index++)
+            {
+                var value = ReadByteFromSram(ShellLine + index);
+                if(value == 0)
+                {
+                    break;
+                }
+                bytes.Add(value);
+            }
+            var line = System.Text.Encoding.ASCII.GetString(bytes.ToArray())
+                .Replace("\r", "\\r").Replace("\n", "\\n");
+            return $"ZS407_TWIN_SHELL line={line} nargs={ReadWordFromSram(ShellNargs)} "
+                + $"function=0x{ReadDoubleWordFromSram(ShellFunction):X8} "
+                + $"stream=0x{ReadDoubleWordFromSram(ShellStream):X8}";
         }
 
         public string ConfigureAnalyzer(long startHz, long stopHz, int points,
@@ -341,6 +475,37 @@ namespace Antmicro.Renode.Peripherals.ZS407
             return machine.GetSystemBus(this).ReadDoubleWord(address, this);
         }
 
+        private ulong ReadQuadWordFromSram(ulong address)
+        {
+            return ReadDoubleWordFromSram(address)
+                | ((ulong)ReadDoubleWordFromSram(address + 4) << 32);
+        }
+
+        private float ReadFloatFromSram(ulong address)
+        {
+            return BitConverter.ToSingle(BitConverter.GetBytes(
+                ReadDoubleWordFromSram(address)), 0);
+        }
+
+        private string ReadCString(ulong address, int maximumLength)
+        {
+            var bytes = new List<byte>();
+            if(address == 0)
+            {
+                return string.Empty;
+            }
+            for(var index = 0; index < maximumLength; index++)
+            {
+                var value = machine.GetSystemBus(this).ReadByte(address + (ulong)index, this);
+                if(value == 0)
+                {
+                    break;
+                }
+                bytes.Add(value);
+            }
+            return System.Text.Encoding.ASCII.GetString(bytes.ToArray());
+        }
+
         private void WriteByteToSram(ulong address, byte value)
         {
             machine.GetSystemBus(this).WriteByte(address, value, this);
@@ -406,6 +571,18 @@ namespace Antmicro.Renode.Peripherals.ZS407
         private const ulong LastTouchY = 0x200071F8;
         private const ulong UiMode = 0x200072E1;
         private const ulong Setting = 0x20004CE0;
+        private const ulong SweepMode = 0x20001400;
+        private const ulong InSelfTest = 0x20002861;
+        private const ulong SelfTestStatus = 0x20005420;
+        private const ulong SelfTestFailCause = 0x20005384;
+        private const ulong SelfTestWait = 0x200054A8;
+        private const ulong PeakFrequency = 0x20004508;
+        private const ulong PeakLevel = 0x20004514;
+        private const ulong PeakIndex = 0x20004510;
+        private const ulong ShellFunction = 0x20005324;
+        private const ulong ShellLine = 0x20005328;
+        private const ulong ShellNargs = 0x20005358;
+        private const ulong ShellStream = 0x2000535C;
         private const ulong Measured = 0x2000289C;
         private const ulong ActualRbwX10 = 0x200020EC;
         private const ulong Dirty = 0x20001330;
@@ -421,6 +598,7 @@ namespace Antmicro.Renode.Peripherals.ZS407
         private const ulong FrequencyStartInternal = 0x200020A0;
         private const ulong FrequencyCache = 0x10000000;
         private const ulong SettingAutoAttenuation = 5;
+        private const ulong SettingTest = 442;
         private const ulong SettingMute = 8;
         private const ulong SettingMode = 408;
         private const ulong SettingLna = 412;
@@ -443,6 +621,7 @@ namespace Antmicro.Renode.Peripherals.ZS407
         private const ulong SettingSweepTimeUs = 1512;
         private const ulong SettingExtraLna = 1533;
         private const ulong SettingMixerOutput = 1545;
+        private const ulong SettingTestArgument = 1568;
         private const long MaximumAnalyzerFrequencyHz = 17922600000L;
         private const int MinimumSweepPoints = 20;
         private const int MaximumSweepPoints = 450;
@@ -450,6 +629,14 @@ namespace Antmicro.Renode.Peripherals.ZS407
         private const int MaximumAttenuationX2 = 62;
         private const byte AnalyzerLowMode = 0;
         private const byte GeneratorLowMode = 2;
+        private const byte SweepEnabled = 0x01;
+        private const byte SweepSelfTest = 0x08;
+        private const int SelfTestCount = 14;
+        private const int SelfTestWaiting = 0;
+        private const int SelfTestPass = 1;
+        private const int SelfTestFail = 2;
+        private const int SelfTestCritical = 3;
+        private const int ShellLineSize = 48;
         private const int ScreenWidth = 480;
         private const int ScreenHeight = 320;
         private const ulong MinimumBootBusTransfers = 900000;

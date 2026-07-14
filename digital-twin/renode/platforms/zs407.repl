@@ -78,8 +78,10 @@ pwr: Miscellaneous.STM32_PWR @ sysbus 0x40007000
 dac: Memory.MappedMemory @ sysbus 0x40007400
     size: 0x400
 
-usb: Memory.MappedMemory @ sysbus 0x40005C00
-    size: 0x400
+usb: ZS407.STM32F303UsbDevice @ sysbus 0x40005C00
+    preinit:
+        include $ORIGIN/models/STM32F303UsbDevice.cs
+    IRQ -> nvic@75
 
 usbPacketMemory: Memory.MappedMemory @ sysbus 0x40006000
     size: 0x400

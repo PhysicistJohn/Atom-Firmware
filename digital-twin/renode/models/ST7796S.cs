@@ -78,6 +78,8 @@ namespace Antmicro.Renode.Peripherals.ZS407
             cursorY = 0;
             memoryAccessControl = 0x28;
             firstPixelBytePending = false;
+            readSecondBytePending = false;
+            readDummyPending = false;
             dataMode = true;
             resetAsserted = false;
             DisplayEnabled = false;
@@ -116,6 +118,11 @@ namespace Antmicro.Renode.Peripherals.ZS407
             {
                 BeginCommand(data);
             }
+            else if(currentCommand == MemoryRead
+                || currentCommand == MemoryReadContinue)
+            {
+                return ReadMemoryByte();
+            }
             else
             {
                 AcceptData(data);
@@ -126,6 +133,8 @@ namespace Antmicro.Renode.Peripherals.ZS407
         public void FinishTransmission()
         {
             firstPixelBytePending = false;
+            readSecondBytePending = false;
+            readDummyPending = false;
         }
 
         public ushort GetPixel(int x, int y)
@@ -171,6 +180,8 @@ namespace Antmicro.Renode.Peripherals.ZS407
             currentCommand = command;
             parameters.Clear();
             firstPixelBytePending = false;
+            readSecondBytePending = false;
+            readDummyPending = false;
             CommandWrites++;
 
             switch(command)
@@ -188,6 +199,12 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 case MemoryWriteContinue:
                     cursorX = columnStart;
                     cursorY = pageStart;
+                    break;
+                case MemoryRead:
+                case MemoryReadContinue:
+                    cursorX = columnStart;
+                    cursorY = pageStart;
+                    readDummyPending = true;
                     break;
             }
         }
@@ -271,6 +288,34 @@ namespace Antmicro.Renode.Peripherals.ZS407
             }
         }
 
+        private byte ReadMemoryByte()
+        {
+            if(readDummyPending)
+            {
+                readDummyPending = false;
+                return 0;
+            }
+
+            var x = cursorX;
+            var y = cursorY;
+            if((memoryAccessControl & FlipBothAxes) == FlipBothAxes)
+            {
+                x = ScreenWidth - 1 - x;
+                y = ScreenHeight - 1 - y;
+            }
+            var offset = (y * ScreenWidth + x) * 2;
+            if(!readSecondBytePending)
+            {
+                readSecondBytePending = true;
+                return buffer[offset];
+            }
+
+            readSecondBytePending = false;
+            var result = buffer[offset + 1];
+            AdvanceCursor();
+            return result;
+        }
+
         private void AdvanceCursor()
         {
             cursorX++;
@@ -299,6 +344,8 @@ namespace Antmicro.Renode.Peripherals.ZS407
             cursorY = 0;
             memoryAccessControl = 0x28;
             firstPixelBytePending = false;
+            readSecondBytePending = false;
+            readDummyPending = false;
             DisplayEnabled = false;
         }
 
@@ -318,6 +365,8 @@ namespace Antmicro.Renode.Peripherals.ZS407
         private int cursorX;
         private int cursorY;
         private bool firstPixelBytePending;
+        private bool readSecondBytePending;
+        private bool readDummyPending;
         private bool dataMode;
         private bool resetAsserted;
 
@@ -331,8 +380,10 @@ namespace Antmicro.Renode.Peripherals.ZS407
         private const byte ColumnAddressSet = 0x2A;
         private const byte PageAddressSet = 0x2B;
         private const byte MemoryWrite = 0x2C;
+        private const byte MemoryRead = 0x2E;
         private const byte MemoryAccessControlCommand = 0x36;
         private const byte MemoryWriteContinue = 0x3C;
+        private const byte MemoryReadContinue = 0x3E;
         private const byte FlipBothAxes = 0xC0;
     }
 }

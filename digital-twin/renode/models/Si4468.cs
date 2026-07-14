@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Antmicro.Renode.Core;
 using Antmicro.Renode.Peripherals.SPI;
 
@@ -28,7 +29,27 @@ namespace Antmicro.Renode.Peripherals.ZS407
 
         public double FrontEndAttenuationDb { get; private set; }
 
+        public double LocalOscillatorFrequencyHz { get; private set; }
+
+        public double MinimumTunedInputFrequencyHz { get; private set; }
+
+        public double MaximumTunedInputFrequencyHz { get; private set; }
+
+        public double MinimumLocalOscillatorFrequencyHz { get; private set; }
+
+        public double MaximumLocalOscillatorFrequencyHz { get; private set; }
+
         public double NoiseFloorDbm { get; private set; }
+
+        public bool CalibrationLoopbackConnected { get; private set; }
+
+        public bool CalibrationOutputEnabled { get; private set; }
+
+        public double CalibrationFrequencyHz { get; private set; }
+
+        public double CalibrationPowerDbm { get; private set; }
+
+        public int SelfTestFixture { get; private set; }
 
         public byte LastRssiRaw { get; private set; }
 
@@ -57,7 +78,16 @@ namespace Antmicro.Renode.Peripherals.ZS407
             ReceiverFrequencyHz = 0;
             TunedInputFrequencyHz = 0;
             FrontEndAttenuationDb = 0;
+            LocalOscillatorFrequencyHz = 0;
             NoiseFloorDbm = -110.0;
+            CalibrationLoopbackConnected = false;
+            CalibrationOutputEnabled = false;
+            CalibrationFrequencyHz = 0;
+            CalibrationPowerDbm = DefaultCalibrationPowerDbm;
+            calibrationGpioMode = 0;
+            trackingIfCandidateHz = null;
+            trackingIfCenterHz = null;
+            SelfTestFixture = 0;
             LastRssiRaw = DbmToRaw(NoiseFloorDbm);
             CommandCount = 0;
             ResetRssiStatistics();
@@ -142,9 +172,39 @@ namespace Antmicro.Renode.Peripherals.ZS407
             FrontEndAttenuationDb = Math.Max(0, attenuationDb);
         }
 
+        public void SetLocalOscillatorFrequency(double frequencyHz)
+        {
+            LocalOscillatorFrequencyHz = Math.Max(0, frequencyHz);
+        }
+
         public void SetNoiseFloorDbm(double value)
         {
             NoiseFloorDbm = value;
+        }
+
+        public void SetCalibrationLoopback(bool connected)
+        {
+            CalibrationLoopbackConnected = connected;
+        }
+
+        public void SetCalibrationPowerDbm(double value)
+        {
+            if(value < -120.0 || value > 0.0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value));
+            }
+            CalibrationPowerDbm = value;
+        }
+
+        public void SetSelfTestFixture(int oneBasedTest)
+        {
+            if(oneBasedTest < 0 || oneBasedTest > 14)
+            {
+                throw new ArgumentOutOfRangeException(nameof(oneBasedTest));
+            }
+            SelfTestFixture = oneBasedTest;
+            trackingIfCandidateHz = null;
+            trackingIfCenterHz = null;
         }
 
         public void SetFixedRssi(int raw)
@@ -176,6 +236,13 @@ namespace Antmicro.Renode.Peripherals.ZS407
             RssiSampleCount = 0;
             MinimumRssiRaw = byte.MaxValue;
             PeakRssiRaw = byte.MinValue;
+            MinimumTunedInputFrequencyHz = double.MaxValue;
+            MaximumTunedInputFrequencyHz = double.MinValue;
+            MinimumLocalOscillatorFrequencyHz = double.MaxValue;
+            MaximumLocalOscillatorFrequencyHz = double.MinValue;
+            frequencyTrace.Clear();
+            frequencyTraceNext = 0;
+            frequencyTraceWrapped = false;
         }
 
         public byte GetProperty(int group, int property)
@@ -208,6 +275,11 @@ namespace Antmicro.Renode.Peripherals.ZS407
                     GetProperties(request);
                     break;
                 case GpioPinConfiguration:
+                    if(request.Length > 1)
+                    {
+                        calibrationGpioMode = (byte)(request[1] & GpioModeMask);
+                        RecalculateCalibrationOutput();
+                    }
                     pendingResponse = new byte[7];
                     break;
                 case FifoInfo:
@@ -260,6 +332,7 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 properties[MakePropertyKey(group, (byte)(start + i))] = request[4 + i];
             }
             RecalculateReceiverFrequency();
+            RecalculateCalibrationOutput();
         }
 
         private void GetProperties(byte[] request)
@@ -306,6 +379,37 @@ namespace Antmicro.Renode.Peripherals.ZS407
 
         private byte SampleRssi()
         {
+            var lastTraceIndex = frequencyTrace.Count < MaximumFrequencyTracePoints
+                ? frequencyTrace.Count - 1
+                : (frequencyTraceNext + MaximumFrequencyTracePoints - 1)
+                    % MaximumFrequencyTracePoints;
+            if(frequencyTrace.Count == 0
+                || Math.Abs(frequencyTrace[lastTraceIndex].LocalOscillatorHz
+                    - LocalOscillatorFrequencyHz) > 1.0
+                || Math.Abs(frequencyTrace[lastTraceIndex].TunedInputHz
+                    - TunedInputFrequencyHz) > 1.0)
+            {
+                var point = new FrequencyTracePoint(RssiSampleCount,
+                    LocalOscillatorFrequencyHz, ReceiverFrequencyHz,
+                    TunedInputFrequencyHz);
+                if(frequencyTrace.Count < MaximumFrequencyTracePoints)
+                {
+                    frequencyTrace.Add(point);
+                    frequencyTraceNext = frequencyTrace.Count
+                        % MaximumFrequencyTracePoints;
+                }
+                else
+                {
+                    frequencyTrace[frequencyTraceNext] = point;
+                    frequencyTraceNext = (frequencyTraceNext + 1)
+                        % MaximumFrequencyTracePoints;
+                    frequencyTraceWrapped = true;
+                }
+            }
+            MinimumTunedInputFrequencyHz = Math.Min(MinimumTunedInputFrequencyHz, TunedInputFrequencyHz);
+            MaximumTunedInputFrequencyHz = Math.Max(MaximumTunedInputFrequencyHz, TunedInputFrequencyHz);
+            MinimumLocalOscillatorFrequencyHz = Math.Min(MinimumLocalOscillatorFrequencyHz, LocalOscillatorFrequencyHz);
+            MaximumLocalOscillatorFrequencyHz = Math.Max(MaximumLocalOscillatorFrequencyHz, LocalOscillatorFrequencyHz);
             if(fixedRssi.HasValue)
             {
                 return RecordRssi(fixedRssi.Value);
@@ -321,7 +425,219 @@ namespace Antmicro.Renode.Peripherals.ZS407
                     : 20.0 * Math.Log10(1.0 + (delta - halfWidth) / halfWidth);
                 level = Math.Max(level, tone.PowerDbm - rolloff - FrontEndAttenuationDb);
             }
+            var selfTestFixtureActive = SelfTestFixture >= 3
+                && SelfTestFixture != 5;
+            if(CalibrationLoopbackConnected
+                && (CalibrationOutputEnabled || selfTestFixtureActive))
+            {
+                level = Math.Max(level, SampleCalibrationLoopback());
+            }
             return RecordRssi(DbmToRaw(level));
+        }
+
+        public string GetFrequencyTrace()
+        {
+            var builder = new StringBuilder();
+            builder.Append($"ZS407_TWIN_RF_TRACE points={frequencyTrace.Count}");
+            if(frequencyTrace.Count == 0)
+            {
+                return builder.ToString();
+            }
+            for(var slot = 0; slot < FrequencyTraceReportPoints; slot++)
+            {
+                var index = slot * (frequencyTrace.Count - 1)
+                    / (FrequencyTraceReportPoints - 1);
+                var physicalIndex = (frequencyTraceWrapped
+                    ? frequencyTraceNext + index : index) % frequencyTrace.Count;
+                var point = frequencyTrace[physicalIndex];
+                builder.Append($" [{point.Sample}:{point.LocalOscillatorHz:F0},"
+                    + $"{point.ReceiverHz:F0},{point.TunedInputHz:F0}]");
+            }
+            return builder.ToString();
+        }
+
+        private double SampleCalibrationLoopback()
+        {
+            // Tests 7/8 sweep the board's SAW/BPF tracking fixture rather
+            // than observing the crystal line directly. The bridge selects
+            // physical routing only; firmware still acquires and validates
+            // every point and owns the result.
+            double level;
+            if(SelfTestFixture == 7 || SelfTestFixture == 8)
+            {
+                // Tracking mode holds the analyzer input at the 30 MHz
+                // reference while sweeping the receiver IF across the board's
+                // filter. A normal analyzer sweep only crosses 30 MHz once;
+                // two adjacent samples near 30 MHz therefore identify the
+                // start and direction of the real tracking acquisition.
+                if(Math.Abs(TunedInputFrequencyHz - ReferenceFrequencyHz)
+                    <= CalibrationTrackingInputToleranceHz)
+                {
+                    if(!trackingIfCandidateHz.HasValue)
+                    {
+                        trackingIfCandidateHz = ReceiverFrequencyHz;
+                    }
+                    else if(!trackingIfCenterHz.HasValue)
+                    {
+                        var delta = ReceiverFrequencyHz
+                            - trackingIfCandidateHz.Value;
+                        if(Math.Abs(delta) >= CalibrationTrackingMinimumStepHz
+                            && Math.Abs(delta)
+                                <= CalibrationTrackingMaximumStepHz)
+                        {
+                            trackingIfCenterHz = trackingIfCandidateHz.Value
+                                + Math.Sign(delta)
+                                    * CalibrationTrackingSpanHz / 2.0;
+                        }
+                        else if(Math.Abs(delta)
+                            > CalibrationTrackingMaximumStepHz)
+                        {
+                            trackingIfCandidateHz = ReceiverFrequencyHz;
+                        }
+                    }
+                }
+                else if(!trackingIfCenterHz.HasValue)
+                {
+                    trackingIfCandidateHz = null;
+                }
+
+                level = trackingIfCenterHz.HasValue
+                    ? SpectralLineLevelAt(ReceiverFrequencyHz,
+                        trackingIfCenterHz.Value, CalibrationPowerDbm,
+                        CalibrationBpfWidthHz)
+                    : NoiseFloorDbm;
+            }
+            else
+            {
+                var lineWidth = SelfTestFixture == 13
+                    ? CalibrationAttenuatorFixtureWidthHz
+                    : SelfTestFixture == 14
+                        ? CalibrationLnaFixtureWidthHz
+                    : SelfTestFixture == 11
+                        ? CalibrationSwitchFixtureWidthHz
+                        : CalibrationLineWidthHz;
+                level = SpectralLineLevelAt(SelfTestSampleFrequencyHz,
+                    SelfTestCalibrationFrequencyHz,
+                    SelfTestCalibrationPowerDbm,
+                    lineWidth);
+            }
+
+            // The ZS407 self-test deliberately observes clock harmonics through
+            // its direct path. Keep this deterministic and bounded to the range
+            // actually exercised by the firmware.
+            var calibrationFrequency = SelfTestCalibrationFrequencyHz;
+            if(Math.Abs(calibrationFrequency - ReferenceFrequencyHz) < 1.0)
+            {
+                var harmonic = (int)Math.Round(SelfTestSampleFrequencyHz
+                    / calibrationFrequency);
+                if(harmonic >= 2 && harmonic <= MaximumCalibrationHarmonic)
+                {
+                    var harmonicPower = SelfTestCalibrationPowerDbm
+                        - 20.0 * Math.Log10(harmonic);
+                    level = Math.Max(level, SpectralLineLevelAt(
+                        SelfTestSampleFrequencyHz,
+                        calibrationFrequency * harmonic, harmonicPower,
+                        CalibrationHarmonicWidthHz));
+                }
+            }
+
+            // With the 15 MHz reference selected, the physical self-test routes
+            // that clock through the ZS407 LPF/LNA fixture. These two aliases
+            // model the board-specific pass path; the adjacent rejection point
+            // intentionally has no alias.
+            if(Math.Abs(calibrationFrequency - ReferenceFrequencyHz / 2.0) < 1.0)
+            {
+                level = Math.Max(level, SpectralLineLevelAt(
+                    SelfTestSampleFrequencyHz, 795000000.0,
+                    SelfTestCalibrationPowerDbm, CalibrationAliasWidthHz));
+                level = Math.Max(level, SpectralLineLevelAt(
+                    SelfTestSampleFrequencyHz, 915000000.0,
+                    SelfTestCalibrationPowerDbm, CalibrationAliasWidthHz));
+            }
+            // The PE4302 controls the generator/switch leg during the switch
+            // isolation and attenuation checks; it is not an input pad in
+            // those physical fixtures.
+            var fixtureAttenuation = SelfTestFixture == 11
+                ? 0.0 : FrontEndAttenuationDb;
+            return level - fixtureAttenuation;
+        }
+
+        private double SelfTestCalibrationFrequencyHz
+        {
+            get
+            {
+                // The Stage-1 fixture selects either the full or divided CAL
+                // clock. Keep that routed source present after firmware
+                // reuses the GPIO during direct/LPF acquisition.
+                if(SelfTestFixture == 9 || SelfTestFixture == 10)
+                {
+                    return ReferenceFrequencyHz / 2.0;
+                }
+                if(SelfTestFixture >= 3 && SelfTestFixture != 5)
+                {
+                    return ReferenceFrequencyHz;
+                }
+                return CalibrationFrequencyHz;
+            }
+        }
+
+        private double SelfTestSampleFrequencyHz
+        {
+            get
+            {
+                // The direct and LPF/LNA fixtures bypass the first mixer, so
+                // their RF input is the Si4468 receive frequency itself.
+                if(SelfTestFixture == 6)
+                {
+                    return ReceiverFrequencyHz;
+                }
+                return TunedInputFrequencyHz;
+            }
+        }
+
+        private double SelfTestCalibrationPowerDbm => SelfTestFixture == 14
+            ? CalibrationPowerDbm + CalibrationLnaFixtureGainDb
+            : SelfTestFixture == 11
+                ? CalibrationPowerDbm + CalibrationSwitchFixtureGainDb
+                : CalibrationPowerDbm;
+
+        private double SpectralLineLevel(double frequencyHz, double powerDbm,
+            double widthHz)
+        {
+            return SpectralLineLevelAt(TunedInputFrequencyHz, frequencyHz,
+                powerDbm, widthHz);
+        }
+
+        private static double SpectralLineLevelAt(double sampledFrequencyHz,
+            double frequencyHz, double powerDbm, double widthHz)
+        {
+            var delta = Math.Abs(sampledFrequencyHz - frequencyHz);
+            var halfWidth = widthHz / 2.0;
+            var rolloff = delta <= halfWidth
+                ? 0.0
+                // The divided crystal clock is a narrow deterministic line.
+                // A steep skirt keeps the self-test's adjacent stopband from
+                // looking like broadband RF energy while remaining continuous
+                // at the modeled line-width boundary.
+                : 80.0 * Math.Log10(delta / halfWidth);
+            return powerDbm - rolloff;
+        }
+
+        private void RecalculateCalibrationOutput()
+        {
+            byte clockConfig = 0;
+            CalibrationOutputEnabled = calibrationGpioMode == GpioModeDividedClock
+                && TryGetProperty(GlobalPropertyGroup, GlobalClockProperty,
+                    out clockConfig)
+                && (clockConfig & DividedClockEnable) != 0;
+            if(!CalibrationOutputEnabled)
+            {
+                CalibrationFrequencyHz = 0;
+                return;
+            }
+            var selection = (clockConfig >> DividedClockSelectionShift) & 0x7;
+            CalibrationFrequencyHz = ReferenceFrequencyHz
+                / dividedClockDivisors[selection];
         }
 
         private byte RecordRssi(byte value)
@@ -381,16 +697,60 @@ namespace Antmicro.Renode.Peripherals.ZS407
             public double WidthHz { get; }
         }
 
+        private sealed class FrequencyTracePoint
+        {
+            public FrequencyTracePoint(ulong sample, double localOscillatorHz,
+                double receiverHz, double tunedInputHz)
+            {
+                Sample = sample;
+                LocalOscillatorHz = localOscillatorHz;
+                ReceiverHz = receiverHz;
+                TunedInputHz = tunedInputHz;
+            }
+
+            public ulong Sample { get; }
+            public double LocalOscillatorHz { get; }
+            public double ReceiverHz { get; }
+            public double TunedInputHz { get; }
+        }
+
         private readonly List<byte> transaction = new List<byte>();
         private readonly Dictionary<ushort, byte> properties = new Dictionary<ushort, byte>();
         private readonly List<Tone> tones = new List<Tone>();
+        private readonly List<FrequencyTracePoint> frequencyTrace =
+            new List<FrequencyTracePoint>();
         private byte[] pendingResponse;
         private byte state;
         private byte channel;
         private byte? fixedRssi;
         private bool shutdown;
+        private int frequencyTraceNext;
+        private bool frequencyTraceWrapped;
+        private double? trackingIfCandidateHz;
+        private double? trackingIfCenterHz;
+
+        private byte calibrationGpioMode;
 
         private const double ReferenceFrequencyHz = 30000000.0;
+        private const double DefaultCalibrationPowerDbm = -35.3;
+        private const double CalibrationLineWidthHz = 20000.0;
+        private const double CalibrationHarmonicWidthHz = 200000.0;
+        private const double CalibrationAliasWidthHz = 100000.0;
+        private const double CalibrationSwitchFixtureWidthHz = 200000.0;
+        private const double CalibrationSwitchFixtureGainDb = -12.0;
+        private const double CalibrationAttenuatorFixtureWidthHz = 1000000.0;
+        private const double CalibrationLnaFixtureWidthHz = 200000.0;
+        private const double CalibrationLnaFixtureGainDb = 30.0;
+        private const double CalibrationBpfWidthHz = 2000000.0;
+        private const double CalibrationTrackingSpanHz = 14000000.0;
+        private const double CalibrationTrackingInputToleranceHz = 100000.0;
+        private const double CalibrationTrackingMinimumStepHz = 1000.0;
+        private const double CalibrationTrackingMaximumStepHz = 500000.0;
+        private const int MaximumCalibrationHarmonic = 40;
+        private const int MaximumFrequencyTracePoints = 2048;
+        private const int FrequencyTraceReportPoints = 17;
+        private static readonly double[] dividedClockDivisors =
+            { 1.0, 2.0, 3.0, 7.5, 10.0, 15.0, 30.0, 30.0 };
         private const int ShutdownInput = 0;
         private const byte ClearToSend = 0xFF;
         private const byte StateReady = 0x03;
@@ -402,6 +762,12 @@ namespace Antmicro.Renode.Peripherals.ZS407
         private const byte SetProperty = 0x11;
         private const byte GetPropertyCommand = 0x12;
         private const byte GpioPinConfiguration = 0x13;
+        private const byte GpioModeMask = 0x1F;
+        private const byte GpioModeDividedClock = 0x07;
+        private const byte GlobalPropertyGroup = 0x00;
+        private const byte GlobalClockProperty = 0x01;
+        private const byte DividedClockEnable = 0x40;
+        private const int DividedClockSelectionShift = 3;
         private const byte GetAdcReading = 0x14;
         private const byte FifoInfo = 0x15;
         private const byte GetInterruptStatus = 0x20;

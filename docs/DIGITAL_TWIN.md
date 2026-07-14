@@ -41,6 +41,23 @@ scene:
 tools/test-digital-twin.sh --full
 ```
 
+The firmware's Stage-1 self-test qualification is intentionally slower. It
+runs all 14 cases against the connected CAL/RF fixture, verifies a disconnected
+cable is rejected, acknowledges the real failure screen through modeled touch,
+and saves the final LCD image:
+
+```bash
+tools/test-digital-twin.sh --selftest
+```
+
+The USB qualification drives the STM32 device controller from a modeled host,
+enumerates CDC ACM, sends a fragmented shell command, checks suspend/wakeup and
+STALL behavior, then resets and re-enumerates the device:
+
+```bash
+tools/test-digital-twin.sh --usb
+```
+
 Generated logs and screenshots are under `.artifacts/digital-twin/`. Run an
 interactive Renode monitor with:
 
@@ -107,17 +124,18 @@ result through SPI/DMA.
 | Memories | 256 KiB flash, 40 KiB SRAM, 8 KiB CCM, system ROM window | linker script and STM32F303xC data |
 | Factory words | deterministic UID, flash size and VREF calibration | STM32 factory register addresses used by firmware |
 | RCC | enable/ready mirrors and system-clock switch status | F303 register use in ChibiOS HAL |
-| DMA1/DMA2 | seven/five channels, widths, increments, circular mode, flags and IRQs | firmware DMA configuration |
+| DMA1/DMA2 | seven/five channels, widths, increments, circular mode, flags, IRQs and paired full-duplex peripheral requests | firmware DMA configuration and SPI readback traffic |
 | ADC1 | ZS407 hardware-ID divider, battery and VREF channels | `NANOVNA_STM32_F303/adc.c` |
 | ADC2/touch | four-wire X/Y measurement, watchdog, DMA and 20 Hz TIM1 trigger behavior | `ui.c`, `adc.c`, board pins |
 | GPIO/EXTI | independent IDR/ODR state, modes, pulls, set-wins BSRR, BRR and grouped EXTI IRQs | board reset values, STM32 register semantics and ChibiOS EXT config |
 | SPI1 | F303 data-size packing, FIFO/status and DMA traffic | HAL SPI configuration and LCD packed writes |
 | Shared SPI wiring | simultaneous active-low selects/latches with broadcast MOSI | source GPIO macros and transaction code |
-| ST7796S LCD | 480×320 RGB565 GRAM, windows, MADCTL, reset, D/C, display enable | LCD driver command stream |
+| ST7796S LCD | 480×320 RGB565 GRAM write/readback, windows, MADCTL, reset, D/C, display enable | LCD driver command stream and self-test readback |
 | microSD | 32 MiB in-memory SPI-mode card with active-low card detect | board and FatFs wiring |
 | Si4468 | command buffer, CTS/SDN, properties, states, RSSI/FRR, deterministic RF scene | `si4468.c` and Si4468 command protocol |
 | MAX2871 | six 32-bit registers, frequency/output decode and LE behavior | synthesizer source and MAX2871 register format |
 | PE4302 | six-bit, 0.5 dB attenuation code and LE behavior | attenuator source and PE4302 interface |
+| USB FS device | F303 endpoint registers, PMA descriptors/data, IRQs, control and bulk transactions | ChibiOS STM32 USB LLD and USB 2.0 device requests |
 | Jog control | active-high PA1/PA2/PA3 contacts through EXTI | `board.h` and `ui.c` |
 
 The platform is in `digital-twin/renode/platforms/zs407.repl`; custom peripheral
@@ -170,6 +188,22 @@ spi1.spiFabric.receiver ClearFixedRssi
 Remove and reinsert the card-detect contact with
 `gpioPortB.sdCardPresent Release` and `Press`.
 
+The CAL/RF cable is a controllable fixture. Connected mode routes the
+firmware-selected 30/15 MHz references through the direct harmonic, tracking
+filter, LPF/LNA and switch/attenuator paths used by Stage-1 self-test. The model
+only supplies physical response; the immutable firmware still performs every
+sweep and owns every pass/fail result:
+
+```text
+twinStatus SetCalibrationLoopback 1 -35.3
+twinStatus RunSelfTestCase 8
+emulation RunFor "5.0"
+twinStatus AssertSelfTestCase 8 1
+```
+
+Disconnected mode drops the input to the modeled noise floor and exercises the
+firmware's real cable-failure screen.
+
 ## What “exact” means
 
 The twin is exact at the executable-input boundary: it runs the pinned release
@@ -182,8 +216,10 @@ It is not a transistor-, cycle-, or electromagnetic twin. In particular:
 - RF response is a deterministic mixer/attenuator/RSSI abstraction, not a
   SPICE or field model. Phase noise, images, nonlinear compression, filter
   tolerances and calibration-unit variation still require hardware.
-- USB packet RAM is mapped but USB host/device transactions are not yet
-  modeled. Protocol-v2 marshalling remains covered by the host tests.
+- USB is register- and transaction-behavioral, not an electrical PHY or an OS
+  passthrough. It verifies firmware descriptors, endpoint/PMA ownership, CDC
+  queues, shell traffic, suspend/wakeup, STALL and bus-reset recovery; analog
+  signaling and host-controller timing still require hardware.
 - The TLV320 audio path and physical speaker are not modeled.
 - Flash configuration pages and the SD image are in-memory unless a future
   persistence scenario explicitly backs them with files.
@@ -192,13 +228,28 @@ It is not a transistor-, cycle-, or electromagnetic twin. In particular:
 - A passing twin test does not qualify RF behavior, recovery, calibration or a
   modified image for flashing.
 
+## Expected Renode warnings
+
+Renode 1.16.1 currently reports a small, stable warning set while the firmware
+configures register bits that its generic STM32 peripherals do not implement:
+
+- USART `LBDIE`, `EIE` and interrupt-clear bits;
+- extended EXTI pending-register offsets;
+- TIM1 master-mode-selection bit 5;
+- macOS translation-cache clamping and the Cortex-M Thumb-entry normalization.
+
+These are documented fidelity boundaries, not ignored test results. Scenario
+assertions, compilation errors, unknown monitor commands/devices and missing
+result markers fail `tools/test-digital-twin.sh` even when Renode itself exits
+with status zero.
+
 Those boundaries are intentional test labels, not hidden uncertainty. Hardware
 bring-up remains the release gate in `docs/HARDWARE_BRINGUP.md`.
 
 ## Renode defects exposed by the twin
 
-Four emulator discrepancies were isolated during first boot and the subsequent
-register audit:
+Six emulator discrepancies were isolated during boot, register audit and the
+complete firmware self-test:
 
 1. Renode 1.16.1 and current `renode-infrastructure` master tag
    `ICSR.RETTOBASE` instead of calculating it. ChibiOS reads that bit in
@@ -216,6 +267,16 @@ register audit:
    flag; UIE gates only its interrupt. Current Renode master already contains
    the correct unconditional UIF behavior, so this is a local 1.16.1 backport,
    not a new upstream request.
+5. A full-duplex STM32 SPI transfer clocks receive data for every transmitted
+   unit. The DMA model must therefore service the matching peripheral-to-memory
+   channel when the memory-to-peripheral channel writes the shared data
+   register. Without that paired request, the firmware's LCD GRAM readback
+   self-test waits forever for RX DMA completion.
+6. ST7796S memory-read commands `0x2E` and `0x3E` return a dummy byte followed
+   by sequential RGB565 GRAM data and advance the active window cursor. Without
+   readback, the same firmware test cannot validate or restore display memory.
 
-The three still-current fixes and NUnit regressions are packaged under
-`upstream-patches/renode/`. They are not published yet.
+The RETTOBASE fix is public in Renode PR #217; the two GPIO fixes are public in
+PR #218. The DMA request-pairing finding and the ST7796S model/readback work are
+new upstream candidates that still need to be split from the board fixture and
+rebased with focused Renode regressions. Timer UIF needs no new upstream patch.

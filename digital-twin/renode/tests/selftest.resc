@@ -1,0 +1,70 @@
+include $ORIGIN/../zs407.resc
+
+emulation RunFor "1.5"
+twinStatus AssertBooted
+
+# Connect the modeled CAL clock output to RF input and execute every Stage-1
+# built-in test case through selftest(), test_prepare(), sweep() and
+# test_validate(). No result state is injected by the twin.
+twinStatus SetCalibrationLoopback 1 -35.3
+
+twinStatus RunSelfTestCase 1
+emulation RunFor "5.00"
+twinStatus AssertSelfTestCase 1 1
+twinStatus RunSelfTestCase 2
+emulation RunFor "5.00"
+twinStatus AssertSelfTestCase 2 1
+twinStatus RunSelfTestCase 3
+emulation RunFor "3.00"
+twinStatus AssertSelfTestCase 3 1
+twinStatus RunSelfTestCase 4
+emulation RunFor "3.00"
+twinStatus AssertSelfTestCase 4 1
+twinStatus RunSelfTestCase 5
+emulation RunFor "5.00"
+twinStatus AssertSelfTestCase 5 1
+twinStatus RunSelfTestCase 6
+emulation RunFor "3.00"
+twinStatus AssertSelfTestCase 6 1
+twinStatus RunSelfTestCase 7
+emulation RunFor "2.00"
+twinStatus AssertSelfTestCase 7 1
+twinStatus RunSelfTestCase 8
+emulation RunFor "2.00"
+twinStatus AssertSelfTestCase 8 1
+twinStatus RunSelfTestCase 9
+emulation RunFor "5.00"
+twinStatus AssertSelfTestCase 9 1
+twinStatus RunSelfTestCase 10
+emulation RunFor "3.00"
+twinStatus AssertSelfTestCase 10 1
+twinStatus RunSelfTestCase 11
+emulation RunFor "2.00"
+twinStatus AssertSelfTestCase 11 1
+twinStatus RunSelfTestCase 12
+emulation RunFor "5.00"
+twinStatus AssertSelfTestCase 12 1
+twinStatus RunSelfTestCase 13
+emulation RunFor "8.00"
+twinStatus AssertSelfTestCase 13 1
+twinStatus RunSelfTestCase 14
+emulation RunFor "3.00"
+twinStatus AssertSelfTestCase 14 1
+
+# A missing physical CAL cable must be detected. This path intentionally
+# enters the real interactive cable-failure screen, which is acknowledged by
+# the modeled touch panel before the suite checks clean restoration.
+twinStatus SetCalibrationLoopback 0 -35.3
+twinStatus RunSelfTestCase 3
+emulation RunFor "3.00"
+twinStatus AssertSelfTestFailureDetected 3
+adc2 SetTouchPixel 200 150
+emulation RunFor "1.50"
+adc2 ReleaseTouch
+emulation RunFor "0.10"
+twinStatus AssertSelfTestCase 3 2
+twinStatus SetCalibrationLoopback 1 -35.3
+
+twinStatus Report
+spi1.spiFabric.lcd SaveScreenshot $CWD/.artifacts/digital-twin/selftest-complete.png
+quit

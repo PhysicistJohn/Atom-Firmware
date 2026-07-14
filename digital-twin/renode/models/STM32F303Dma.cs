@@ -155,6 +155,10 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 {
                     var value = Read(memoryAddress, memoryWidth);
                     Write(peripheralAddress, value, peripheralWidth);
+                    if(!memoryToMemory)
+                    {
+                        ServicePendingPeripheralToMemory(peripheralAddress);
+                    }
                 }
                 else
                 {
@@ -186,6 +190,56 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 channel.Control &= ~Enable;
             }
             UpdateInterrupts();
+        }
+
+        private void ServicePendingPeripheralToMemory(ulong requestAddress)
+        {
+            for(var channelIndex = 0; channelIndex < channels.Length;
+                ++channelIndex)
+            {
+                var channel = channels[channelIndex];
+                if((channel.Control & Enable) == 0 || channel.Remaining == 0
+                    || (channel.Control & DirectionMemoryToPeripheral) != 0
+                    || (channel.Control & MemoryToMemory) != 0
+                    || channel.PeripheralAddress != requestAddress)
+                {
+                    continue;
+                }
+
+                var memoryWidth = DecodeWidth(channel.Control, MemorySizeShift);
+                var peripheralWidth = DecodeWidth(channel.Control,
+                    PeripheralSizeShift);
+                var completed = channel.InitialCount - channel.Remaining;
+                var memoryAddress = (ulong)channel.MemoryAddress;
+                var peripheralAddress = (ulong)channel.PeripheralAddress;
+                if((channel.Control & MemoryIncrement) != 0)
+                {
+                    memoryAddress += completed * (ulong)memoryWidth;
+                }
+                if((channel.Control & PeripheralIncrement) != 0)
+                {
+                    peripheralAddress += completed * (ulong)peripheralWidth;
+                }
+
+                Write(memoryAddress, Read(peripheralAddress, peripheralWidth),
+                    memoryWidth);
+                channel.Remaining--;
+                if(channel.Remaining != 0)
+                {
+                    continue;
+                }
+
+                SetFlags(channelIndex, GlobalFlag | TransferCompleteFlag);
+                if((channel.Control & CircularMode) != 0)
+                {
+                    channel.Remaining = channel.InitialCount;
+                }
+                else
+                {
+                    channel.Control &= ~Enable;
+                }
+                UpdateInterrupts();
+            }
         }
 
         private uint ReadChannel(int channelIndex, long register)

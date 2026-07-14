@@ -110,6 +110,8 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 attenuation = ReadDoubleProperty(attenuator, "AttenuationDb");
             }
             var receiverFrequency = ReadDoubleProperty(receiver, "ReceiverFrequencyHz");
+            var loMethod = receiver.GetType().GetMethod("SetLocalOscillatorFrequency");
+            loMethod?.Invoke(receiver, new object[] { loFrequency });
             var method = receiver.GetType().GetMethod("SetFrontEndState");
             method?.Invoke(receiver, new object[] {
                 Math.Abs(loFrequency - receiverFrequency), attenuation

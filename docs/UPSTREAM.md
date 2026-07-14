@@ -49,6 +49,22 @@ The full patch rationale, artifact hashes, exact sizes, A/B twin result, and
 physical test script are in the queue README. Keep these as separate PRs; they
 are easier to review and revert individually.
 
+### ChibiOS consumption audit
+
+The current firmware pin is the tinySA fork commit
+`ade76dea89cd093650552328e881252a06486094`. The upgrade candidate is the
+official ChibiOS stable tag `ver21.11.5`, commit
+`f4bbadf964fc746aef8bbcf34135c7d8fabb8eae`, evaluated in an isolated
+worktree before changing the release line.
+
+Do not replay fork commit `ade76dea8` (`DiSlord improvements`) wholesale: it
+mixes CMSIS, build rules, HAL queues, serial, USB, ADC and USART changes that
+must be justified independently against the newer tree. Likewise, the old
+`67fdcd8ed` linker change from 16-byte to 4-byte `.text` subalignment is
+superseded by `ver21.11.5`'s `ALIGN_WITH_INPUT` linker rules. Preserve only a
+small fork delta when the dual-target build, executable twin or hardware
+qualification proves it is still required.
+
 ## Renode
 
 Three emulator fixes are packaged under
@@ -61,6 +77,16 @@ Three emulator fixes are packaged under
 | NVIC `ICSR.RETTOBASE` | Armv7/Armv8 bit always read zero; ChibiOS could not reschedule from the ZS407 startup IRQ | One NVIC PR |
 | Independent STM32 IDR/ODR | ODR initialization falsely asserted input-mode jog contacts | GPIO PR, commit 1 |
 | STM32 BSRR set priority | Simultaneous set/reset incorrectly let reset win | GPIO PR, commit 2 |
+
+The completed self-test has now exposed two additional candidates. A
+full-duplex STM32 SPI transmit request must also clock the paired RX DMA
+channel, and an ST7796S model must implement GRAM read commands `0x2E`/`0x3E`
+with their dummy byte and cursor advance. These fixes unblock the immutable
+firmware's LCD readback test. They are proven in the project-local twin but are
+not yet in the three-patch mailbox above; each needs a minimal upstream model
+change and focused managed regression before publication. The CAL/RF fixture,
+USB host scenario and SRAM self-test driver remain repository-specific test
+infrastructure, not Renode patches.
 
 The managed suites total 976 passes and 17 existing skips with zero failures.
 Eighteen STM32 Robot scenarios pass, the native RETTOBASE matrix covers
