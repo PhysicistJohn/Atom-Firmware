@@ -56,11 +56,16 @@ Then flash the exact RC5 binary, perform a true power-off cold boot, and run:
 "$TINYSA_HW_PYTHON" \
   tools/capture-physical-selftests.py \
   --variant rc5 \
-  --expected-version tinySA4_v0.4-chibios21.11.5-rc5 \
+  --expected-version tinySA4_v0.4-chibios21-rc5 \
   --output .artifacts/hardware-selftest/rc5 \
   --port auto \
   --confirm CAL-RF-LOOPBACK-CONNECTED
 ```
+
+The release filename contains the full ChibiOS tag
+(`tinySA4_v0.4-chibios21.11.5-rc5.bin`), while the firmware's intentionally
+shorter shell identity is `tinySA4_v0.4-chibios21-rc5`. The runner checks the
+shell identity, not the artifact filename.
 
 The default case set is zero-based `0-13`. Each command actually sent to the
 firmware is `selftest 0 N`, where positive argument `N=1..14` retains one real
