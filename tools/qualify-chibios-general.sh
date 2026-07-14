@@ -479,7 +479,8 @@ if not (
 # USB enumeration, CDC command traffic, EP0 STALL, and bus-reset recovery.
 exact_count("usb", "ZS407_TWIN_USB_DESCRIPTOR=PASS", 2)
 exact_count("usb", "ZS407_TWIN_USB_ENUM=PASS", 7)
-exact_count("usb", "ZS407_TWIN_USB_PMA=PASS", 4)
+exact_count("usb", "ZS407_TWIN_USB_PMA=PASS", 5)
+exact_count("usb", "ZS407_TWIN_USB_ENDPOINTS=PASS data=disabled", 3)
 exact_count("usb", "ZS407_TWIN_USB_CDC=PASS", 2)
 exact_count("usb", "ZS407_TWIN_USB_CDC=PASS contains=tinySA4", 1)
 exact_count("usb", "ZS407_TWIN_USB_CDC=PASS contains=ch> ", 1)

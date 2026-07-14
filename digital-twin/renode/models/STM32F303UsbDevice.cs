@@ -316,6 +316,26 @@ namespace Antmicro.Renode.Peripherals.ZS407
             return "ZS407_TWIN_USB_PMA=PASS " + string.Join(" ", layout);
         }
 
+        public string AssertDataEndpointsDisabled()
+        {
+            var active = new List<string>();
+            for(var endpoint = 1; endpoint < endpoints.Length; endpoint++)
+            {
+                var epr = endpoints[endpoint];
+                if((epr & EndpointTxStatusMask) != EndpointTxDisabled
+                    || (epr & EndpointRxStatusMask) != EndpointRxDisabled)
+                {
+                    active.Add($"ep{endpoint}=0x{epr:X4}");
+                }
+            }
+            if(active.Count != 0)
+            {
+                throw new RecoverableException("ZS407 twin USB data endpoint(s) remain active: "
+                    + string.Join(" ", active));
+            }
+            return "ZS407_TWIN_USB_ENDPOINTS=PASS data=disabled";
+        }
+
         public string AssertCaptureContains(string expected)
         {
             if(expected == null || !CapturedText.Contains(expected))
