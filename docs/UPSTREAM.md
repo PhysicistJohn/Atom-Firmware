@@ -88,15 +88,18 @@ Three emulator fixes are packaged under
 | Independent STM32 IDR/ODR | ODR initialization falsely asserted input-mode jog contacts | GPIO PR, commit 1 |
 | STM32 BSRR set priority | Simultaneous set/reset incorrectly let reset win | GPIO PR, commit 2 |
 
-The completed self-test has now exposed two additional candidates. A
-full-duplex STM32 SPI transmit request must also clock the paired RX DMA
-channel, and an ST7796S model must implement GRAM read commands `0x2E`/`0x3E`
-with their dummy byte and cursor advance. These fixes unblock the immutable
-firmware's LCD readback test. They are proven in the project-local twin but are
-not yet in the three-patch mailbox above; each needs a minimal upstream model
-change and focused managed regression before publication. The CAL/RF fixture,
-USB host scenario and SRAM self-test driver remain repository-specific test
-infrastructure, not Renode patches.
+The completed self-test also exposed gaps in the project-local STM32F3 SPI/DMA
+and ST7796S models, but those local fixes are not ready-made upstream patches.
+In particular, the DMA address-matching heuristic must not be submitted:
+upstream Renode already emits explicit SPI RX DMA request GPIOs. A future
+contribution would instead add STM32F3 SPI-v2 data packing and connect its
+normal request lines to a generalized channel-DMA model, with focused managed
+tests. Renode has no upstream ST7796S peripheral, so its GRAM readback support
+would have to be proposed as a complete new display model rather than a small
+readback patch. The CAL/RF fixture, USB host scenario and SRAM self-test driver
+remain repository-specific test infrastructure. See
+[`VENDOR_UPSTREAM_QUEUE.md`](VENDOR_UPSTREAM_QUEUE.md) for the exact vendor
+dispositions and ordering.
 
 The managed suites total 976 passes and 17 existing skips with zero failures.
 Eighteen STM32 Robot scenarios pass, the native RETTOBASE matrix covers

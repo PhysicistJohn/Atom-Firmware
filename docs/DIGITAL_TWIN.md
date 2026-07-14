@@ -268,15 +268,21 @@ complete firmware self-test:
    the correct unconditional UIF behavior, so this is a local 1.16.1 backport,
    not a new upstream request.
 5. A full-duplex STM32 SPI transfer clocks receive data for every transmitted
-   unit. The DMA model must therefore service the matching peripheral-to-memory
-   channel when the memory-to-peripheral channel writes the shared data
-   register. Without that paired request, the firmware's LCD GRAM readback
-   self-test waits forever for RX DMA completion.
+   unit. The local F303 DMA model infers the matching peripheral-to-memory
+   channel when the transmit channel writes the shared data register. That
+   address-matching heuristic unblocks LCD readback in this executable fixture,
+   but it is not an upstream design: Renode's generic STM32 SPI model already
+   emits explicit RX DMA request GPIOs. Any upstream F303 work must connect
+   proper SPI-v2 request lines to a generalized channel-DMA model.
 6. ST7796S memory-read commands `0x2E` and `0x3E` return a dummy byte followed
-   by sequential RGB565 GRAM data and advance the active window cursor. Without
-   readback, the same firmware test cannot validate or restore display memory.
+   by sequential RGB565 GRAM data and advance the active window cursor. The
+   local display model implements that behavior so the firmware can validate
+   and restore GRAM. Renode has no upstream ST7796S peripheral, so a vendor
+   contribution would be a complete new model rather than a readback patch.
 
 The RETTOBASE fix is public in Renode PR #217; the two GPIO fixes are public in
-PR #218. The DMA request-pairing finding and the ST7796S model/readback work are
-new upstream candidates that still need to be split from the board fixture and
-rebased with focused Renode regressions. Timer UIF needs no new upstream patch.
+PR #218. The local DMA heuristic is explicitly not for upstream. STM32F3
+SPI-v2/channel-DMA support and a complete ST7796S model are possible future
+proposals only after redesign and focused Renode regressions. Timer UIF needs
+no new upstream patch. The complete queue is in
+[`VENDOR_UPSTREAM_QUEUE.md`](VENDOR_UPSTREAM_QUEUE.md).
