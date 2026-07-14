@@ -4065,12 +4065,6 @@ void HardFault_Handler(void)
       "ite eq\n"
       "mrseq r0, msp\n"
       "mrsne r0, psp\n"
-      /* EXC_RETURN bit 4 is clear when an extended floating-point frame was
-         stacked. Skip s0-s15, FPSCR, and the reserved word so the C handler
-         always receives the eight-word core exception frame. */
-      "tst lr, #16\n"
-      "it eq\n"
-      "addeq r0, r0, #72\n"
       "sub sp, sp, #32\n"
       "str r4, [sp, #0]\n"
       "str r5, [sp, #4]\n"
