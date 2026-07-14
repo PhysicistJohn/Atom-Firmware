@@ -872,6 +872,16 @@ def main() -> int:
             raise ValueError(f"case {case} screenshot is missing")
         reference_frame = load_frame(args.reference / f"case-{case:02d}.rgb565")
         candidate_frame = load_frame(args.candidate / f"case-{case:02d}.rgb565")
+        # Renode's indexed-color PNG encoder can emit a palette that some
+        # decoders render almost entirely black even though panel GRAM is
+        # complete. Canonicalize both screenshots from the authoritative raw
+        # RGB565 capture as truecolor PNG before human review and checksums.
+        write_rgb_png(
+            reference_png, [rgb565_to_rgb(pixel) for pixel in reference_frame]
+        )
+        write_rgb_png(
+            candidate_png, [rgb565_to_rgb(pixel) for pixel in candidate_frame]
+        )
         captured_frames.append((reference_frame, candidate_frame))
         write_diff(args.output / f"case-{case:02d}-diff.png", reference_frame, candidate_frame)
         results.append(

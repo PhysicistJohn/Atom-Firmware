@@ -54,6 +54,9 @@ Results are written below `.artifacts/digital-twin/selftest-visual/`:
   compact triplet sheets for review.
 - `SHA256SUMS` authenticates every captured frame and comparison artifact.
 
-The raw-frame comparison is intentionally independent of the PNG encoder. In a
-false-color diff, reference-only pixels are red, candidate-only pixels are cyan
-and identical pixels are dim gray.
+The raw-frame comparison is intentionally independent of the PNG encoder.
+Renode's indexed-color screenshots are canonicalized from the authoritative
+RGB565 dumps as 24-bit truecolor PNGs before review and checksumming; this
+avoids platform-dependent palette decoding. In a false-color diff,
+reference-only pixels are red, candidate-only pixels are cyan and identical
+pixels are dim gray.
