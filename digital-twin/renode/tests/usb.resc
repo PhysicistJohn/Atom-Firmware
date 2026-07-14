@@ -40,6 +40,32 @@ emulation RunFor "0.02"
 usb HostIn 0
 emulation RunFor "0.05"
 usb AssertDevice 1 1
+usb AssertActiveBufferAddressesDistinct
+
+# Hosts may select the active configuration again. This exercises endpoint
+# teardown/rebuild and guards EP0's packet-memory buffers against reuse by the
+# CDC data endpoints.
+usb HostSetup "0009010000000000"
+emulation RunFor "0.02"
+usb HostIn 0
+emulation RunFor "0.05"
+usb AssertDevice 1 1
+usb AssertActiveBufferAddressesDistinct
+
+# Unconfigure and select configuration 1 again. This is a distinct allocator
+# path and must not depend on the same-value compatibility behavior above.
+usb HostSetup "0009000000000000"
+emulation RunFor "0.02"
+usb HostIn 0
+emulation RunFor "0.05"
+usb AssertDevice 1 0
+usb AssertActiveBufferAddressesDistinct
+usb HostSetup "0009010000000000"
+emulation RunFor "0.02"
+usb HostIn 0
+emulation RunFor "0.05"
+usb AssertDevice 1 1
+usb AssertActiveBufferAddressesDistinct
 
 # Complete the CDC ACM host handshake (115200 8N1, DTR + RTS).
 usb HostSetup "2120000000000700"

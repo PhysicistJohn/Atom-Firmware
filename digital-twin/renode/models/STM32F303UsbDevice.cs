@@ -292,6 +292,30 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 + $"ep2=0x{endpoints[2]:X4} setup={SetupPackets} out={OutPackets} in={InPackets}";
         }
 
+        public string AssertActiveBufferAddressesDistinct()
+        {
+            var owners = new Dictionary<ushort, string>();
+            var layout = new List<string>();
+            for(var endpoint = 0; endpoint < endpoints.Length; endpoint++)
+            {
+                var epr = endpoints[endpoint];
+                var descriptor = DescriptorAddress(endpoint);
+                if((epr & EndpointTxStatusMask) != EndpointTxDisabled)
+                {
+                    AddBufferAddressOwner(owners, layout,
+                        (ushort)(ReadPacketDoubleWord(descriptor + TxAddressOffset) & 0xFFFF),
+                        $"ep{endpoint}.tx");
+                }
+                if((epr & EndpointRxStatusMask) != EndpointRxDisabled)
+                {
+                    AddBufferAddressOwner(owners, layout,
+                        (ushort)(ReadPacketDoubleWord(descriptor + RxAddressOffset) & 0xFFFF),
+                        $"ep{endpoint}.rx");
+                }
+            }
+            return "ZS407_TWIN_USB_PMA=PASS " + string.Join(" ", layout);
+        }
+
         public string AssertCaptureContains(string expected)
         {
             if(expected == null || !CapturedText.Contains(expected))
@@ -424,6 +448,18 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 | EndpointRxNak | EndpointCtrRx
                 | (setup ? EndpointSetup : 0));
             UpdateInterrupt();
+        }
+
+        private static void AddBufferAddressOwner(Dictionary<ushort, string> owners,
+            List<string> layout, ushort address, string owner)
+        {
+            if(owners.TryGetValue(address, out var previousOwner))
+            {
+                throw new RecoverableException("ZS407 twin USB packet-memory overlap: "
+                    + $"{previousOwner} and {owner} both use 0x{address:X4}");
+            }
+            owners.Add(address, owner);
+            layout.Add($"{owner}=0x{address:X4}");
         }
 
         private uint ComposeInterruptStatus()
@@ -583,6 +619,7 @@ namespace Antmicro.Renode.Peripherals.ZS407
 
         private const ushort EndpointAddressMask = 0x000F;
         private const ushort EndpointTxStatusMask = 0x0030;
+        private const ushort EndpointTxDisabled = 0x0000;
         private const ushort EndpointTxStall = 0x0010;
         private const ushort EndpointTxNak = 0x0020;
         private const ushort EndpointTxValid = 0x0030;
@@ -594,6 +631,7 @@ namespace Antmicro.Renode.Peripherals.ZS407
         private const ushort EndpointTypeInterrupt = 0x0600;
         private const ushort EndpointSetup = 0x0800;
         private const ushort EndpointRxStatusMask = 0x3000;
+        private const ushort EndpointRxDisabled = 0x0000;
         private const ushort EndpointRxStall = 0x1000;
         private const ushort EndpointRxNak = 0x2000;
         private const ushort EndpointRxValid = 0x3000;
