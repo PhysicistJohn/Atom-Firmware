@@ -9,8 +9,9 @@ buffers over EP0's live TX/RX buffers.
 
 This is proven on ChibiOS `ver21.11.5` at
 `f4bbadf964fc746aef8bbcf34135c7d8fabb8eae`. The USBv2 driver in the same
-release contains the analogous allocator-reset pattern and should be checked
-on current `main` as part of the fix.
+release contains the analogous allocator-reset pattern. The 2026-07-14
+read-only audit confirmed that current/default `master` at `f825669c` still
+contains both USBv1 and USBv2 forms of the defect.
 
 ## Reproduction
 
@@ -77,9 +78,10 @@ When disabling endpoints 1..N:
 Keep the bus-reset path unchanged so a real USB reset still starts from an
 empty allocator before EP0 is initialized.
 
-The prepared USBv1 patch changes only
+The prepared stable USBv1 patch changes only
 `os/hal/ports/STM32/LLD/USBv1/hal_usb_lld.c`. Please apply the corresponding
-ownership rule to USBv2 if current `main` still has the same pattern.
+ownership rule to both USBv1 and USBv2 in a current-`master` contribution and
+review their different allocation rounding and descriptor semantics.
 
 ## Evidence boundary
 
@@ -96,3 +98,12 @@ overlap, but no host packet trace was captured that identifies the exact
 repeated request, so the physical causal chain should not be overstated.
 
 No physical RC5 pass is claimed in this issue draft.
+
+## Submission route
+
+GitHub issue creation is restricted for `chibios-upstream/chibios`, and the
+repository's PR template still names stale `main` rather than current/default
+`master`. Seek maintainer guidance on the report channel and target branch, or
+use the official ChibiOS SourceForge project support path at
+<https://sourceforge.net/p/chibios/>. This draft has not been submitted
+anywhere.

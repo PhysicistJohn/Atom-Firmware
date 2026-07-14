@@ -18,8 +18,8 @@ was read-only: it did not open an issue, publish a branch, comment, or push.
 | tinySA | Deterministic warm-reset backup checksum | New focused application bug fix; retain separately from the RTOS port and publish only after exact hardware reset testing |
 | tinySA | Stack-safe MSP/PSP hard-fault entry | New focused application fix; simulator-qualified, but hold for forced-fault and recovery testing on hardware |
 | tinySA | Sweep/display timing recovery and explicit single-precision constants | Keep in the ChibiOS port because these changes preserve baseline timing under the new RTOS build |
-| ChibiOS | STM32F0 TIM14 GPT ISR | New upstream bug; prepare one issue and a `main` PR, then let the maintainer select a `stable-21.11.x` backport |
-| ChibiOS | USB PMA reuse across `SET_CONFIGURATION` | Confirmed USBv1 defect on 21.11.5 with an analogous USBv2 pattern; prepare a separate issue/PR with repeated-configuration and reset regressions |
+| ChibiOS | STM32F0 TIM14 GPT ISR | New upstream bug; seek maintainer guidance or use the ChibiOS SourceForge support path, then prepare one vendor-neutral change for the requested integration branch and let the maintainer select any stable backport |
+| ChibiOS | USB PMA reuse across `SET_CONFIGURATION` | Confirmed USBv1 defect on 21.11.5 and confirmed analogous USBv2 pattern on current `master`; prepare a separate USB change that reviews and corrects both maintained PMA drivers, with repeated-configuration and reset regressions |
 | Renode | NVIC `RETTOBASE` | Already open as PR #217; do not duplicate |
 | Renode | STM32 GPIO IDR/ODR and BSRR priority | Already open as the two commits in PR #218; do not duplicate |
 | Renode | Architectural HardFault priority | New issue in `renode/renode`, followed by one issue-numbered infrastructure PR; keep separate from #217 |
@@ -136,10 +136,12 @@ Publication dependencies, in order:
    USB traffic, controls, touch, acquisition, RF behavior, warm/cold/power-cycle
    retention, and forced PSP/MSP fault recovery. Preserve the exact binary hash
    in evidence.
-3. Make both focused ChibiOS fixes publicly fetchable. Prefer authoritative
-   `main` fixes and maintainer-selected stable backports. A parent repository
-   must never point at the current local-only `2b8f425d` / `b3f82b396`
-   lineage.
+3. Make both focused ChibiOS fixes publicly fetchable. Ask the maintainers
+   which integration branch and reporting path to use; the current/default
+   branch is `master`, while the retained PR template still says `main` and
+   GitHub issue creation is restricted. Let maintainers select stable
+   backports. A parent repository must never point at the current local-only
+   `2b8f425d` / `b3f82b396` lineage.
 4. In the port PR, change `.gitmodules` from the historical
    `edy555/ChibiOS` fork to the authoritative
    `chibios-upstream/chibios` repository and remove the obsolete
@@ -216,22 +218,28 @@ changes, or the simulator's activity thresholds upstream.
 
 Authoritative repository: <https://github.com/chibios-upstream/chibios>
 
-This is a newly designated authoritative Git repository. Do not send the fix
-to the older `ChibiOS/ChibiOS` community mirror. At audit time:
+This is the authoritative Git repository used for the freshness audit. Do not
+send the fix to the older `ChibiOS/ChibiOS` community mirror. At audit time:
 
-- contribution target `main`: `fbbfad31a4b800f3be826afc5ad19266d15f7610`;
+- current/default integration branch `master`: `f825669c`;
+- retained `main` branch: `fbbfad31a4b800f3be826afc5ad19266d15f7610`;
 - maintenance branch `stable-21.11.x`:
   `eb9a832bc52f22d9bae012c3b33cbb3f8aad9d5b`;
 - release tag consumed by this port: `ver21.11.5` / `f4bbadf964...`.
 
-The repository's pull-request template requires all changes to land on `main`
-first. A stable branch receives only a maintainer-selected backport of a commit
-already merged on `main`.
+The checked-in pull-request template still says that changes must land on
+`main` first, but that guidance conflicts with the repository's current
+default `master` branch and must be treated as stale. GitHub issue creation is
+restricted for this repository. Before publishing, ask the maintainers which
+branch and intake path they want; if GitHub is not the requested reporting
+path, use the [official ChibiOS SourceForge project](https://sourceforge.net/p/chibios/)
+support path. Do not infer a workflow from the stale template. Stable
+backports remain maintainer-selected.
 
 ### STM32F0 TIM14 GPT ISR defect
 
-When an STM32F0 application enables `STM32_GPT_USE_TIM14`, current `main`,
-`stable-21.11.x`, and `ver21.11.5` reach:
+When an STM32F0 application enables `STM32_GPT_USE_TIM14`, current `master`,
+retained `main`, `stable-21.11.x`, and `ver21.11.5` reach:
 
 ```text
 #error "TIM14 ISR not defined by platform"
@@ -245,10 +253,11 @@ in 2019 while adding TIM10/TIM13 support; the F0 standalone-vector case was
 left without a provider.
 
 Local commit `2b8f425d26a61a7887916f7052b401f9e767a949` restores the handler and is the
-first of two focused ChibiOS deltas required by RC5. Its patch applies
-cleanly to authoritative `main` at `fbbfad31` and `stable-21.11.x` at
-`eb9a832b`. No matching issue or PR existed in the authoritative repository
-when checked.
+first of two focused ChibiOS deltas required by RC5. Its vendor-neutral patch
+dry-runs cleanly against current/default `master` at `f825669c`, retained
+`main` at `fbbfad31`, and `stable-21.11.x` at `eb9a832b`. No matching public
+change was found in the authoritative repository when checked; restricted
+GitHub issue creation means that absence is not permission to create an issue.
 
 Do not publish `2b8f425d` verbatim: it carries a workstation-local author
 email and a tinySA-specific source comment. Prepare a fresh, vendor-neutral
@@ -263,7 +272,8 @@ commit that restores the pre-`00091c7aa` handler shape:
 
 Minimal reproducer and evidence for the issue/PR:
 
-1. Start from authoritative `main` and configure an STM32F072 build with
+1. Start from the maintainer-requested integration branch (currently/default
+   `master`) and configure an STM32F072 build with
    `HAL_USE_GPT=TRUE` and `STM32_GPT_USE_TIM14=TRUE`.
 2. Show the unpatched compile stopping at the exact `#error` above.
 3. Apply the one-file handler restoration and build the same target cleanly.
@@ -278,15 +288,16 @@ Minimal reproducer and evidence for the issue/PR:
 
 Recommended publication order:
 
-1. Open one concise issue in `chibios-upstream/chibios` with the compiler
-   reproduction, affected branches, STM32F0 vector definitions, and regression
-   commit.
-2. Create a fresh branch from `main` and submit the one-file, vendor-neutral
-   fix, linked to the issue. Complete the PR template's style and ARM build
-   gates.
-3. After the main PR merges, let the maintainer select or request the
-   `stable-21.11.x` backport for the future 21.11.6 release. Do not open the
-   stable PR first.
+1. Ask the ChibiOS maintainers for the intended report channel and integration
+   branch. GitHub issue creation is restricted; use the official SourceForge
+   project support path if that is the available or requested intake route.
+2. Create a fresh branch from the branch the maintainer names (the current
+   default is `master`) and submit the one-file, vendor-neutral fix. Complete
+   the current style and ARM build gates; do not rely on the stale `main` text
+   in the repository PR template.
+3. After the integration change merges, let the maintainer select or request
+   the `stable-21.11.x` backport for the future 21.11.6 release. Do not open a
+   stable change first.
 4. Once a public commit is available, update the tinySA port gitlink and repeat
    its build/qualification gates.
 
@@ -323,7 +334,9 @@ endpoints. It changes only
 `os/hal/ports/STM32/LLD/USBv1/hal_usb_lld.c`, is directly based on the retained
 TIM14 commit, and increases the F303/F072 images by 32/48 bytes respectively.
 Do not publish it verbatim because it carries a workstation-local author
-identity.
+identity. The vendor-neutral USBv1 mailbox patch dry-runs against audited
+`master` at `f825669c`, retained `main` at `fbbfad31`, and
+`stable-21.11.x` at `eb9a832b`.
 
 The exact regression sequence is:
 
@@ -344,17 +357,21 @@ reconfiguration and still leaves `1 -> 0 -> 1` vulnerable.
 
 The USBv2 driver shipped in 21.11.5 has the analogous structure: its disable
 function leaves EP0 active, resets `pmnext` to the descriptor-table boundary,
-and later endpoints allocate from that cursor. tinySA RC5 does not use USBv2,
-so this is a source-audit finding rather than RC5 runtime evidence. Before a
-vendor PR, rebase onto current `main`, confirm which PMA drivers remain, add a
-driver-level reproducer, and apply the EP0-preserving correction to USBv1 and
-USBv2 as maintainers prefer. Do not combine this with the TIM14 PR.
+and later endpoints allocate from that cursor. The read-only freshness audit
+confirmed that both USBv1 and USBv2 retain this ownership defect on current
+`master`. tinySA RC5 does not use USBv2, so its runtime evidence qualifies only
+USBv1. A `master`-targeted USB change must nevertheless review and correct both
+drivers, add driver-level repeated-configuration/reset coverage, and document
+any driver-specific differences. The exact stable mailbox patch remains a
+USBv1-only reproducer/fix for 21.11.5. Do not combine the USB work with the
+TIM14 change.
 
 The local handoff in
 [`upstream-patches/chibios/`](../upstream-patches/chibios/README.md) contains a
 21.11.5 USBv1 patch, separate issue/PR drafts, the exact reproducer, and a
-USBv2 `main` recommendation. It is preparation only: this local update did not
-open an issue, publish a branch, push, or claim a current public status.
+USBv2 integration-branch recommendation. It is preparation only: this local
+update did not open an issue, publish a branch, push, or claim a current public
+status.
 
 ## 3. Renode
 
@@ -369,15 +386,18 @@ checked.
 
 | Order | Issue / PR | Public commits | Live status |
 | ---: | --- | --- | --- |
-| 1 | [issue #941](https://github.com/renode/renode/issues/941) / [PR #217](https://github.com/renode/renode-infrastructure/pull/217) | `297ee9f670291d6c5daf89ab612a14bc146bdaf5` | Open; current-master merge ref exists; CLA success; only CLA bot comment, no review |
-| 2 | [issue #942](https://github.com/renode/renode/issues/942) / [PR #218](https://github.com/renode/renode-infrastructure/pull/218) | `d7337a1a3fc7bbabfe436aa4f1dd0501034af456`, then `12d2d3f66714c276de36865ccbd063d7eaed3790` | Open; current-master merge ref exists; CLA success; no comments or review |
+| 1 | [issue #941](https://github.com/renode/renode/issues/941) / [PR #217](https://github.com/renode/renode-infrastructure/pull/217) | `297ee9f670291d6c5daf89ab612a14bc146bdaf5` | Open; GitHub reports clean mergeability; generated merge ref is based on `66feec8`, not current `master`; patch dry-runs on current `master`; CLA success; only CLA bot comment, no review |
+| 2 | [issue #942](https://github.com/renode/renode/issues/942) / [PR #218](https://github.com/renode/renode-infrastructure/pull/218) | `d7337a1a3fc7bbabfe436aa4f1dd0501034af456`, then `12d2d3f66714c276de36865ccbd063d7eaed3790` | Open; GitHub reports clean mergeability; generated merge ref is based on `66feec8`, not current `master`; patches dry-run on current `master`; CLA success; no comments or review |
 
 PR #217 implements NVIC `ICSR.RETTOBASE`. PR #218 first separates STM32 GPIO
 IDR from ODR and then makes simultaneous BSRR set/reset resolve to set. The
-latest generated merge refs have current `master` as their first parent, so
-there is no observed merge conflict. Do not create duplicates or add unrelated
-model changes to either PR. Wait for review and rebase only if GitHub later
-reports a conflict or a maintainer requests it.
+latest generated merge refs fetched for both PRs use `66feec8` as their first
+parent, not current infrastructure `master` at `7068985`; they therefore are
+not current-master merge proofs. GitHub still reports both PRs cleanly
+mergeable, and the PR patch or patch series dry-runs against current `master`,
+so no content conflict is presently observed. Do not create duplicates or add
+unrelated model changes to either PR. Wait for review and rebase only if
+GitHub reports a conflict or a maintainer requests it.
 
 ### Architectural HardFault priority: new issue and PR
 
@@ -475,8 +495,9 @@ project-local qualification infrastructure.
 1. Keep RC4 rejected, finish the exact RC5 simulation seal, and complete RC5
    physical qualification before calling any v0.4 image hardware-qualified.
 2. Leave tinySA PRs #156-#162 and Renode PRs #217/#218 alone pending review.
-3. Publish separate ChibiOS TIM14 and USB PMA issues/PRs when explicitly
-   authorized; let maintainers choose stable backports.
+3. When explicitly authorized, ask ChibiOS maintainers for the intake path and
+   integration branch (or use their SourceForge support path), then submit
+   separate TIM14 and USB PMA changes; let maintainers choose stable backports.
 4. When explicitly authorized, publish the separate Renode HardFault-priority
    issue and issue-numbered infrastructure PR.
 5. After both required ChibiOS fixes are public (and stable backports are

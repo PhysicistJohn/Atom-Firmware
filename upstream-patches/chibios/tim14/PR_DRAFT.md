@@ -34,5 +34,8 @@ cannot build.
 
 ## Backport
 
-The prepared patch applies to the 21.11.5 code. Please land the correction on
-`main` first and select a stable backport according to project policy.
+The prepared patch applies to the 21.11.5 code and dry-runs on the audited
+`master`, `main`, and `stable-21.11.x` tips. Current/default integration is
+`master`; the repository PR template's unconditional `main` instruction is
+stale. Please land the correction on the branch requested by the maintainers
+and select any stable backport according to project policy.

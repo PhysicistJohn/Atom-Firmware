@@ -23,14 +23,16 @@ a workaround would also be incomplete.
 ## Proposed upstream scope
 
 - Keep this PR independent from the STM32F0 TIM14 correction.
-- Apply the exact USBv1 ownership fix.
-- Audit and, if still applicable on rebased `main`, apply the analogous fix to
-  USBv2 in the same USB-focused PR or a maintainer-requested follow-up.
+- Apply the EP0 ownership fix to USBv1.
+- Apply and review the corresponding fix in USBv2. Both patterns remain on the
+  audited current/default `master`; a `master`-targeted USB change must address
+  both maintained drivers rather than deferring the known USBv2 defect.
 - Add regression coverage for `1 -> 1`, `1 -> 0 -> 1`, and final bus reset.
 
 The attached mailbox patch is intentionally based on `ver21.11.5` and changes
 USBv1 only. `USBV2_MAIN_RECOMMENDATION.md` describes the analogous source
-pattern without pretending to be a rebased or tested current-`main` patch.
+pattern without pretending to be a rebased or tested current integration-branch
+patch.
 
 ## Verification to record on the rebased PR
 
@@ -48,4 +50,9 @@ pattern without pretending to be a rebased or tested current-`main` patch.
 ## Stable backport
 
 The exact USBv1 patch applies to the 21.11.5 source used by the reproducer.
-Please land on `main` first and let maintainers select any stable backport.
+It also dry-runs on the audited `master`, `main`, and `stable-21.11.x` tips,
+but it is not by itself the complete current-`master` change because USBv2
+must also be corrected and reviewed there. Current/default integration is
+`master`; the checked-in PR template's unconditional `main` instruction is
+stale. Please target the branch requested by the maintainers and let them
+select any stable backport.

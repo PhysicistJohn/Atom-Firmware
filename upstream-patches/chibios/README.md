@@ -6,8 +6,8 @@ branch, or pull request has been published.
 
 | Finding | Proven base | Local integration commit | Upstream shape |
 | --- | --- | --- | --- |
-| STM32F0 TIM14 GPT ISR missing | `ver21.11.5` / `f4bbadf964fc746aef8bbcf34135c7d8fabb8eae` | `2b8f425d26a61a7887916f7052b401f9e767a949` | One issue and one vendor-neutral `main` PR; maintainer-selected stable backport |
-| USB PMA allocator reuses active EP0 buffers | USBv1 proven on the same tag; USBv2 has the analogous source pattern | `b3f82b396de7cf2a9e85bc8f1575fbd58e9428d9` | Separate issue/PR; exact USBv1 stable patch plus a current-`main` USBv1/USBv2 review |
+| STM32F0 TIM14 GPT ISR missing | `ver21.11.5` / `f4bbadf964fc746aef8bbcf34135c7d8fabb8eae`; still present on `master` `f825669c` | `2b8f425d26a61a7887916f7052b401f9e767a949` | One vendor-neutral change for the maintainer-requested integration branch; maintainer-selected stable backport |
+| USB PMA allocator reuses active EP0 buffers | USBv1 proven on the release tag; both USBv1 and USBv2 retain the pattern on `master` `f825669c` | `b3f82b396de7cf2a9e85bc8f1575fbd58e9428d9` | Separate USB change; exact USBv1 stable patch plus required current-`master` USBv1/USBv2 correction and review |
 
 The local ChibiOS chain is exactly:
 
@@ -39,8 +39,8 @@ wording.
 - [`usb-pma/REPRODUCER.md`](usb-pma/REPRODUCER.md): host sequence, expected
   descriptors, and pass/fail checks.
 - [`usb-pma/USBV2_MAIN_RECOMMENDATION.md`](usb-pma/USBV2_MAIN_RECOMMENDATION.md):
-  analogous USBv2 review and proposed shape for current `main`; it is not an
-  already-validated `main` patch.
+  USBv2 review and proposed shape for the current integration branch; it is
+  not an already-runtime-qualified USBv2 patch.
 
 ## Local evidence boundary
 
@@ -84,12 +84,22 @@ f3ed4e777be9093c15e320b75a34c299d39682dc6a70c9a721c874c7fc56cd60  usb-pma/0001-u
 
 ## Before publication
 
-1. Fetch current `chibios-upstream/chibios` and rebase each finding separately
-   onto the maintainer's requested branch.
-2. Recheck whether current `main` still contains both USB PMA driver patterns.
-3. Run the current repository style tool and relevant ARM build/test matrix.
-4. Keep TIM14 and USB PMA as separate issues and PRs.
-5. Let maintainers choose stable backports after a `main` fix.
-6. Use `PhysicistJohn <54456354+PhysicistJohn@users.noreply.github.com>`.
-7. Publish only with explicit approval; this package performs no network or
+The 2026-07-14 read-only audit found `master` at `f825669c` as the
+current/default integration branch. Retained `main` and `stable-21.11.x` also
+exist, but the checked-in PR template's unconditional `main` workflow is stale
+and conflicts with the default branch. GitHub issue creation is restricted.
+
+1. Ask the ChibiOS maintainers which integration branch and intake path to
+   use; use the [official ChibiOS SourceForge project](https://sourceforge.net/p/chibios/)
+   support path if directed there or if that is the available reporting route.
+2. Fetch current `chibios-upstream/chibios` and rebase each finding separately
+   onto the requested branch. The prepared mailbox patches dry-run on audited
+   `master`, retained `main`, and `stable-21.11.x`.
+3. For a current-`master` USB contribution, correct and review both USBv1 and
+   USBv2; do not submit the stable USBv1 patch as if it covered both drivers.
+4. Run the current repository style tool and relevant ARM build/test matrix.
+5. Keep TIM14 and USB PMA as separate reports and changes.
+6. Let maintainers choose stable backports after the integration fix.
+7. Use `PhysicistJohn <54456354+PhysicistJohn@users.noreply.github.com>`.
+8. Publish only with explicit approval; this package performs no network or
    repository-host mutation.

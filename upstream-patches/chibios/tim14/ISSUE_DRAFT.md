@@ -17,8 +17,9 @@ STM32F0 platform headers already define the standalone
 
 - `ver21.11.5`, commit
   `f4bbadf964fc746aef8bbcf34135c7d8fabb8eae`.
-- The public branch tips recorded in the repository's 2026-07-14 read-only
-  audit also contained the same failure. Recheck current `main` before filing.
+- Current/default `master` at `f825669c`, retained `main` at `fbbfad31`, and
+  `stable-21.11.x` at `eb9a832b` in the repository's 2026-07-14 read-only
+  audit. The vendor-neutral patch dry-runs against all three branch tips.
 
 Commit `00091c7aab1e5b327ca291d40a31b82b9767635c` removed the generic TIM14
 handler in 2019 while adding TIM10/TIM13 support. That was appropriate for
@@ -57,6 +58,11 @@ artifact is build evidence only; no F072 hardware result is claimed.
 
 ## Requested disposition
 
-Please accept a vendor-neutral fix on `main` and select a
-`stable-21.11.x` backport if appropriate. This issue is independent of the USB
-PMA allocator report.
+GitHub issue creation is restricted for `chibios-upstream/chibios`, and its
+checked-in PR template still names `main` even though current/default
+integration is `master`. Please advise the intended report path and target
+branch, or accept the report through the official ChibiOS SourceForge support
+path at <https://sourceforge.net/p/chibios/>. The proposed change is
+vendor-neutral and should receive a
+maintainer-selected `stable-21.11.x` backport if appropriate. It is independent
+of the USB PMA allocator report.

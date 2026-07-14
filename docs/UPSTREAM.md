@@ -100,11 +100,19 @@ the official `c979386` exact-or-better comparison. No RC5 physical pass is
 claimed. The F072 artifact remains build evidence only.
 
 The ChibiOS 21.11.5 USBv2 driver contains the same allocator-reset pattern in
-its endpoint-disable path. RC5 does not use USBv2, so this is an analogous
-vendor finding rather than a firmware change: reproduce it on current ChibiOS
-`main`, apply the EP0-preserving allocator correction to both maintained PMA
-drivers as appropriate, and add `1 -> 1`, `1 -> 0 -> 1`, and final-reset tests.
-The prepared issue, PR, and patch drafts are under
+its endpoint-disable path, and the 2026-07-14 read-only audit confirmed both
+USBv1 and USBv2 forms remain on current/default `master` at `f825669c`. RC5
+does not use USBv2, so its runtime result qualifies only USBv1. A current
+integration-branch USB change must correct and review both maintained PMA
+drivers and add `1 -> 1`, `1 -> 0 -> 1`, and final-reset tests. The prepared
+stable USBv1 patch dry-runs on audited `master`, retained `main`, and
+`stable-21.11.x`, but is not alone a complete `master` submission.
+
+The repository's checked-in PR template still unconditionally targets `main`,
+which conflicts with the current default `master`, and GitHub issue creation
+is restricted. Seek maintainer guidance on branch and intake path or use the
+[official ChibiOS SourceForge project](https://sourceforge.net/p/chibios/)
+support route. The unsubmitted issue, PR, and patch drafts are under
 [`upstream-patches/chibios/`](../upstream-patches/chibios/README.md).
 
 ## Renode
@@ -145,9 +153,13 @@ approval. The NVIC change is
 [PR #217](https://github.com/renode/renode-infrastructure/pull/217). The
 independent-IDR/ODR GPIO change and its tightly related BSRR set-priority
 follow-up are the two commits in
-[PR #218](https://github.com/renode/renode-infrastructure/pull/218). Both Renode
-PRs are mergeable and their CLA checks pass; neither has maintainer feedback
-yet. Do not add the HardFault-priority correction to PR #217: open a new
+[PR #218](https://github.com/renode/renode-infrastructure/pull/218). GitHub
+reports both Renode PRs cleanly mergeable and their CLA checks pass; neither
+has maintainer feedback yet. Their generated merge refs are based on
+`66feec8`, not current infrastructure `master` at `7068985`, so those refs are
+not current-master proofs. The PR patch series do dry-run against current
+`master`, with no content conflict observed. Do not add the HardFault-priority
+correction to PR #217: open a new
 `renode/renode` issue and issue-numbered infrastructure PR, with focused tests
 for configurable priority zero, NMI, `PRIGROUP`, Arm-version coverage, and
 interrupt masks.
