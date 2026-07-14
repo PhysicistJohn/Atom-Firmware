@@ -530,6 +530,92 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 + $"attenuator_latches={attenuatorLatches} case_attenuator_latches={caseAttenuatorLatches}";
         }
 
+        public string SaveSelfTestTraceMemory(int oneBasedTest, string path)
+        {
+            if(oneBasedTest < 1 || oneBasedTest > SelfTestCount
+                || visualSelfTestCase != oneBasedTest)
+            {
+                throw new RecoverableException("ZS407 twin self-test trace-memory case is invalid");
+            }
+            if(string.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path))
+            {
+                throw new RecoverableException("ZS407 twin trace-memory path must be absolute");
+            }
+
+            // Capture the complete F303 measurement matrix exactly as it sits
+            // in SRAM. Reading through the system bus is observational only;
+            // no firmware state or modeled peripheral counter is changed.
+            var words = new uint[TraceCount, MaximumSweepPoints];
+            var payload = new byte[TraceMemoryBytes];
+            var finite = new int[TraceCount];
+            var populated = new int[TraceCount];
+            for(var trace = 0; trace < TraceCount; trace++)
+            {
+                for(var index = 0; index < MaximumSweepPoints; index++)
+                {
+                    var word = ReadDoubleWordFromSram(Measured
+                        + (ulong)((trace * MaximumSweepPoints + index) * sizeof(float)));
+                    words[trace, index] = word;
+                    var offset = (trace * MaximumSweepPoints + index) * sizeof(float);
+                    payload[offset] = (byte)word;
+                    payload[offset + 1] = (byte)(word >> 8);
+                    payload[offset + 2] = (byte)(word >> 16);
+                    payload[offset + 3] = (byte)(word >> 24);
+
+                    var value = BitConverter.ToSingle(BitConverter.GetBytes(word), 0);
+                    if(float.IsNaN(value) || float.IsInfinity(value))
+                    {
+                        continue;
+                    }
+                    finite[trace]++;
+                    if(Math.Abs(value) > PopulatedTraceEpsilon)
+                    {
+                        populated[trace]++;
+                    }
+                }
+            }
+
+            var exactMismatches = 0;
+            var nonFinitePairs = 0;
+            var maximumDelta = 0.0;
+            for(var index = 0; index < MaximumSweepPoints; index++)
+            {
+                var actualWord = words[TraceActual, index];
+                var rawWord = words[TraceRaw, index];
+                if(actualWord != rawWord)
+                {
+                    exactMismatches++;
+                }
+                var actualValue = BitConverter.ToSingle(BitConverter.GetBytes(actualWord), 0);
+                var rawValue = BitConverter.ToSingle(BitConverter.GetBytes(rawWord), 0);
+                if(float.IsNaN(actualValue) || float.IsInfinity(actualValue)
+                    || float.IsNaN(rawValue) || float.IsInfinity(rawValue))
+                {
+                    nonFinitePairs++;
+                    maximumDelta = double.PositiveInfinity;
+                    continue;
+                }
+                maximumDelta = Math.Max(maximumDelta, Math.Abs((double)rawValue - actualValue));
+            }
+
+            File.WriteAllBytes(path, payload);
+            var size = new FileInfo(path).Length;
+            if(size != TraceMemoryBytes)
+            {
+                throw new RecoverableException($"ZS407 twin trace-memory capture has {size} bytes");
+            }
+            var maximumDeltaText = double.IsPositiveInfinity(maximumDelta)
+                ? "inf" : maximumDelta.ToString("R", CultureInfo.InvariantCulture);
+            return $"ZS407_TWIN_SELFTEST_TRACE_MEMORY=SAVED case={oneBasedTest} "
+                + $"bytes={size} points={MaximumSweepPoints} planes=ACTUAL,STORED,STORED2,RAW "
+                + $"actual_finite={finite[TraceActual]} actual_populated={populated[TraceActual]} "
+                + $"stored_finite={finite[TraceStored]} stored_populated={populated[TraceStored]} "
+                + $"stored2_finite={finite[TraceStored2]} stored2_populated={populated[TraceStored2]} "
+                + $"raw_finite={finite[TraceRaw]} raw_populated={populated[TraceRaw]} "
+                + $"raw_actual_exact_mismatches={exactMismatches} raw_actual_nonfinite_pairs={nonFinitePairs} "
+                + $"raw_actual_max_delta={maximumDeltaText}";
+        }
+
         public string Report()
         {
             return $"ZS407_TWIN_STATUS spi={Get<ulong>(fabric, "BusTransfers")} pixels={Get<ulong>(display, "PixelWrites")} "
@@ -943,6 +1029,13 @@ namespace Antmicro.Renode.Peripherals.ZS407
         private const long MaximumAnalyzerFrequencyHz = 17922600000L;
         private const int MinimumSweepPoints = 20;
         private const int MaximumSweepPoints = 450;
+        private const int TraceCount = 4;
+        private const int TraceActual = 0;
+        private const int TraceStored = 1;
+        private const int TraceStored2 = 2;
+        private const int TraceRaw = 3;
+        private const int TraceMemoryBytes = TraceCount * MaximumSweepPoints * sizeof(float);
+        private const float PopulatedTraceEpsilon = 0.000001f;
         private const int MaximumRbwX10 = 8500;
         private const int MaximumAttenuationX2 = 62;
         private const byte AnalyzerLowMode = 0;

@@ -26,6 +26,10 @@ WIDTH = 480
 HEIGHT = 320
 FRAME_BYTES = WIDTH * HEIGHT * 2
 CASES = range(1, 15)
+TRACE_MEMORY_PLANES = ("actual", "stored", "stored2", "raw")
+TRACE_MEMORY_POINTS = 450
+TRACE_MEMORY_BYTES = len(TRACE_MEMORY_PLANES) * TRACE_MEMORY_POINTS * 4
+POPULATED_TRACE_EPSILON = 0.000001
 
 # The standard tinySA palette's primary trace is yellow.  Shape analysis is
 # deliberately limited to the plot rectangle. The top marker banner and
@@ -136,6 +140,62 @@ def load_frame(path: Path) -> list[int]:
     if len(payload) != FRAME_BYTES:
         raise ValueError(f"{path} is {len(payload)} bytes; expected {FRAME_BYTES}")
     return list(struct.unpack(f"<{WIDTH * HEIGHT}H", payload))
+
+
+def load_trace_memory(path: Path) -> dict[str, object]:
+    """Decode an observational float32 dump of measured[4][450]."""
+    payload = path.read_bytes()
+    if len(payload) != TRACE_MEMORY_BYTES:
+        raise ValueError(
+            f"{path} is {len(payload)} bytes; expected {TRACE_MEMORY_BYTES}"
+        )
+    value_count = len(TRACE_MEMORY_PLANES) * TRACE_MEMORY_POINTS
+    words = struct.unpack(f"<{value_count}I", payload)
+    values = struct.unpack(f"<{value_count}f", payload)
+    traces: dict[str, dict[str, object]] = {}
+    for plane, name in enumerate(TRACE_MEMORY_PLANES):
+        start = plane * TRACE_MEMORY_POINTS
+        trace_values = values[start : start + TRACE_MEMORY_POINTS]
+        finite_values = [value for value in trace_values if math.isfinite(value)]
+        traces[name] = {
+            "finite": len(finite_values),
+            "populated": sum(
+                abs(value) > POPULATED_TRACE_EPSILON for value in finite_values
+            ),
+            "minimum": min(finite_values) if finite_values else None,
+            "maximum": max(finite_values) if finite_values else None,
+        }
+
+    actual_start = TRACE_MEMORY_PLANES.index("actual") * TRACE_MEMORY_POINTS
+    raw_start = TRACE_MEMORY_PLANES.index("raw") * TRACE_MEMORY_POINTS
+    exact_mismatches = 0
+    nonfinite_pairs = 0
+    maximum_delta = 0.0
+    for index in range(TRACE_MEMORY_POINTS):
+        actual_word = words[actual_start + index]
+        raw_word = words[raw_start + index]
+        if actual_word != raw_word:
+            exact_mismatches += 1
+        actual_value = values[actual_start + index]
+        raw_value = values[raw_start + index]
+        if not math.isfinite(actual_value) or not math.isfinite(raw_value):
+            nonfinite_pairs += 1
+            continue
+        maximum_delta = max(maximum_delta, abs(raw_value - actual_value))
+
+    return {
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "bytes": len(payload),
+        "format": "float32 little-endian",
+        "planes": list(TRACE_MEMORY_PLANES),
+        "points_per_plane": TRACE_MEMORY_POINTS,
+        "traces": traces,
+        "raw_actual": {
+            "exact_mismatches": exact_mismatches,
+            "nonfinite_pairs": nonfinite_pairs,
+            "maximum_absolute_delta": maximum_delta if nonfinite_pairs == 0 else None,
+        },
+    }
 
 
 def rgb565_to_rgb(value: int) -> tuple[int, int, int]:
@@ -343,12 +403,54 @@ def status_schema_errors(case: int, status: dict[str, object]) -> list[str]:
     return errors
 
 
+def trace_memory_population_detail(memory: dict[str, object]) -> str:
+    traces = memory["traces"]
+    return " ".join(
+        f"{name}={traces[name]['finite']}/{traces[name]['populated']}"
+        for name in TRACE_MEMORY_PLANES
+    )
+
+
+def trace_memory_complete(memory: dict[str, object]) -> bool:
+    if (
+        memory.get("bytes") != TRACE_MEMORY_BYTES
+        or memory.get("points_per_plane") != TRACE_MEMORY_POINTS
+        or memory.get("planes") != list(TRACE_MEMORY_PLANES)
+    ):
+        return False
+    traces = memory.get("traces")
+    if not isinstance(traces, dict):
+        return False
+    return all(
+        isinstance(traces.get(name), dict)
+        and traces[name].get("finite") == TRACE_MEMORY_POINTS
+        and traces[name].get("populated") == TRACE_MEMORY_POINTS
+        for name in TRACE_MEMORY_PLANES
+    )
+
+
+def raw_actual_exact(memory: dict[str, object]) -> bool:
+    comparison = memory.get("raw_actual")
+    if not isinstance(comparison, dict):
+        return False
+    maximum_delta = comparison.get("maximum_absolute_delta")
+    return (
+        comparison.get("exact_mismatches") == 0
+        and comparison.get("nonfinite_pairs") == 0
+        and isinstance(maximum_delta, float)
+        and math.isfinite(maximum_delta)
+        and maximum_delta == 0.0
+    )
+
+
 def compare_case(
     case: int,
     reference_frame: list[int],
     candidate_frame: list[int],
     reference_status: dict[str, object],
     candidate_status: dict[str, object],
+    reference_trace_memory: dict[str, object] | None = None,
+    candidate_trace_memory: dict[str, object] | None = None,
 ) -> dict[str, object]:
     reference_metrics = frame_metrics(reference_frame)
     candidate_metrics = frame_metrics(candidate_frame)
@@ -374,6 +476,82 @@ def compare_case(
         not candidate_schema_errors,
         "complete" if not candidate_schema_errors else "; ".join(candidate_schema_errors),
     )
+
+    if reference_trace_memory is not None or candidate_trace_memory is not None:
+        reference_memory_ok = (
+            reference_trace_memory is not None
+            and trace_memory_complete(reference_trace_memory)
+        )
+        candidate_memory_ok = (
+            candidate_trace_memory is not None
+            and trace_memory_complete(candidate_trace_memory)
+        )
+        add_check(
+            checks,
+            "reference-trace-memory-complete",
+            reference_memory_ok,
+            "missing"
+            if reference_trace_memory is None
+            else trace_memory_population_detail(reference_trace_memory),
+        )
+        add_check(
+            checks,
+            "candidate-trace-memory-complete",
+            candidate_memory_ok,
+            "missing"
+            if candidate_trace_memory is None
+            else trace_memory_population_detail(candidate_trace_memory),
+        )
+        reference_raw_exact = (
+            reference_trace_memory is not None
+            and raw_actual_exact(reference_trace_memory)
+        )
+        candidate_raw_exact = (
+            candidate_trace_memory is not None
+            and raw_actual_exact(candidate_trace_memory)
+        )
+        add_check(
+            checks,
+            "reference-raw-actual-exact",
+            reference_raw_exact,
+            "missing"
+            if reference_trace_memory is None
+            else (
+                f"mismatches={reference_trace_memory['raw_actual']['exact_mismatches']} "
+                f"nonfinite={reference_trace_memory['raw_actual']['nonfinite_pairs']} "
+                f"max_delta={reference_trace_memory['raw_actual']['maximum_absolute_delta']}"
+            ),
+        )
+        add_check(
+            checks,
+            "candidate-raw-actual-exact",
+            candidate_raw_exact,
+            "missing"
+            if candidate_trace_memory is None
+            else (
+                f"mismatches={candidate_trace_memory['raw_actual']['exact_mismatches']} "
+                f"nonfinite={candidate_trace_memory['raw_actual']['nonfinite_pairs']} "
+                f"max_delta={candidate_trace_memory['raw_actual']['maximum_absolute_delta']}"
+            ),
+        )
+        count_parity = reference_memory_ok and candidate_memory_ok and all(
+            reference_trace_memory["traces"][name]["finite"]
+            == candidate_trace_memory["traces"][name]["finite"]
+            and reference_trace_memory["traces"][name]["populated"]
+            == candidate_trace_memory["traces"][name]["populated"]
+            for name in TRACE_MEMORY_PLANES
+        )
+        add_check(
+            checks,
+            "trace-memory-count-parity",
+            count_parity,
+            (
+                "missing"
+                if reference_trace_memory is None or candidate_trace_memory is None
+                else f"reference=({trace_memory_population_detail(reference_trace_memory)}) "
+                f"candidate=({trace_memory_population_detail(candidate_trace_memory)})"
+            ),
+        )
 
     add_check(
         checks,
@@ -667,8 +845,16 @@ def compare_case(
         "kind": CASE_KIND[case],
         "pass": all(bool(check["pass"]) for check in checks),
         "exact_framebuffer": exact,
-        "reference": {"frame": reference_metrics, "firmware": reference_status},
-        "candidate": {"frame": candidate_metrics, "firmware": candidate_status},
+        "reference": {
+            "frame": reference_metrics,
+            "firmware": reference_status,
+            "trace_memory": reference_trace_memory,
+        },
+        "candidate": {
+            "frame": candidate_metrics,
+            "firmware": candidate_status,
+            "trace_memory": candidate_trace_memory,
+        },
         "comparison": comparison,
         "checks": checks,
     }
@@ -815,6 +1001,35 @@ def write_reports(output: Path, report: dict[str, object]) -> None:
     markdown.extend(
         [
             "",
+            "## Post-case trace-memory evidence",
+            "",
+            "Each A/S/S2/R entry is `finite/populated` for ACTUAL, STORED, STORED2, and RAW/TEMP respectively.",
+            "",
+            "| Case | Reference A/S/S2/R | Candidate A/S/S2/R | RAW≠ACTUAL exact R/C | Max abs delta R/C |",
+            "|---:|:---|:---|---:|---:|",
+        ]
+    )
+    for case_result in report["cases"]:
+        reference_memory = case_result["reference"]["trace_memory"]
+        candidate_memory = case_result["candidate"]["trace_memory"]
+        reference_counts = " ".join(
+            f"{reference_memory['traces'][name]['finite']}/{reference_memory['traces'][name]['populated']}"
+            for name in TRACE_MEMORY_PLANES
+        )
+        candidate_counts = " ".join(
+            f"{candidate_memory['traces'][name]['finite']}/{candidate_memory['traces'][name]['populated']}"
+            for name in TRACE_MEMORY_PLANES
+        )
+        markdown.append(
+            f"| {case_result['case']} | {reference_counts} | {candidate_counts} | "
+            f"{reference_memory['raw_actual']['exact_mismatches']}/"
+            f"{candidate_memory['raw_actual']['exact_mismatches']} | "
+            f"{reference_memory['raw_actual']['maximum_absolute_delta']}/"
+            f"{candidate_memory['raw_actual']['maximum_absolute_delta']} |"
+        )
+    markdown.extend(
+        [
+            "",
             "Red pixels in a diff image are reference-only; cyan pixels are candidate-only. Exact pixels are dimmed gray.",
             "",
         ]
@@ -832,6 +1047,13 @@ def write_reports(output: Path, report: dict[str, object]) -> None:
     rows = []
     for case_result in report["cases"]:
         case = case_result["case"]
+        case_details = {
+            "visual": case_result["comparison"],
+            "trace_memory": {
+                "reference": case_result["reference"]["trace_memory"],
+                "candidate": case_result["candidate"]["trace_memory"],
+            },
+        }
         failed_checks = [
             f"{check['name']}: {check['detail']}"
             for check in case_result["checks"]
@@ -845,7 +1067,7 @@ def write_reports(output: Path, report: dict[str, object]) -> None:
             f"<figure><img src='../candidate/case-{case:02d}.png'><figcaption>ChibiOS candidate</figcaption></figure>"
             f"<figure><img src='case-{case:02d}-diff.png'><figcaption>Difference</figcaption></figure>"
             "</div>"
-            f"<pre>{html.escape(json.dumps(case_result['comparison'], indent=2))}</pre>"
+            f"<pre>{html.escape(json.dumps(case_details, indent=2))}</pre>"
             + (
                 "<ul>" + "".join(f"<li>{html.escape(item)}</li>" for item in failed_checks) + "</ul>"
                 if failed_checks
@@ -894,6 +1116,12 @@ def main() -> int:
             raise ValueError(f"case {case} screenshot is missing")
         reference_frame = load_frame(args.reference / f"case-{case:02d}.rgb565")
         candidate_frame = load_frame(args.candidate / f"case-{case:02d}.rgb565")
+        reference_trace_memory = load_trace_memory(
+            args.reference / f"case-{case:02d}-measured.f32le"
+        )
+        candidate_trace_memory = load_trace_memory(
+            args.candidate / f"case-{case:02d}-measured.f32le"
+        )
         # Renode's indexed-color PNG encoder can emit a palette that some
         # decoders render almost entirely black even though panel GRAM is
         # complete. Canonicalize both screenshots from the authoritative raw
@@ -913,6 +1141,8 @@ def main() -> int:
                 candidate_frame,
                 reference_statuses[case],
                 candidate_statuses[case],
+                reference_trace_memory,
+                candidate_trace_memory,
             )
         )
 
@@ -944,7 +1174,8 @@ def main() -> int:
             f"case={result['case']:02d} result={'PASS' if result['pass'] else 'FAIL'} "
             f"exact={int(result['exact_framebuffer'])} "
             f"similarity={comparison['content_pixel_similarity']:.4f} "
-            f"trace_iou={comparison['trace_column_iou']:.4f}"
+            f"trace_iou={comparison['trace_column_iou']:.4f} "
+            f"raw_actual_mismatches={result['candidate']['trace_memory']['raw_actual']['exact_mismatches']}"
         )
     return 0 if report["pass"] else 1
 

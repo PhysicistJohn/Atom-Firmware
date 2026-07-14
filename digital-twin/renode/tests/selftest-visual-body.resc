@@ -1,8 +1,9 @@
 # This scenario is included after zs407.resc by the visual-regression runner.
 # The runner supplies $captureDir and, for relocatable builds, installs the
 # matching SRAM symbol profile before this file is evaluated.
-# Each frame is taken from the positive-argument interactive result screen,
-# before modeled touch acknowledgement restores normal sweeping.
+# Each frame and measured[4][450] SRAM image is taken from the positive-
+# argument interactive result screen, before modeled touch acknowledgement
+# restores normal sweeping.
 
 emulation RunFor "1.5"
 twinStatus AssertBooted
@@ -16,6 +17,7 @@ twinStatus BeginSelfTestDisplaySettlement 1
 emulation RunFor "0.50"
 twinStatus AssertSelfTestDisplaySettled 1
 twinStatus ReportSelfTestCase 1
+twinStatus SaveSelfTestTraceMemory 1 $captureDir/case-01-measured.f32le
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-01.png
 twinStatus SaveScreenRaw $captureDir/case-01.rgb565
 adc2 SetTouchPixel 200 150
@@ -32,6 +34,7 @@ twinStatus BeginSelfTestDisplaySettlement 2
 emulation RunFor "0.50"
 twinStatus AssertSelfTestDisplaySettled 2
 twinStatus ReportSelfTestCase 2
+twinStatus SaveSelfTestTraceMemory 2 $captureDir/case-02-measured.f32le
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-02.png
 twinStatus SaveScreenRaw $captureDir/case-02.rgb565
 adc2 SetTouchPixel 200 150
@@ -48,6 +51,7 @@ twinStatus BeginSelfTestDisplaySettlement 3
 emulation RunFor "0.50"
 twinStatus AssertSelfTestDisplaySettled 3
 twinStatus ReportSelfTestCase 3
+twinStatus SaveSelfTestTraceMemory 3 $captureDir/case-03-measured.f32le
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-03.png
 twinStatus SaveScreenRaw $captureDir/case-03.rgb565
 adc2 SetTouchPixel 200 150
@@ -64,6 +68,7 @@ twinStatus BeginSelfTestDisplaySettlement 4
 emulation RunFor "0.50"
 twinStatus AssertSelfTestDisplaySettled 4
 twinStatus ReportSelfTestCase 4
+twinStatus SaveSelfTestTraceMemory 4 $captureDir/case-04-measured.f32le
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-04.png
 twinStatus SaveScreenRaw $captureDir/case-04.rgb565
 adc2 SetTouchPixel 200 150
@@ -80,6 +85,7 @@ twinStatus BeginSelfTestDisplaySettlement 5
 emulation RunFor "0.50"
 twinStatus AssertSelfTestDisplaySettled 5
 twinStatus ReportSelfTestCase 5
+twinStatus SaveSelfTestTraceMemory 5 $captureDir/case-05-measured.f32le
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-05.png
 twinStatus SaveScreenRaw $captureDir/case-05.rgb565
 adc2 SetTouchPixel 200 150
@@ -96,6 +102,7 @@ twinStatus BeginSelfTestDisplaySettlement 6
 emulation RunFor "0.50"
 twinStatus AssertSelfTestDisplaySettled 6
 twinStatus ReportSelfTestCase 6
+twinStatus SaveSelfTestTraceMemory 6 $captureDir/case-06-measured.f32le
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-06.png
 twinStatus SaveScreenRaw $captureDir/case-06.rgb565
 adc2 SetTouchPixel 200 150
@@ -112,6 +119,7 @@ twinStatus BeginSelfTestDisplaySettlement 7
 emulation RunFor "0.50"
 twinStatus AssertSelfTestDisplaySettled 7
 twinStatus ReportSelfTestCase 7
+twinStatus SaveSelfTestTraceMemory 7 $captureDir/case-07-measured.f32le
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-07.png
 twinStatus SaveScreenRaw $captureDir/case-07.rgb565
 adc2 SetTouchPixel 200 150
@@ -128,6 +136,7 @@ twinStatus BeginSelfTestDisplaySettlement 8
 emulation RunFor "0.50"
 twinStatus AssertSelfTestDisplaySettled 8
 twinStatus ReportSelfTestCase 8
+twinStatus SaveSelfTestTraceMemory 8 $captureDir/case-08-measured.f32le
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-08.png
 twinStatus SaveScreenRaw $captureDir/case-08.rgb565
 adc2 SetTouchPixel 200 150
@@ -144,6 +153,7 @@ twinStatus BeginSelfTestDisplaySettlement 9
 emulation RunFor "0.50"
 twinStatus AssertSelfTestDisplaySettled 9
 twinStatus ReportSelfTestCase 9
+twinStatus SaveSelfTestTraceMemory 9 $captureDir/case-09-measured.f32le
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-09.png
 twinStatus SaveScreenRaw $captureDir/case-09.rgb565
 adc2 SetTouchPixel 200 150
@@ -160,6 +170,7 @@ twinStatus BeginSelfTestDisplaySettlement 10
 emulation RunFor "0.50"
 twinStatus AssertSelfTestDisplaySettled 10
 twinStatus ReportSelfTestCase 10
+twinStatus SaveSelfTestTraceMemory 10 $captureDir/case-10-measured.f32le
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-10.png
 twinStatus SaveScreenRaw $captureDir/case-10.rgb565
 adc2 SetTouchPixel 200 150
@@ -176,6 +187,7 @@ twinStatus BeginSelfTestDisplaySettlement 11
 emulation RunFor "0.50"
 twinStatus AssertSelfTestDisplaySettled 11
 twinStatus ReportSelfTestCase 11
+twinStatus SaveSelfTestTraceMemory 11 $captureDir/case-11-measured.f32le
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-11.png
 twinStatus SaveScreenRaw $captureDir/case-11.rgb565
 adc2 SetTouchPixel 200 150
@@ -192,6 +204,7 @@ twinStatus BeginSelfTestDisplaySettlement 12
 emulation RunFor "0.50"
 twinStatus AssertSelfTestDisplaySettled 12
 twinStatus ReportSelfTestCase 12
+twinStatus SaveSelfTestTraceMemory 12 $captureDir/case-12-measured.f32le
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-12.png
 twinStatus SaveScreenRaw $captureDir/case-12.rgb565
 adc2 SetTouchPixel 200 150
@@ -208,6 +221,7 @@ twinStatus BeginSelfTestDisplaySettlement 13
 emulation RunFor "0.50"
 twinStatus AssertSelfTestDisplaySettled 13
 twinStatus ReportSelfTestCase 13
+twinStatus SaveSelfTestTraceMemory 13 $captureDir/case-13-measured.f32le
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-13.png
 twinStatus SaveScreenRaw $captureDir/case-13.rgb565
 adc2 SetTouchPixel 200 150
@@ -224,6 +238,7 @@ twinStatus BeginSelfTestDisplaySettlement 14
 emulation RunFor "0.50"
 twinStatus AssertSelfTestDisplaySettled 14
 twinStatus ReportSelfTestCase 14
+twinStatus SaveSelfTestTraceMemory 14 $captureDir/case-14-measured.f32le
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-14.png
 twinStatus SaveScreenRaw $captureDir/case-14.rgb565
 adc2 SetTouchPixel 200 150

@@ -108,6 +108,7 @@ for variant in reference candidate comparison; do
   for case_number in 01 02 03 04 05 06 07 08 09 10 11 12 13 14; do
     rm -f "$output/$variant/case-$case_number.png" \
       "$output/$variant/case-$case_number.rgb565" \
+      "$output/$variant/case-$case_number-measured.f32le" \
       "$output/$variant/case-$case_number-diff.png"
   done
 done
@@ -170,11 +171,13 @@ run_variant() {
   settled_count=$(grep -c 'ZS407_TWIN_SELFTEST_DISPLAY=VISUALLY_SETTLED case=' "$log" || true)
   status_count=$(grep -c 'ZS407_TWIN_SELFTEST_STATUS case=' "$log" || true)
   screen_count=$(grep -c 'ZS407_TWIN_SCREEN=SAVED' "$log" || true)
+  trace_memory_count=$(grep -c 'ZS407_TWIN_SELFTEST_TRACE_MEMORY=SAVED case=' "$log" || true)
   [ "$pass_count" -eq 14 ] || die "$variant reported $pass_count/14 passing self-tests"
   [ "$ready_count" -eq 14 ] || die "$variant retained $ready_count/14 visual result screens"
   [ "$settled_count" -eq 14 ] || die "$variant proved $settled_count/14 visually settled result screens"
   [ "$status_count" -eq 14 ] || die "$variant reported $status_count/14 visual metrics"
   [ "$screen_count" -eq 14 ] || die "$variant saved $screen_count/14 raw LCD frames"
+  [ "$trace_memory_count" -eq 14 ] || die "$variant saved $trace_memory_count/14 trace-memory matrices"
   printf '%s_selftests=14/14\n' "$variant"
 }
 
@@ -197,11 +200,15 @@ checksums="$output/SHA256SUMS"
 : > "$checksums"
 for variant in reference candidate; do
   for case_number in 01 02 03 04 05 06 07 08 09 10 11 12 13 14; do
-    for extension in png rgb565; do
-      artifact="$output/$variant/case-$case_number.$extension"
+    for extension in png rgb565 measured.f32le; do
+      case "$extension" in
+        measured.f32le) artifact="$output/$variant/case-$case_number-$extension" ;;
+        *) artifact="$output/$variant/case-$case_number.$extension" ;;
+      esac
       [ -f "$artifact" ] || continue
+      relative=${artifact#"$output"/}
       printf '%s  %s\n' "$(sha256_file "$artifact")" \
-        "$variant/case-$case_number.$extension" >> "$checksums"
+        "$relative" >> "$checksums"
     done
   done
 done

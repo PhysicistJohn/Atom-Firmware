@@ -6,6 +6,8 @@ from __future__ import annotations
 import copy
 import importlib.util
 import math
+import struct
+import tempfile
 from pathlib import Path
 
 
@@ -96,6 +98,30 @@ def status(case: int, frame: list[int]) -> dict[str, object]:
     }
 
 
+def synthetic_trace_memory(
+    raw_delta: float = 0.0, zero_plane: str | None = None
+) -> dict[str, object]:
+    actual = [-115.0 + 0.02 * index for index in range(COMPARATOR.TRACE_MEMORY_POINTS)]
+    traces = {
+        "actual": actual,
+        "stored": [value + 3.0 for value in actual],
+        "stored2": [value - 3.0 for value in actual],
+        "raw": list(actual),
+    }
+    if raw_delta:
+        traces["raw"][17] += raw_delta
+    if zero_plane is not None:
+        traces[zero_plane] = [0.0] * COMPARATOR.TRACE_MEMORY_POINTS
+    payload = struct.pack(
+        f"<{len(COMPARATOR.TRACE_MEMORY_PLANES) * COMPARATOR.TRACE_MEMORY_POINTS}f",
+        *(value for name in COMPARATOR.TRACE_MEMORY_PLANES for value in traces[name]),
+    )
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "measured.f32le"
+        path.write_bytes(payload)
+        return COMPARATOR.load_trace_memory(path)
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
@@ -112,17 +138,23 @@ def compare(
     reference_frame: list[int],
     candidate_frame: list[int],
     mutate=None,
+    candidate_trace_memory: dict[str, object] | None = None,
 ) -> dict[str, object]:
     reference_status = status(case, reference_frame)
     candidate_status = status(case, candidate_frame)
     if mutate is not None:
         mutate(candidate_status)
+    reference_trace_memory = synthetic_trace_memory()
+    if candidate_trace_memory is None:
+        candidate_trace_memory = synthetic_trace_memory()
     return COMPARATOR.compare_case(
         case,
         reference_frame,
         candidate_frame,
         reference_status,
         candidate_status,
+        reference_trace_memory,
+        candidate_trace_memory,
     )
 
 
@@ -246,11 +278,36 @@ def main() -> int:
     require(not attenuator_result["pass"] and failed(attenuator_result, "attenuator-step-activity"),
             "missing attenuator steps were not rejected")
 
+    raw_mismatch_result = compare(
+        3,
+        shaped,
+        copy.copy(shaped),
+        candidate_trace_memory=synthetic_trace_memory(raw_delta=0.25),
+    )
+    require(
+        not raw_mismatch_result["pass"]
+        and failed(raw_mismatch_result, "candidate-raw-actual-exact"),
+        "RAW/ACTUAL bit mismatch was not rejected",
+    )
+
+    empty_stored2_result = compare(
+        3,
+        shaped,
+        copy.copy(shaped),
+        candidate_trace_memory=synthetic_trace_memory(zero_plane="stored2"),
+    )
+    require(
+        not empty_stored2_result["pass"]
+        and failed(empty_stored2_result, "candidate-trace-memory-complete"),
+        "empty STORED2 plane was not rejected",
+    )
+
     print("selftest_visual_comparator_adversarial=passed")
     print(
         "rejected=blank,flat-image,trace-erased,trace-columns-5pct,"
         "missing-status,flat-measured-array,wrong-fixture,wrong-cal,"
-        "bpf-flatness,display-readback,attenuator-steps,sweep-time,zero-sweep-time"
+        "bpf-flatness,display-readback,attenuator-steps,sweep-time,zero-sweep-time,"
+        "raw-actual-mismatch,empty-stored2"
     )
     return 0
 
