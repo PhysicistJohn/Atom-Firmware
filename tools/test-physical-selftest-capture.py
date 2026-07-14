@@ -62,6 +62,33 @@ class CaptureHelpersTest(unittest.TestCase):
         data = b"data 0\r\n-1.000000e+00\r\n2.500000e+00\r\nch> "
         self.assertEqual(MODULE.parse_data_response(data), [-1.0, 2.5])
 
+    def test_known_chprintf_etoa_defect_is_narrow_and_trace_checked(self) -> None:
+        defects: list[dict[str, object]] = []
+        data = b"data 0\r\n-9.500000e+01\r\n-:.000000e+01\r\nch> "
+        self.assertEqual(
+            MODULE.parse_data_response(data, defects), [-95.0, -100.0]
+        )
+        self.assertEqual(defects, [{
+            "kind": "chprintf-etoa-power-of-ten",
+            "point_index": 1,
+            "raw_ascii": "-:.000000e+01",
+            "decoded_value": -100.0,
+        }])
+        traces = [[0.0, 0.0] for _ in range(4)]
+        traces[3] = [-95.0, -100.0]
+        validated = MODULE.validate_data_formatter_defects(0, defects, traces)
+        self.assertEqual(validated[0]["mapped_trace"], 4)
+        self.assertEqual(validated[0]["trace_cross_check"], "PASS")
+
+        traces[3][1] = -99.5
+        with self.assertRaises(AssertionError):
+            MODULE.validate_data_formatter_defects(0, defects, traces)
+
+    def test_data_parser_rejects_unknown_malformed_output(self) -> None:
+        malformed = b"data 0\r\n-9x.000000e+01\r\nch> "
+        with self.assertRaises(AssertionError):
+            MODULE.parse_data_response(malformed)
+
     def test_populated_frame_guard(self) -> None:
         with self.assertRaises(AssertionError):
             MODULE.frame_metrics(bytes(MODULE.PIXEL_BYTES))

@@ -42,6 +42,16 @@ EXPECTED_POINTS = 450
 NONFLAT_CASES = frozenset((1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 14))
 CONFIRMATION = "CAL-RF-LOOPBACK-CONNECTED"
 FLOAT_PATTERN = rb"[-+]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?"
+# The firmware's compact etoa() stops normalizing at a mantissa equal to 10,
+# then emits that value as a single digit.  ASCII '0' + 10 is ':', so an
+# exact power of ten can be rendered as (for example) -:.000000e+01 instead
+# of -1.000000e+02.  Keep this workaround deliberately narrower than the
+# general float grammar: cmd_data uses exactly six fractional digits and a
+# signed two-digit exponent.
+CHPRINTF_ETOA_POWER_OF_TEN_PATTERN = re.compile(
+    rb"(?P<sign>-?):\.000000e(?P<exponent_sign>[+-])(?P<exponent>[0-9]{2})"
+)
+DATA_TRACE_NUMBERS = (4, 2, 1)
 CORRECTION_TABLES = (
     "low", "lna", "ultra", "ultra_lna", "direct", "direct_lna",
     "harm", "harm_lna", "out", "out_direct", "out_adf", "out_ultra",
@@ -187,13 +197,80 @@ def parse_trace_response(response: bytes, trace: int) -> list[float]:
     return [indexed[index] for index in expected]
 
 
-def parse_data_response(response: bytes) -> list[float]:
+def parse_data_response(
+    response: bytes,
+    formatter_defects: list[dict[str, Any]] | None = None,
+) -> list[float]:
     pattern = re.compile(FLOAT_PATTERN)
     values: list[float] = []
     for line in response.replace(b"\r", b"").split(b"\n"):
         if pattern.fullmatch(line):
             values.append(float(line))
+            continue
+        defect = CHPRINTF_ETOA_POWER_OF_TEN_PATTERN.fullmatch(line)
+        if defect:
+            exponent = int(defect.group("exponent"))
+            if defect.group("exponent_sign") == b"-":
+                exponent = -exponent
+            decoded = 10.0 ** (exponent + 1)
+            if defect.group("sign") == b"-":
+                decoded = -decoded
+            if not math.isfinite(decoded):
+                raise AssertionError(
+                    f"known chprintf etoa defect overflows: {line!r}"
+                )
+            point_index = len(values)
+            values.append(decoded)
+            if formatter_defects is not None:
+                formatter_defects.append({
+                    "kind": "chprintf-etoa-power-of-ten",
+                    "point_index": point_index,
+                    "raw_ascii": line.decode("ascii"),
+                    "decoded_value": decoded,
+                })
+            continue
+        if not line or line == PROMPT or re.fullmatch(rb"data [0-2]", line):
+            continue
+        raise AssertionError(f"data response contains malformed line: {line!r}")
     return values
+
+
+def validate_data_formatter_defects(
+    plane: int,
+    defects: list[dict[str, Any]],
+    traces: list[list[float]],
+) -> list[dict[str, Any]]:
+    """Cross-check a narrowly decoded cmd_data token against cmd_trace."""
+    if plane < 0 or plane >= len(DATA_TRACE_NUMBERS):
+        raise ValueError(f"invalid data plane: {plane}")
+    trace_number = DATA_TRACE_NUMBERS[plane]
+    trace_values = traces[trace_number - 1]
+    validated: list[dict[str, Any]] = []
+    for defect in defects:
+        point_index = int(defect["point_index"])
+        if point_index < 0 or point_index >= len(trace_values):
+            raise AssertionError(
+                f"data {plane} formatter defect point {point_index} has no "
+                f"trace {trace_number} counterpart"
+            )
+        decoded = float(defect["decoded_value"])
+        trace_value = trace_values[point_index]
+        delta = abs(decoded - trace_value)
+        if delta > 0.011:
+            raise AssertionError(
+                f"data {plane} formatter defect at point {point_index} decoded "
+                f"as {decoded}, but trace {trace_number} reports {trace_value}"
+            )
+        record = dict(defect)
+        record.update({
+            "data_plane": plane,
+            "mapped_trace": trace_number,
+            "mapped_trace_value": trace_value,
+            "absolute_delta": delta,
+            "trace_cross_check": "PASS",
+        })
+        validated.append(record)
+    return validated
 
 
 def trace_metrics(values: list[float]) -> dict[str, float | int]:
@@ -576,8 +653,16 @@ def collect_case_evidence(session: ShellSession, store: EvidenceStore,
         parse_trace_response(responses[f"trace {trace} value"], trace)
         for trace in range(1, 5)
     ]
-    data_planes = [parse_data_response(responses[f"data {plane}"])
-                   for plane in range(3)]
+    data_formatter_defects: list[dict[str, Any]] = []
+    data_planes: list[list[float]] = []
+    for plane in range(3):
+        plane_defects: list[dict[str, Any]] = []
+        data_planes.append(parse_data_response(
+            responses[f"data {plane}"], plane_defects
+        ))
+        data_formatter_defects.extend(validate_data_formatter_defects(
+            plane, plane_defects, traces
+        ))
     for label, values in [
         *[(f"trace {index + 1}", values) for index, values in enumerate(traces)],
         *[(f"data {index}", values) for index, values in enumerate(data_planes)],
@@ -600,6 +685,15 @@ def collect_case_evidence(session: ShellSession, store: EvidenceStore,
     )
     trace_path = store.output / f"case-{case_number:02d}-measured.f32le"
     trace_path.write_bytes(packed)
+    for defect in data_formatter_defects:
+        store.event(
+            "ZS407_PHYSICAL_SHELL_FORMATTER_DEFECT=OBSERVED "
+            f"case={case_number} kind={defect['kind']} "
+            f"data_plane={defect['data_plane']} point={defect['point_index']} "
+            f"raw={defect['raw_ascii']} decoded={defect['decoded_value']} "
+            f"mapped_trace={defect['mapped_trace']} "
+            f"trace_cross_check={defect['trace_cross_check']}"
+        )
     return {
         "frequency_points": len(frequencies),
         "frequency_start_hz": frequencies[0],
@@ -609,6 +703,7 @@ def collect_case_evidence(session: ShellSession, store: EvidenceStore,
         "trace_dump_bytes": len(packed),
         "trace_dump_sha256": sha256_bytes(packed),
         "data_points": [len(values) for values in data_planes],
+        "known_shell_formatter_defects": data_formatter_defects,
     }
 
 
