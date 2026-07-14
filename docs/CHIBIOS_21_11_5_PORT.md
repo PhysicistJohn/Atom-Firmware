@@ -4,15 +4,59 @@ ChibiOS 21.11.5 port
 Status
 ------
 
-This branch ports both legacy firmware targets from the historical ChibiOS
-snapshot to the official `ver21.11.5` (Agropoli) release at upstream commit
+Both legacy firmware targets have been ported from the historical ChibiOS
+snapshot to the official `ver21.11.5` (Agropoli) release at
 `f4bbadf964fc746aef8bbcf34135c7d8fabb8eae`.
 
-The submodule points to local compatibility commit
-`2b8f425d26a61a7887916f7052b401f9e767a949`. It contains one focused change
-on top of the official tag: restore the generic STM32F0 TIM14 GPT interrupt
-service. The F072 firmware uses `GPTD14` as `DELAY_TIMER`; disabling it would
-change firmware behavior rather than complete the port.
+RC4 is rejected. Its exact 193,948-byte F303 image, SHA-256
+`17fa401eac68e514c99fdb55ed0c106601107b4c973876aa28d18993aee22fae`,
+flashed and cold-booted on the ZS407, but failed physical USB configuration.
+macOS identified the raw `0483:5740` device and descriptors, then remained at
+`UsbEnumerationState=2`; it created neither an `IOUSBHostInterface` child nor a
+`/dev/cu.usbmodem*` device. A physical USB unplug/replug reproduced the same
+failure. RC4 must not be used as a candidate again.
+
+RC5 keeps the TIM14 compatibility fix and adds one USBv1 packet-memory fix.
+The ChibiOS gitlink is
+`b3f82b396de7cf2a9e85bc8f1575fbd58e9428d9`, directly above:
+
+- `2b8f425d26a61a7887916f7052b401f9e767a949`, which restores the
+  standalone STM32F0 TIM14 GPT interrupt service required by the F072
+  `GPTD14` delay timer; and
+- `b3f82b396de7cf2a9e85bc8f1575fbd58e9428d9`, which preserves endpoint
+  zero's packet-memory reservation when the USB core disables and rebuilds
+  nonzero endpoints.
+
+The complete RC5 simulation seal and physical qualification are not complete.
+The exact-image USB regression passes in the twin, while the remaining RC5
+simulator matrix is running. No RC5 hardware pass is claimed here.
+
+Why RC4 failed
+--------------
+
+On bus reset, the USBv1 low-level driver allocates EP0 IN and OUT at PMA
+addresses `0x0040` and `0x0080`. The first configuration then allocates the
+CDC endpoints after them: EP1 IN/OUT at `0x00c0`/`0x0100` and EP2 IN at
+`0x0140`.
+
+The default USB core intentionally tears down and rebuilds a configuration for
+every valid `SET_CONFIGURATION`, including when a host selects the current
+configuration again. During that teardown, `usb_lld_disable_endpoints()`
+leaves EP0 active but resets `pmnext` to the beginning of packet memory. The
+next configuration therefore assigns EP1 IN/OUT to EP0's still-live
+`0x0040`/`0x0080` buffers and EP2 IN to `0x00c0`.
+
+This is a deterministic allocator overlap, not a transport-speed or shell
+problem. Defining `USB_SET_CONFIGURATION_OLD_BEHAVIOR` would only hide the
+same-value `1 -> 1` reproducer; a standards-valid `1 -> 0 -> 1` sequence still
+uses the faulty teardown path. It would also discard the endpoint reset
+behavior introduced by ChibiOS commit `8097785b8` for bugs 938 and 939.
+
+RC5 replaces the allocator reset in `usb_lld_disable_endpoints()` with a reset
+that immediately reserves the configured EP0 IN and OUT maximum sizes. The
+full bus-reset path still performs a true allocator reset before EP0 is
+initialized. The change is confined to
+`os/hal/ports/STM32/LLD/USBv1/hal_usb_lld.c`.
 
 Port changes
 ------------
@@ -28,32 +72,20 @@ Port changes
   behavior.
 - Convert custom `BaseSequentialStream` VMTs to the current layout, including
   the required `instance_offset` field.
-- Preserve the legacy hard-FPU build's `-fsingle-precision-constant` behavior
-  explicitly. ChibiOS 21.11.x no longer adds it automatically; omitting it
-  promotes unsuffixed sweep constants to software double precision and causes
-  a measurable self-test sweep regression.
-- Avoid reading and converting the system timer on seven of every eight fast
-  sweep points where the progress bar cannot update.
-- Compile only the LCD window, bitmap, and dirty-cell DMA handoff hot paths at
-  `O3,no-strict-aliasing`. This restores held-screen throughput without
-  exposing the RF/math firmware to whole-program optimization changes.
-- Initialize the complete RTC backup structure before checksumming it so its
-  reserved byte is deterministic across optimized warm resets.
-- Replace the legacy naked-C hard-fault entry with an assembly-only MSP/PSP
-  selector and r4-r11 save, then call the normal C diagnostic on a 1 KiB main
-  stack. The core exception frame remains at the selected stack pointer for
-  both basic and extended floating-point frames.
-- Read the F303 free-running counter directly in the sweep hot path and reduce
-  progress sampling adaptively, while leaving F072 on the kernel time API.
-- Preserve the two factory self-test scratch traces directly instead of
-  repeating equivalent acquisition work; restore any pre-existing trace state
-  on exit.
-- Recompute zero-span grid geometry from the sweep that just completed, retain
-  the full 64-bit ratio until the final division, and redraw only when the exact
-  grid tuple changes.
+- Preserve the legacy hard-FPU build's `-fsingle-precision-constant` behavior.
+- Gate expensive system-timer reads in the fast sweep path and retain only the
+  three measured LCD hot paths at `O3,no-strict-aliasing`.
+- Initialize the complete RTC backup structure before checksumming it.
+- Replace naked C fault handling with an assembly-only MSP/PSP selector and
+  r4-r11 save, followed by a normal C diagnostic on a 1 KiB main stack.
+- Preserve factory-self-test scratch traces and restore pre-existing trace
+  state on exit.
+- Calculate zero-span grid geometry from the sweep that just completed, with
+  64-bit arithmetic through the final division.
+- Preserve EP0 PMA ownership while configuration endpoints are rebuilt.
 
-Reproduce the builds
---------------------
+Reproduce the RC5 build
+-----------------------
 
 Use the repository-pinned Arm GNU 11.3.Rel1 toolchain. The release builder
 performs two clean builds of each target, compares BIN/ELF/HEX/MAP/LIST/DMP,
@@ -61,134 +93,89 @@ audits the hard-fault veneer and software-double call count, and generates the
 exact simulator symbol profile:
 
 ```bash
-git switch physicistjohn/release-v0.4-chibios21.11.5-rc4
+git switch codex/chibios-latest-rc5
 git submodule update --init --recursive
-tools/build-chibios-release-candidate.sh v0.4-chibios21.11.5-rc4
+tools/build-chibios-release-candidate.sh v0.4-chibios21.11.5-rc5
 ```
 
-These commands reproduce the package in this checkout. The release ref and
-sealed artifact are currently local; an external handoff must publish the ref
-or include both a source bundle and the package.
-
-The exact package was built from implementation commit
-`f7b0d5c6a6894655108cd6e8626d56ff25ad76ee` and audited builder commit
-`f5f912c1bdc95b785dcbde85495aa5153fe0721a`. Two clean builds of both targets
-produced byte-identical BIN/ELF/HEX/MAP/LIST/DMP artifacts with zero compiler
-warnings and zero undefined symbols:
+The implementation is
+`d4c7ec8c2a6df9887bb0ab306346ebbf47688eef`; the audited release-tooling
+commit is `6fdf6f307ecb0cef2e3af478b0fc7b80a1fd13e2`. Two clean builds of both
+targets produced byte-identical artifacts with zero compiler warnings and zero
+undefined symbols:
 
 | Target | Binary | Size | Flash | SHA-256 |
 | --- | --- | ---: | ---: | --- |
-| F303 RC4 | `tinySA4_v0.4-chibios21.11.5-rc4.bin` | 193,948 B | 78.92% of 240 KiB | `17fa401eac68e514c99fdb55ed0c106601107b4c973876aa28d18993aee22fae` |
-| F072 compatibility | `F072_COMPAT_tinySA_v0.4-chibios21.11.5-rc4.bin` | 115,188 B | 96.97% of 116 KiB | `01f4fb2ad5d7296a67bc987dd7276f4287192146cfdd4432421d11b87a3200d0` |
+| F303 RC5 | `tinySA4_v0.4-chibios21.11.5-rc5.bin` | 193,980 B | 78.93% of 240 KiB | `1e3f45a9744b18985622d5abf6c2445524a4ad53a831316766c37de80ac96685` |
+| F072 compatibility | `F072_COMPAT_tinySA_v0.4-chibios21.11.5-rc5.bin` | 115,236 B | 97.01% of 116 KiB | `7e00dc013a81fd85e5a86911e7a1ac5781cb17d177bd0560689bc5041e36ea0f` |
 
 The F303 ELF SHA-256 is
-`94ae40e40cd860bb5efb6e67a73f2e617e14e7f8e4979ed4e6cf5f40b79a69b2`;
-the exact symbol-profile SHA-256 is
-`7eebfeeef1885e2fcf31375ab66b0ef10d4ea6059e38267d27365b99efa9cf98`.
-The release script also passed a hostile-environment build with poisoned output
-directory, optimization, FPU, define, phase, version, and compiler variables
-without changing the F303 hash. The F072 image has only 3,596 bytes of
-application flash headroom, so further growth is a release constraint.
+`d742ba7dc33a71db83a2bb2ffa8b0cb67977977555c507d1e663aebc6051fa56`;
+the symbol-profile SHA-256 is
+`44c1c0b0d2efca014babe49efc2c7832f162675e06b6832bf52c6b9cfa3876e8`.
+The F072 image has 3,548 bytes of application flash headroom and remains a
+release constraint.
 
-The simulation-sealed package is under
-`.artifacts/chibios-releases/v0.4-chibios21.11.5-rc4/f5f912c1bdc95b785dcbde85495aa5153fe0721a/`.
-Its 353-entry `SHA256SUMS` inventory has SHA-256
-`fb58d8ad59192c25fa4fa5d13a11ba4f164ce122fc372fbbe9733de2c2dd7aaa`.
-The package carries `HARDWARE_PENDING`, not a hardware-release approval.
+The package is under
+`.artifacts/chibios-releases/v0.4-chibios21.11.5-rc5/6fdf6f307ecb0cef2e3af478b0fc7b80a1fd13e2/`.
+At this point it deliberately carries `SIM_PENDING`,
+`simulation_qualification=SIM_PENDING`, and `hardware_qualified=false`.
 
-Digital-twin qualification
---------------------------
+Digital-twin USB regression
+---------------------------
 
-The exact RC4 package passed boot and peripheral initialization, jog input,
-touch, return to normal UI, and a frequency-selective 450 MHz RF scene. The
-modeled tone produced 7,333 RSSI samples spanning 108..200 and a complete,
-visibly non-flat 445.9 MHz / -28.3 dBm screen.
+The current USB scenario checks the firmware-owned endpoint registers and PMA
+descriptors, not just a synthetic CDC response. It covers:
 
-The same BIN passed USB device/configuration descriptors, address and
-configuration, CDC ACM setup, fragmented shell traffic, suspend/wakeup,
-unsupported-request STALL, bus reset, and re-enumeration. A disconnected-CAL
-negative control made case 3 fail with firmware status 2 and cause
-`Signal level`, retained the real interactive failure screen, accepted touch
-acknowledgement, restored normal sweep state, and reconnected the fixture.
+1. the first `SET_CONFIGURATION(1)`;
+2. same-value reconfiguration `1 -> 1`;
+3. explicit unconfiguration and selection `1 -> 0 -> 1`;
+4. CDC setup, fragmented shell traffic, suspend/wakeup, and EP0 STALL; and
+5. a final bus reset and clean re-enumeration.
 
-The primary paired visual gate ran all fourteen cases on the pinned
-pre-ChibiOS `lab-v0.2.0-protocol` baseline (`d12bd826`, BIN SHA-256
-`a1dbaa03978a25b2a8b2a0e85f60029a6cc736481732eff68e93362724683dd7`)
-and the exact RC4 image. This direct ancestor is the port's behavioral A/B
-reference. Both runs
-produced fourteen firmware passes, settled result screens, status records,
-307,200-byte raw LCD frames, and 7,200-byte four-plane trace captures, with zero
-model errors. Cases 1..11 and 14 pass the strict legacy comparator. Cases 12
-and 13 pass the separate `mathematically-better-time-grid` classifier: RC4's
-expected and observed columns match exactly, the lab-baseline grid is stale,
-and all changed
-pixels are relocated grid intersections or bounded time text. All fourteen
-trace matrices are byte-identical baseline-to-RC4. The suite visibly retains
-the narrow peaks, broad filter responses, and the 104.03 dB-span case-14 gain
-trace; flat status-only evidence is explicitly rejected.
+`AssertActiveBufferAddressesDistinct` scans every active TX/RX buffer address
+and rejects any duplicate. The exact RC4 ELF now fails on the second
+configuration because EP0 TX and EP1 TX both own `0x0040`. The exact RC5 ELF
+passes. The complete scenario requires exactly five
+`ZS407_TWIN_USB_PMA=PASS` markers and three
+`ZS407_TWIN_USB_ENDPOINTS=PASS data=disabled` markers, including the final
+reset/re-enumeration state.
 
-A supplemental all-fourteen gate then ran the official `c979386` firmware
-(BIN SHA-256
-`3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41`)
-from scratch and compared its screenshots and trace memory with the same exact
-RC4 capture. Both variants produced 14/14 PASS, READY, settled, status, raw
-screen, and trace captures. All fourteen 7,200-byte trace matrices and all raw
-vs actual measured-trace planes are byte-identical. Cases 1..11 and 14 pass
-strictly. Cases 12
-and 13 pass the adversarial-tested exact-or-better classifier: every delta is a
-formula-current grid intersection or bounded elapsed-time glyph, with zero
-unexplained pixels. Case 12 preserves the exact 307,520 display-read bytes and
-uses 0.510101% fewer redundant pixel writes. Reviewed contact sheets retain the
-real peak, filter, suppression, isolation, and 278-pixel LNA shapes; flat-line
-status evidence cannot satisfy the gate. The initial conservative classifier
-result remains in the package for audit beside the final calibrated report.
-
-Runtime-state qualification retained the configured RTC state across warm
-reset, completed all fourteen tests again, left 624 bytes of sweep stack and
-912 bytes of MSP, and transferred a 131-packet/8,300-byte remote redraw over
-USB. Both the extended-FPU PSP and nested-handler MSP HardFault paths preserved
-their core frames and r4-r11 diagnostics; the fatal screens were captured from
-the authoritative raw framebuffer with 584 and 552 bytes of MSP remaining.
-
-Every exact RC4 candidate scenario exited zero with zero unexpected simulator
-warnings. Its known warnings were limited to the pinned Renode model's
-documented translation-cache clamp, Thumb-entry normalization, USART
-LBDIE/EIE/ICR gaps, and TIM1 MMS bit 5. The supplemental official run also
-emitted the legacy firmware's documented EXTI register-model warnings and had
-zero harness error markers.
-The nested-MSP test assigned the outer configurable IRQ priority `0x80` because
-the pinned model represents HardFault as numeric priority zero; that distinct
-Renode defect is retained in the vendor queue.
+The ChibiOS USBv2 low-level driver in 21.11.5 contains the analogous pattern:
+it leaves EP0 active, calls the same kind of `usb_pm_reset()` from
+`usb_lld_disable_endpoints()`, and allocates later endpoint buffers from that
+reset cursor. RC5 does not consume USBv2, so no USBv2 code is included in the
+firmware hotpatch. The vendor handoff recommends the corresponding fix and a
+driver-level regression on current `main` before publication.
 
 Qualification boundary
 ----------------------
 
-This image is build-, host-, and simulator-qualified with
-`simulation_qualification=SIMULATION_PASS_HARDWARE_PENDING`. Its manifest must
-remain `hardware_qualified=false`; no hardware was flashed or controlled while
-preparing this package. Before setting `hardware_qualified=true` or field
-launch, qualify at least:
+RC5 is reproducibly built and its focused exact-image USB regression passes.
+The full simulator matrix is still in progress, so the package remains
+`SIM_PENDING`. Physical RC5 testing has not yet been completed and the
+manifest must remain `hardware_qualified=false`.
 
-1. Cold boot, normal boot, DFU entry, and recovery.
-2. Complete self-test and calibration-preservation checks; capture every result
-   screen and compare it with both sealed simulator baselines (the direct
-   pre-port ancestor and official `c979386`) for exact or demonstrably better
-   behavior, including real non-flat traces.
-3. USB enumeration, shell traffic, suspend/resume, disconnect/reconnect, and
-   sustained frame transfer.
-4. Lever, push, touch, SD-card detect/power, and serial-mode PAL events.
-5. ADC acquisition and sweep behavior across modes and ranges.
-6. Warm reset, cold reset, and power-cycle RTC/settings retention.
-7. Forced extended-FPU PSP and nested-MSP faults, diagnostic-screen review,
-   reset, DFU recovery, and rollback.
-8. F303 interrupt-load behavior and RF output/measurement accuracy against the
-   known-good firmware.
+Before release, the exact packaged F303 binary still needs:
 
-The F072 compatibility artifact is build evidence only. Before any F072
-release, separately qualify TIM14 timing and the complete F072 image on F072
-hardware.
+1. the complete hash-bound simulator seal: both all-14 screenshot/trace A/B
+   suites, non-flat RF checks, runtime/reset, fault, UI, and complete USB gates;
+2. cold boot, normal boot, DFU entry, recovery, and rollback on the ZS407;
+3. physical CDC enumeration, same-value and zero-toggle configuration where
+   the host exposes them, suspend/resume, unplug/replug, shell traffic, and
+   sustained screen transfer;
+4. all fourteen physical self-tests with CAL connected, with each settled
+   screenshot and trace compared to official `c979386` for exact or
+   demonstrably better, non-flat behavior;
+5. the disconnected-CAL failure/recovery control, RF checks, controls/touch,
+   acquisition, and warm/cold/power-cycle retention; and
+6. forced PSP/MSP fault diagnostics and recovery, if an authorized physical
+   fault-injection path is available.
+
+The F072 compatibility artifact is build evidence only. It separately needs
+TIM14 timing and complete-image qualification on F072 hardware.
 
 The exact official-release reproduction documented in
 [Baseline and provenance](BASELINE.md) remains unchanged; this port is a new
-candidate and is not expected to reproduce that historical binary byte for
+candidate and is not expected to reproduce the historical binary byte for
 byte.

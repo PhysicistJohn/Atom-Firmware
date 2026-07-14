@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: PhysicistJohn <54456354+PhysicistJohn@users.noreply.github.com>
+Date: Tue, 14 Jul 2026 10:05:00 -0700
+Subject: [PATCH] usbv1: preserve EP0 packet memory on reconfigure
+
+usb_lld_disable_endpoints() leaves endpoint zero active, but resetting the
+packet-memory allocator releases EP0's logical reservations. Reinitializing a
+configuration can then assign nonzero endpoints over the live EP0 buffers.
+
+Reset the allocator and reserve the configured EP0 IN/OUT maximum sizes before
+allowing data endpoints to be initialized. Keep the full bus-reset path on the
+unqualified allocator reset.
+---
+ os/hal/ports/STM32/LLD/USBv1/hal_usb_lld.c | 25 +++++++++++++++++++++++--
+ 1 file changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/os/hal/ports/STM32/LLD/USBv1/hal_usb_lld.c b/os/hal/ports/STM32/LLD/USBv1/hal_usb_lld.c
+index 5055b012c..bf05c5fae 100644
+--- a/os/hal/ports/STM32/LLD/USBv1/hal_usb_lld.c
++++ b/os/hal/ports/STM32/LLD/USBv1/hal_usb_lld.c
+@@ -120,6 +120,26 @@ static uint32_t usb_pm_alloc(USBDriver *usbp, size_t size) {
+   return next;
+ }
+ 
++/**
++ * @brief   Resets the packet memory allocator while preserving EP0 buffers.
++ * @details Endpoint zero remains active when the other endpoints are
++ *          disabled, therefore its packet memory cannot be made available to
++ *          a subsequently initialized endpoint.
++ *
++ * @param[in] usbp      pointer to the @p USBDriver object
++ */
++static void usb_pm_reset_after_ep0(USBDriver *usbp) {
++  const USBEndpointConfig *epcp = usbp->epc[0];
++
++  usb_pm_reset(usbp);
++  if (epcp->in_state != NULL) {
++    (void)usb_pm_alloc(usbp, epcp->in_maxsize);
++  }
++  if (epcp->out_state != NULL) {
++    (void)usb_pm_alloc(usbp, epcp->out_maxsize);
++  }
++}
++
+ /**
+  * @brief   Reads from a dedicated packet buffer.
+  *
+@@ -682,8 +702,9 @@ void usb_lld_init_endpoint(USBDriver *usbp, usbep_t ep) {
+ void usb_lld_disable_endpoints(USBDriver *usbp) {
+   unsigned i;
+ 
+-  /* Resets the packet memory allocator.*/
+-  usb_pm_reset(usbp);
++  /* Resets the packet memory allocator without releasing the still-active
++     endpoint-zero buffers.*/
++  usb_pm_reset_after_ep0(usbp);
+ 
+   /* Disabling all endpoints.*/
+   for (i = 1; i <= USB_ENDPOINTS_NUMBER; i++) {
+-- 
+2.50.1

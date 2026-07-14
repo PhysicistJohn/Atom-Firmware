@@ -13,12 +13,13 @@ was read-only: it did not open an issue, publish a branch, comment, or push.
 | Vendor | Item | Disposition |
 | --- | --- | --- |
 | tinySA | Seven focused safety/build fixes | Already open as PRs #156 through #162; do not duplicate |
-| tinySA | ChibiOS 21.11.5 application port | Exact simulation is complete; hold until exact-image hardware qualification, then rebase, rebuild, requalify, and submit as a separate RTOS-port PR |
-| tinySA | Current zero-span time grid | New focused application correctness fix; exact simulator evidence is complete, but publish only after the exact RC4 hardware run |
+| tinySA | ChibiOS 21.11.5 application port | RC5 is reproducibly built and its exact USB regression passes; the full simulator matrix is running and hardware qualification remains pending |
+| tinySA | Current zero-span time grid | New focused application correctness fix; inherited exact simulator evidence is complete, but publish only after the exact RC5 hardware run |
 | tinySA | Deterministic warm-reset backup checksum | New focused application bug fix; retain separately from the RTOS port and publish only after exact hardware reset testing |
 | tinySA | Stack-safe MSP/PSP hard-fault entry | New focused application fix; simulator-qualified, but hold for forced-fault and recovery testing on hardware |
 | tinySA | Sweep/display timing recovery and explicit single-precision constants | Keep in the ChibiOS port because these changes preserve baseline timing under the new RTOS build |
 | ChibiOS | STM32F0 TIM14 GPT ISR | New upstream bug; prepare one issue and a `main` PR, then let the maintainer select a `stable-21.11.x` backport |
+| ChibiOS | USB PMA reuse across `SET_CONFIGURATION` | Confirmed USBv1 defect on 21.11.5 with an analogous USBv2 pattern; prepare a separate issue/PR with repeated-configuration and reset regressions |
 | Renode | NVIC `RETTOBASE` | Already open as PR #217; do not duplicate |
 | Renode | STM32 GPIO IDR/ODR and BSRR priority | Already open as the two commits in PR #218; do not duplicate |
 | Renode | Architectural HardFault priority | New issue in `renode/renode`, followed by one issue-numbered infrastructure PR; keep separate from #217 |
@@ -64,90 +65,80 @@ that becomes conflicted or is explicitly requested by the maintainer.
 
 ### ChibiOS 21.11.5 application port
 
-The isolated port and selected RC4 release lineage are represented by:
+The isolated port retains the original application-port lineage through RC4,
+then adds a focused RC5 correction:
 
 - base port commit
   `751b62257e9d04fc29a3debc9c74c490628069ee`;
-- initial boot/USB qualification documentation commit `ed558b3`;
 - official ChibiOS tag `ver21.11.5` at
   `f4bbadf964fc746aef8bbcf34135c7d8fabb8eae`;
-- local ChibiOS compatibility commit
-  `2b8f425d26a61a7887916f7052b401f9e767a949` on top of that tag;
-- timing/display recovery commit `67948e1`;
-- deterministic-state and release-diagnostic commit `80161c7`;
-- corrected extended-FPU core-frame commit `eae9983`;
-- rejected RC3 gate commit
-  `134ccdeaf710f5266bb8b1e447e0c915385566ea`;
+- local TIM14 compatibility commit
+  `2b8f425d26a61a7887916f7052b401f9e767a949`;
 - self-test timing, trace-preservation, and current zero-span-grid implementation
   `f7b0d5c6a6894655108cd6e8626d56ff25ad76ee`;
-- exact audited RC4 package commit
-  `f5f912c1bdc95b785dcbde85495aa5153fe0721a`.
+- rejected RC4 package commit
+  `f5f912c1bdc95b785dcbde85495aa5153fe0721a`;
+- RC5 USB PMA implementation commit
+  `d4c7ec8c2a6df9887bb0ab306346ebbf47688eef`;
+- local ChibiOS USBv1 correction
+  `b3f82b396de7cf2a9e85bc8f1575fbd58e9428d9`; and
+- audited RC5 release-tooling commit
+  `6fdf6f307ecb0cef2e3af478b0fc7b80a1fd13e2`.
 
-The base port commit changes 21 files (449 insertions and 203 deletions); the
-later commits add qualification-driven timing, state, diagnostic, and display
-corrections. It is a coupled RTOS migration, not an appropriate addition to any
-of the seven safety PRs.
+The base port is a coupled RTOS migration, not an appropriate addition to any
+of the seven published safety PRs. The TIM14 and USB allocator changes are
+independent ChibiOS defects and are packaged separately for that vendor.
 
-Current build evidence with Arm GNU 11.3.Rel1 is:
+Current reproducible-build evidence with Arm GNU 11.3.Rel1 is:
 
 | Target | Bytes | Flash use | SHA-256 |
 | --- | ---: | ---: | --- |
-| F303 RC4 | 193,948 | 78.92% of 240 KiB | `17fa401eac68e514c99fdb55ed0c106601107b4c973876aa28d18993aee22fae` |
-| F072 compatibility | 115,188 | 96.97% of 116 KiB | `01f4fb2ad5d7296a67bc987dd7276f4287192146cfdd4432421d11b87a3200d0` |
+| F303 RC5 | 193,980 | 78.93% of 240 KiB | `1e3f45a9744b18985622d5abf6c2445524a4ad53a831316766c37de80ac96685` |
+| F072 compatibility | 115,236 | 97.01% of 116 KiB | `7e00dc013a81fd85e5a86911e7a1ac5781cb17d177bd0560689bc5041e36ea0f` |
 
-The builder produced two byte-identical clean builds of all six retained
-artifacts (BIN/ELF/HEX/MAP/LIST/DMP) for both targets, with zero compiler
-warnings and zero undefined symbols. A hostile-environment rebuild reproduced
-the same F303 hash after poisoning the caller's output-directory, optimization,
-FPU, define, phase, version, and compiler variables. The exact F303 image passed
-boot, jog, touch, a visibly non-flat 445.9 MHz RF tone, all fourteen positive
-self-tests, disconnected-CAL failure/recovery, and the complete USB
-enumeration/CDC/STALL/reset matrix.
+Two clean builds reproduced BIN/ELF/HEX/MAP/LIST/DMP for both targets with
+zero compiler warnings and zero undefined symbols. The F303 ELF SHA-256 is
+`d742ba7dc33a71db83a2bb2ffa8b0cb67977977555c507d1e663aebc6051fa56`;
+the simulator symbol-profile SHA-256 is
+`44c1c0b0d2efca014babe49efc2c7832f162675e06b6832bf52c6b9cfa3876e8`.
+The F072 image has only 3,548 bytes of flash headroom.
 
-The primary paired visual run captured the direct pre-ChibiOS
-`lab-v0.2.0-protocol` ancestor (`d12bd826`, BIN SHA-256
-`a1dbaa03978a25b2a8b2a0e85f60029a6cc736481732eff68e93362724683dd7`)
-and RC4 result screen plus all four 450-point trace planes for every case. This
-is the port's direct behavioral baseline. Cases 1..11 and 14 passed the strict
-visual comparator. Cases 12 and 13 passed
-the additive `mathematically-better-time-grid` classifier: RC4's observed grid
-columns exactly match its completed sweep time, the lab baseline is demonstrably
-stale, and every changed pixel is an expected grid intersection or bounded time
-label. All fourteen 7,200-byte trace matrices are byte-identical between the
-baseline and RC4, including the non-flat filter and gain responses. Physical
-qualification is still required. The F072 image has only 3,596 bytes of flash
-headroom and remains a release constraint.
+RC4's earlier all-fourteen twin evidence remains useful for the unchanged
+application behavior, including shaped, non-flat traces and the exact-or-better
+time-grid classification. It is not RC5 release evidence. RC4 was rejected
+after its exact binary flashed and cold-booted on the ZS407 but failed physical
+USB configuration: macOS identified `0483:5740`, remained at
+`UsbEnumerationState=2`, created no `IOUSBHostInterface` child and no
+`/dev/cu.usbmodem*`, and did the same after a physical cable unplug/replug.
 
-The supplemental visual run used the official `c979386` image itself (BIN
-SHA-256
-`3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41`).
-Both official and RC4 runs produced all six required capture counters for all
-fourteen cases, and all trace matrices were byte-identical. Cases 1..11 and 14
-passed strictly. Cases 12/13 passed the adversarial-tested exact-or-better
-classification with formula-current candidate grids, bounded time text, and
-zero unexplained pixels. The contact sheets preserve real shaped traces rather
-than accepting flat-line status output. The conservative pre-calibration
-rejection remains sealed beside the final report for audit.
+The failure is deterministic. USBv1's endpoint-disable path leaves EP0 active
+but resets the packet-memory cursor to `0x0040`. The next configuration assigns
+EP1 TX to EP0 TX's live `0x0040` buffer, EP1 RX to EP0 RX's `0x0080`, and EP2
+TX to the old EP1 region. RC5 resets the cursor and then reserves EP0's IN/OUT
+maximum sizes before allowing nonzero endpoints to be initialized.
 
-The simulation-sealed package contains a 353-entry `SHA256SUMS` inventory with
-SHA-256
-`fb58d8ad59192c25fa4fa5d13a11ba4f164ce122fc372fbbe9733de2c2dd7aaa`.
-Its manifest remains `hardware_qualified=false`, and `HARDWARE_PENDING` names
-the physical screenshot, RF, USB, reset, forced-fault, and recovery gates.
+The exact RC4 ELF now fails the focused twin regression on repeated
+`SET_CONFIGURATION(1)`. The exact RC5 ELF passes same-value `1 -> 1`, explicit
+`1 -> 0 -> 1`, CDC setup and traffic, suspend/wakeup, STALL, and final bus-reset
+re-enumeration. The scenario requires five PMA-distinctness markers and three
+data-endpoint-disabled markers. The remaining complete RC5 simulation matrix is
+running. The package deliberately remains `SIM_PENDING` and
+`hardware_qualified=false`; no RC5 physical pass is claimed.
 
 Publication dependencies, in order:
 
-1. Retain the completed hash-bound twin evidence: symbol profile, paired
-   all-14 visual/trace captures, UI/RF, USB/reset, runtime-state, and fault
-   scenarios.
+1. Complete and retain the RC5 hash-bound twin evidence: symbol profile,
+   paired all-14 visual/trace captures, UI/RF, USB/reset, runtime-state, and
+   fault scenarios.
 2. Qualify the exact packaged F303 binary on the physical device, including
    recovery/DFU, cold boot, complete self-test with paired screenshot review,
    USB traffic, controls, touch, acquisition, RF behavior, warm/cold/power-cycle
    retention, and forced PSP/MSP fault recovery. Preserve the exact binary hash
    in evidence.
-3. Make the TIM14 ChibiOS fix publicly fetchable. Prefer the authoritative
-   ChibiOS `main` fix and its selected stable backport. A parent repository
-   must never point at the current local-only `2b8f425d` gitlink.
+3. Make both focused ChibiOS fixes publicly fetchable. Prefer authoritative
+   `main` fixes and maintainer-selected stable backports. A parent repository
+   must never point at the current local-only `2b8f425d` / `b3f82b396`
+   lineage.
 4. In the port PR, change `.gitmodules` from the historical
    `edy555/ChibiOS` fork to the authoritative
    `chibios-upstream/chibios` repository and remove the obsolete
@@ -171,14 +162,14 @@ CMSIS/HAL/USB/serial changes; the latter is superseded by 21.11.5's
 `ALIGN_WITH_INPUT` rules. Do not mix the digital-twin fixtures into the
 application port.
 
-### New tinySA findings from RC4 qualification
+### New tinySA findings from port qualification
 
 Keep the following three fixes independent of the RTOS-port review. They are
 application defects present in the legacy code, not ChibiOS defects.
 
 **Current zero-span time grid.** The legacy grid is calculated before the
 completed CW sweep replaces `actual_sweep_time_us`, so the displayed time-axis
-columns can describe the previous measurement. RC4 calculates the exact
+columns can describe the previous measurement. RC5 calculates the exact
 `(offset,width,span)` tuple from the completed sweep, uses 64-bit arithmetic
 until the final division, and redraws only if that tuple changed. In paired
 cases 12 and 13, expected and observed columns match exactly while the baseline
@@ -186,7 +177,7 @@ columns are stale; every framebuffer delta is explained by relocated grid
 intersections or bounded time text, and the four trace planes remain
 byte-identical. The separate official `c979386` A/B run confirms the same
 formula-current result with zero unexplained pixels and byte-identical trace
-matrices. Prepare this as a focused application PR after the same RC4
+matrices. Prepare this as a focused application PR after the exact RC5
 binary passes the physical self-test and display checks. Do not bundle the
 simulator classifier or test-specific activity thresholds.
 
@@ -194,16 +185,17 @@ simulator classifier or test-specific activity thresholds.
 into RTC backup storage after checksumming all bytes except the checksum byte,
 but the packed structure's reserved byte was never initialized. Optimized
 builds could therefore persist a checksum over indeterminate data and reject
-otherwise valid analyzer settings after reset. RC4 zero-initializes the entire
-structure before assigning fields. The digital twin preserved the configured
-123,456,789..987,654,321 Hz range and 9 dB attenuation across an MCU reset,
-including a deterministic reserved byte. Prepare this as a tiny one-line
+otherwise valid analyzer settings after reset. RC5 zero-initializes the entire
+structure before assigning fields. The earlier digital-twin qualification
+preserved the configured 123,456,789..987,654,321 Hz range and 9 dB attenuation
+across an MCU reset, including a deterministic reserved byte. Prepare this as a
+tiny one-line
 correctness PR only after the exact image also passes physical warm/cold reset
 and power-cycle tests.
 
 **Hard-fault entry.** The legacy handler marks ordinary C containing locals,
 calls, and an infinite loop as `naked`, reads PSP unconditionally, and does not
-reliably preserve r4-r11. RC4 uses an assembly-only EXC_RETURN MSP/PSP selector,
+reliably preserve r4-r11. RC5 uses an assembly-only EXC_RETURN MSP/PSP selector,
 saves r4-r11 on the 1 KiB main stack, then tail-branches to a normal noreturn C
 diagnostic. A forced PSP fault with active FPU state proved that the Cortex-M4
 core frame is already at the selected stack pointer; an attempted 72-byte
@@ -252,7 +244,7 @@ in 2019 while adding TIM10/TIM13 support; the F0 standalone-vector case was
 left without a provider.
 
 Local commit `2b8f425d26a61a7887916f7052b401f9e767a949` restores the handler and is the
-only ChibiOS delta required by the tinySA dual-target port. Its patch applies
+first of two focused ChibiOS deltas required by RC5. Its patch applies
 cleanly to authoritative `main` at `fbbfad31` and `stable-21.11.x` at
 `eb9a832b`. No matching issue or PR existed in the authoritative repository
 when checked.
@@ -274,7 +266,7 @@ Minimal reproducer and evidence for the issue/PR:
    `HAL_USE_GPT=TRUE` and `STM32_GPT_USE_TIM14=TRUE`.
 2. Show the unpatched compile stopping at the exact `#error` above.
 3. Apply the one-file handler restoration and build the same target cleanly.
-4. Run `tools/style/stylecheck.py` on the changed C file.
+4. Run the current ChibiOS style checker on the changed C file.
 5. Build a relevant Cortex-M0 target, preferably
    `RT-STM32F072RB-NUCLEO64`, with GPTD14 linked and referenced so the handler
    cannot be discarded.
@@ -297,9 +289,71 @@ Recommended publication order:
 4. Once a public commit is available, update the tinySA port gitlink and repeat
    its build/qualification gates.
 
-Only this TIM14 defect belongs in the ChibiOS queue. The multi-file tinySA
-application adaptation belongs to tinySA, and the historical fork's mixed
-`ade76dea8` changes do not belong in either ChibiOS PR.
+Keep the TIM14 defect independent from the USB allocator defect below. The
+multi-file tinySA application adaptation belongs to tinySA, and the historical
+fork's mixed `ade76dea8` changes do not belong in either ChibiOS PR.
+
+### USB PMA reuse after endpoint disable
+
+The ChibiOS USB core handles every valid `SET_CONFIGURATION`, including a
+request that selects the active configuration again. Commit `8097785b8` made
+that rebuild intentional to reset endpoint state for bugs 938 and 939. The
+low-level driver's endpoint-disable contract explicitly preserves endpoint
+zero.
+
+USBv1 violates the corresponding packet-memory ownership rule. On the F303,
+bus reset allocates EP0 TX at `0x0040` and EP0 RX at `0x0080`. The first CDC
+configuration allocates EP1 TX/RX at `0x00c0`/`0x0100` and EP2 TX at `0x0140`.
+`usb_lld_disable_endpoints()` then leaves EP0 active but calls
+`usb_pm_reset()`, returning the cursor to `0x0040`. Rebuilding the configuration
+overlaps EP1 TX with EP0 TX and EP1 RX with EP0 RX.
+
+This was hidden by the old one-configuration simulator scenario. It is now
+reproduced by the exact RC4 ELF and is consistent with RC4's physical USB
+rejection: the device descriptor was visible, but macOS never created the CDC
+interface. The packet-memory overlap itself is proven deterministically; the
+physical host trace did not expose which repeated request triggered it, so do
+not claim a packet-by-packet macOS causal trace.
+
+Local ChibiOS commit
+`b3f82b396de7cf2a9e85bc8f1575fbd58e9428d9` adds a reset helper that reserves
+the still-configured EP0 IN and OUT maximum sizes before allocating nonzero
+endpoints. It changes only
+`os/hal/ports/STM32/LLD/USBv1/hal_usb_lld.c`, is directly based on the retained
+TIM14 commit, and increases the F303/F072 images by 32/48 bytes respectively.
+Do not publish it verbatim because it carries a workstation-local author
+identity.
+
+The exact regression sequence is:
+
+1. bus reset, address, and first `SET_CONFIGURATION(1)`;
+2. `SET_CONFIGURATION(1)` again;
+3. `SET_CONFIGURATION(0)`, verify data endpoints disabled, then
+   `SET_CONFIGURATION(1)`;
+4. CDC class setup and fragmented shell traffic;
+5. suspend/wakeup and unsupported-request EP0 STALL; and
+6. final bus reset, verify data endpoints disabled, then address/configure
+   and recheck PMA uniqueness.
+
+The RC4 ELF fails step 2 with EP0 TX and EP1 TX both at `0x0040`. The RC5 ELF
+passes and produces exactly five PMA-distinctness markers and three
+data-endpoint-disabled markers through the final reset. Defining
+`USB_SET_CONFIGURATION_OLD_BEHAVIOR` is not a fix: it only skips same-value
+reconfiguration and still leaves `1 -> 0 -> 1` vulnerable.
+
+The USBv2 driver shipped in 21.11.5 has the analogous structure: its disable
+function leaves EP0 active, resets `pmnext` to the descriptor-table boundary,
+and later endpoints allocate from that cursor. tinySA RC5 does not use USBv2,
+so this is a source-audit finding rather than RC5 runtime evidence. Before a
+vendor PR, rebase onto current `main`, confirm which PMA drivers remain, add a
+driver-level reproducer, and apply the EP0-preserving correction to USBv1 and
+USBv2 as maintainers prefer. Do not combine this with the TIM14 PR.
+
+The local handoff in
+[`upstream-patches/chibios/`](../upstream-patches/chibios/README.md) contains a
+21.11.5 USBv1 patch, separate issue/PR drafts, the exact reproducer, and a
+USBv2 `main` recommendation. It is preparation only: this local update did not
+open an issue, publish a branch, push, or claim a current public status.
 
 ## 3. Renode
 
@@ -417,15 +471,17 @@ project-local qualification infrastructure.
 
 ## Recommended cross-vendor order
 
-1. Keep the simulation-sealed RC4 hash fixed and complete its physical
-   qualification before calling it hardware-qualified.
+1. Keep RC4 rejected, finish the exact RC5 simulation seal, and complete RC5
+   physical qualification before calling any v0.4 image hardware-qualified.
 2. Leave tinySA PRs #156-#162 and Renode PRs #217/#218 alone pending review.
-3. Publish the ChibiOS TIM14 issue and `main` PR when explicitly authorized.
+3. Publish separate ChibiOS TIM14 and USB PMA issues/PRs when explicitly
+   authorized; let maintainers choose stable backports.
 4. When explicitly authorized, publish the separate Renode HardFault-priority
    issue and issue-numbered infrastructure PR.
-5. After the TIM14 fix is public (and a stable backport is selected), update and
-   requalify the tinySA ChibiOS port, then submit the single RTOS-port PR.
-6. After the exact RC4 hardware self-test, offer the current zero-span-grid fix
+5. After both required ChibiOS fixes are public (and stable backports are
+   selected), update and requalify the tinySA ChibiOS port, then submit the
+   single RTOS-port PR.
+6. After the exact RC5 hardware self-test, offer the current zero-span-grid fix
    as its own tinySA correctness PR.
 7. After exact hardware reset testing, offer the deterministic backup checksum
    as a separate tinySA fix if the maintainer wants another focused PR.

@@ -65,23 +65,45 @@ superseded by `ver21.11.5`'s `ALIGN_WITH_INPUT` linker rules. Preserve only a
 small fork delta when the dual-target build, executable twin or hardware
 qualification proves it is still required.
 
-The selected isolated port is packaged from exact RC4 release commit `f5f912c`
-(implementation `f7b0d5c`, based on the port and hardening lineage). For each
-target, two clean builds reproduce all six retained outputs with zero warnings
-and zero undefined symbols on pinned Arm GNU 11.3.Rel1. The 193,948-byte F303
-image has SHA-256
-`17fa401eac68e514c99fdb55ed0c106601107b4c973876aa28d18993aee22fae`
-and passes exact-image boot, UI/RF, all fourteen paired exact-or-better
-screenshot/trace cases against both the direct pre-port and official `c979386`
-baselines, USB enumeration/CDC/reset, and disconnected-CAL qualification. Only
-one ChibiOS delta proved necessary: local commit `2b8f425d`
-restores the generic STM32F0 TIM14 GPT ISR that F072 uses as `DELAY_TIMER`.
-Treat it as a focused upstream fix or carried hotpatch; do not replace it by
-disabling TIM14. The 115,188-byte F072 compatibility image has only 3,596 bytes
-free in its 116 KiB flash region and is build evidence only, so further upstream
-growth is a release constraint. The sealed package remains explicitly
-`hardware_qualified=false` until the exact RC4 BIN passes the physical
-screenshot, RF, USB, reset, and recovery gates.
+RC4 is rejected by physical evidence. Its exact 193,948-byte F303 image
+(`17fa401eac68e514c99fdb55ed0c106601107b4c973876aa28d18993aee22fae`)
+flashed and cold-booted, but macOS stopped at `UsbEnumerationState=2`, created
+no `IOUSBHostInterface` child and no `/dev/cu.usbmodem*`, and repeated the
+failure after a cable unplug/replug. The old simulator scenario had selected
+configuration 1 only once, so it did not expose the allocator defect.
+
+The replacement RC5 build is implementation commit `d4c7ec8c2a6d` with
+audited release-tooling commit `6fdf6f307ecb`. Two clean builds reproduce all
+six retained outputs with zero warnings and zero undefined symbols on pinned
+Arm GNU 11.3.Rel1. The 193,980-byte F303 image has SHA-256
+`1e3f45a9744b18985622d5abf6c2445524a4ad53a831316766c37de80ac96685`;
+the 115,236-byte F072 compatibility image has SHA-256
+`7e00dc013a81fd85e5a86911e7a1ac5781cb17d177bd0560689bc5041e36ea0f`
+and only 3,548 bytes free in its 116 KiB flash region.
+
+RC5 carries exactly two focused ChibiOS commits on `ver21.11.5`. Local commit
+`2b8f425d` restores the generic STM32F0 TIM14 GPT ISR that F072 uses as
+`DELAY_TIMER`; do not replace it by disabling TIM14. Local commit `b3f82b396`
+fixes USBv1 endpoint packet-memory reuse when
+`usb_lld_disable_endpoints()` leaves EP0 active but resets the allocation cursor
+to the PMA base. The exact RC4 ELF now fails the repeated-configuration twin
+gate with EP0 TX and EP1 TX both at `0x0040`; the RC5 ELF passes same-value
+`1 -> 1`, explicit `1 -> 0 -> 1`, CDC, suspend/wakeup, STALL, and final bus-reset
+re-enumeration. The complete gate requires five PMA-distinctness markers and
+three data-endpoint-disabled markers.
+
+The RC5 package is currently `SIM_PENDING` and
+`hardware_qualified=false`. Its remaining full simulation matrix is running,
+and no RC5 physical pass is claimed. The F072 artifact remains build evidence
+only.
+
+The ChibiOS 21.11.5 USBv2 driver contains the same allocator-reset pattern in
+its endpoint-disable path. RC5 does not use USBv2, so this is an analogous
+vendor finding rather than a firmware change: reproduce it on current ChibiOS
+`main`, apply the EP0-preserving allocator correction to both maintained PMA
+drivers as appropriate, and add `1 -> 1`, `1 -> 0 -> 1`, and final-reset tests.
+The prepared issue, PR, and patch drafts are under
+[`upstream-patches/chibios/`](../upstream-patches/chibios/README.md).
 
 ## Renode
 
@@ -146,12 +168,12 @@ routines differently.
 If the maintainer welcomes a response, contribute a concise reproducibility
 comment or small manifest—not the personal research history.
 
-## Simulator-qualified findings still held from publication
+## Candidate findings still held from publication
 
 ### Current zero-span time grid
 
 The legacy grid can remain based on the previous CW sweep because it is
-calculated before `actual_sweep_time_us` is updated. RC4 calculates and applies
+calculated before `actual_sweep_time_us` is updated. RC5 calculates and applies
 the exact grid tuple from the completed sweep, with 64-bit arithmetic through
 the final division and no redraw when the tuple is unchanged. Paired cases 12
 and 13 prove formula-exact columns, zero unexplained framebuffer pixels, and
@@ -162,14 +184,14 @@ The supplemental official `c979386` comparison independently reproduces the
 same conclusion: cases 1..11 and 14 pass strictly, all fourteen trace matrices
 are byte-identical, and cases 12/13 contain only formula-current grid and
 bounded time-text changes with zero unexplained pixels. Keep this as a focused
-tinySA application PR after the exact RC4 hardware self-test; do not include
+tinySA application PR after the exact RC5 hardware self-test; do not include
 the local simulator classifier.
 
 ### Hard-fault entry
 
 `hard_fault_handler_c(uint32_t *sp)` is marked `naked` but contains ordinary C,
 locals, calls, and an infinite loop. Clang correctly rejects this; GCC emits
-stack-relative stores without a normal allocation prologue. RC4 uses an
+stack-relative stores without a normal allocation prologue. RC5 uses an
 assembly-only EXC_RETURN MSP/PSP selector, saves r4-r11, and tail-branches to a
 normal C diagnostic routine on a 1 KiB main stack.
 
@@ -183,7 +205,7 @@ separate tinySA PR.
 ### Deterministic warm-reset checksum
 
 The RTC backup checksum included a reserved byte from an uninitialized
-stack-local `backup_t`. RC4 initializes the complete structure before assigning
+stack-local `backup_t`. RC5 initializes the complete structure before assigning
 fields, and the digital twin preserves the configured range and attenuation
 across an MCU reset. Keep this one-line application fix independent of the
 ChibiOS port, but do not publish it until the exact image passes warm reset,
@@ -191,7 +213,7 @@ cold reset and power-cycle checks on hardware.
 
 ### Reproducible release manifest
 
-RC4 closes this process gap: although the image embeds `__DATE__` and `__TIME__`,
+RC5 closes this process gap: although the image embeds `__DATE__` and `__TIME__`,
 the builder fixes `SOURCE_DATE_EPOCH`, and the sealed manifest records source
 and submodule commits, toolchain, epoch, flags, sizes, hashes, and qualification
 state. Offer any equivalent upstream process change separately from PR #156.
