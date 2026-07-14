@@ -81,6 +81,7 @@ REQUIRED_INTEGER_STATUS = {
     "status",
     "peak_hz",
     "peak_index",
+    "sweep_time_us",
     "points",
     "width15",
     "populated",
@@ -203,6 +204,7 @@ def parse_statuses(path: Path) -> dict[int, dict[str, object]]:
             "status",
             "peak_hz",
             "peak_index",
+            "sweep_time_us",
             "points",
             "width15",
             "samples",
@@ -318,6 +320,8 @@ def status_schema_errors(case: int, status: dict[str, object]) -> list[str]:
             errors.append(
                 f"finite/populated={status['finite']}/{status['populated']} points={status['points']}"
             )
+        if int(status["sweep_time_us"]) <= 0:
+            errors.append(f"sweep_time_us={status['sweep_time_us']} expected positive")
         if abs(float(status["measured_max"]) - float(status["measured_peak_dbm"])) > 0.011:
             errors.append("measured_max does not equal measured_peak")
         if abs(float(status["dynamic_range_db"]) - (float(status["measured_max"]) - float(status["measured_min"]))) > 0.03:
@@ -578,6 +582,15 @@ def compare_case(
         and abs(int(candidate_status["peak_hz"]) - int(reference_status["peak_hz"])) <= 1,
         f"candidate={candidate_status.get('peak_hz')} reference={reference_status.get('peak_hz')}",
     )
+    add_check(
+        checks,
+        "sweep-time-not-slower",
+        schema_complete
+        and int(candidate_status["sweep_time_us"])
+        <= int(reference_status["sweep_time_us"]),
+        f"candidate={candidate_status.get('sweep_time_us')}us "
+        f"reference={reference_status.get('sweep_time_us')}us",
+    )
 
     if case == 8:
         flatness_ok = schema_complete and (
@@ -760,8 +773,8 @@ def write_reports(output: Path, report: dict[str, object]) -> None:
         "",
         "## Per-case metrics",
         "",
-        "| Case | Kind | Result | Exact | Changed px | Similarity | Trace cols R/C | Span R/C | Peak dBm R/C | Peak index R/C | Width15 R/C | Range dB R/C |",
-        "|---:|:---|:---:|:---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Case | Kind | Result | Exact | Changed px | Similarity | Trace cols R/C | Span R/C | Peak dBm R/C | Peak index R/C | Width15 R/C | Range dB R/C | Sweep us R/C |",
+        "|---:|:---|:---:|:---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for case_result in report["cases"]:
@@ -786,6 +799,10 @@ def write_reports(output: Path, report: dict[str, object]) -> None:
             f"{reference['firmware'].get('dynamic_range_db')}/"
             f"{candidate['firmware'].get('dynamic_range_db')}"
         )
+        sweep_time_text = (
+            f"{reference['firmware'].get('sweep_time_us')}/"
+            f"{candidate['firmware'].get('sweep_time_us')}"
+        )
         markdown.append(
             f"| {case_result['case']} | {case_result['kind']} | {'PASS' if case_result['pass'] else 'FAIL'} | "
             f"{'yes' if case_result['exact_framebuffer'] else 'no'} | "
@@ -793,7 +810,7 @@ def write_reports(output: Path, report: dict[str, object]) -> None:
             f"{case_result['comparison']['content_pixel_similarity']:.4f} | "
             f"{reference['frame']['trace_active_columns']}/{candidate['frame']['trace_active_columns']} | "
             f"{reference['frame']['trace_vertical_span']}/{candidate['frame']['trace_vertical_span']} px | "
-            f"{peak_text} | {index_text} | {width_text} | {range_text} |"
+            f"{peak_text} | {index_text} | {width_text} | {range_text} | {sweep_time_text} |"
         )
     markdown.extend(
         [

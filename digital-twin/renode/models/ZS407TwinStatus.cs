@@ -348,6 +348,46 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 + $"in_selftest={inSelfTest} frame=0x{Get<ulong>(display, "FramebufferHash"):X16}";
         }
 
+        public string BeginSelfTestDisplaySettlement(int oneBasedTest)
+        {
+            if(oneBasedTest < 1 || oneBasedTest > SelfTestCount
+                || visualSelfTestCase != oneBasedTest)
+            {
+                throw new RecoverableException("ZS407 twin display-settlement case is invalid");
+            }
+            displaySettlementCase = oneBasedTest;
+            displaySettlementPixelWrites = Get<ulong>(display, "PixelWrites");
+            displaySettlementCommandWrites = Get<ulong>(display, "CommandWrites");
+            displaySettlementReadBytes = Get<ulong>(display, "MemoryReadBytes");
+            displaySettlementFrame = Get<ulong>(display, "FramebufferHash");
+            return $"ZS407_TWIN_SELFTEST_DISPLAY=ARMED case={oneBasedTest} "
+                + $"pixels={displaySettlementPixelWrites} commands={displaySettlementCommandWrites} "
+                + $"reads={displaySettlementReadBytes} frame=0x{displaySettlementFrame:X16}";
+        }
+
+        public string AssertSelfTestDisplaySettled(int oneBasedTest)
+        {
+            var pixelWrites = Get<ulong>(display, "PixelWrites");
+            var commandWrites = Get<ulong>(display, "CommandWrites");
+            var readBytes = Get<ulong>(display, "MemoryReadBytes");
+            var frame = Get<ulong>(display, "FramebufferHash");
+            var failures = new List<string>();
+            Require(displaySettlementCase == oneBasedTest,
+                $"armed case {displaySettlementCase} != {oneBasedTest}", failures);
+            Require(ReadDoubleWordFromSram(SelfTestWait) != 0,
+                "firmware no longer retains the result screen", failures);
+            Require(readBytes == displaySettlementReadBytes,
+                $"display reads changed {displaySettlementReadBytes}..{readBytes}", failures);
+            Require(frame == displaySettlementFrame,
+                $"frame changed 0x{displaySettlementFrame:X16}..0x{frame:X16}", failures);
+            ThrowIfAny("self-test display settlement", failures);
+            return $"ZS407_TWIN_SELFTEST_DISPLAY=VISUALLY_SETTLED case={oneBasedTest} "
+                + $"pixel_delta={pixelWrites - displaySettlementPixelWrites} "
+                + $"command_delta={commandWrites - displaySettlementCommandWrites} "
+                + $"read_delta={readBytes - displaySettlementReadBytes} "
+                + $"frame=0x{frame:X16}";
+        }
+
         public string AssertSelfTestCase(int oneBasedTest, int expectedStatus = SelfTestPass)
         {
             if(oneBasedTest < 1 || oneBasedTest > SelfTestCount
@@ -470,6 +510,7 @@ namespace Antmicro.Renode.Peripherals.ZS407
                 + $"peak_dbm={ReadFloatFromSram(PeakLevel):F2} "
                 + $"peak_hz={ReadQuadWordFromSram(PeakFrequency)} "
                 + $"peak_index={ReadDoubleWordFromSram(PeakIndex)} "
+                + $"sweep_time_us={ReadDoubleWordFromSram(Setting + SettingActualSweepTimeUs)} "
                 + $"points={points} "
                 + $"cause={ReadCString(causeAddress, 32)} "
                 + $"measured_peak={measuredPeak:F2}@{measuredPeakIndex} width15={right - left} "
@@ -820,6 +861,11 @@ namespace Antmicro.Renode.Peripherals.ZS407
         private ulong visualStartPixelWrites;
         private ulong visualStartDisplayReadBytes;
         private ulong visualStartAttenuatorLatches;
+        private int displaySettlementCase;
+        private ulong displaySettlementPixelWrites;
+        private ulong displaySettlementCommandWrites;
+        private ulong displaySettlementReadBytes;
+        private ulong displaySettlementFrame;
         private string symbolProfileName = "v0.2.0-default";
 
         private ulong ChibiOsCurrentThread = 0x20001698;
@@ -890,6 +936,7 @@ namespace Antmicro.Renode.Peripherals.ZS407
         private const ulong SettingFrequency0 = 568;
         private const ulong SettingFrequency1 = 576;
         private const ulong SettingSweepTimeUs = 1512;
+        private const ulong SettingActualSweepTimeUs = 1520;
         private const ulong SettingExtraLna = 1533;
         private const ulong SettingMixerOutput = 1545;
         private const ulong SettingTestArgument = 1568;

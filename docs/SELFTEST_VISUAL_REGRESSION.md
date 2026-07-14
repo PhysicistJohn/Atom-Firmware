@@ -10,10 +10,17 @@ argument. It requires `PASS`, `test_wait`, `SWEEP_SELFTEST`, the requested
 positive argument and the matching RF fixture while the result is retained.
 It also requires the fixture-appropriate `in_selftest` state: asserted for
 active cases and intentionally cleared by firmware for silent cases 1, 2 and 5
-so spurs remain visible. The runner captures that result screen, acknowledges
-it with the modeled touch panel and requires clean restoration before launching
-the next case. This is important: the negative/no-wait test argument restores
-normal sweeping before a caller can capture the tested trace.
+so spurs remain suppressed. Because firmware publishes the result before its final
+LCD stream necessarily finishes, every case receives a post-result settle
+interval and must then show an unchanged framebuffer and no new display
+readback bytes across a further 0.5 emulated seconds. Pixel-write and command
+deltas are reported because the held UI can idempotently re-stream the same
+complete screen. Only that proven visually settled result screen is captured.
+The runner then acknowledges it with the
+modeled touch panel and requires clean restoration before launching the next
+case. This is important: the negative/no-wait test argument restores normal
+sweeping before a caller can capture the tested trace, while capturing merely
+on `PASS` can retain a partial redraw.
 
 The gate does not accept a firmware `PASS` status by itself. While each result
 screen is retained it captures:
@@ -21,6 +28,7 @@ screen is retained it captures:
 - a 480x320 PNG for direct visual review;
 - the exact 307,200-byte RGB565 LCD framebuffer;
 - firmware peak level, peak position, 15 dB width and modeled RF statistics;
+- firmware-reported actual sweep time, which may not exceed the paired original;
 - expanded measured-trace range/statistics when supplied by the symbol profile.
 
 The comparator first tests for exact framebuffer identity. If a candidate is

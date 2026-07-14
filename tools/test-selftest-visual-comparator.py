@@ -67,6 +67,7 @@ def status(case: int, frame: list[int]) -> dict[str, object]:
         "peak_dbm": -40.0,
         "peak_hz": 30_000_000,
         "peak_index": 210,
+        "sweep_time_us": 5400,
         "points": 450,
         "cause": "",
         "measured_peak_dbm": -40.0,
@@ -153,6 +154,18 @@ def main() -> int:
     require(any("peak_index=" in error for error in COMPARATOR.status_schema_errors(3, signal_status)),
             "non-flat signal peak-index disagreement was not rejected")
 
+    slower_sweep_result = compare(
+        3, shaped, copy.copy(shaped), lambda candidate: candidate.update(sweep_time_us=5401)
+    )
+    require(not slower_sweep_result["pass"] and failed(slower_sweep_result, "sweep-time-not-slower"),
+            "slower candidate sweep time was not rejected")
+
+    zero_sweep_result = compare(
+        3, shaped, copy.copy(shaped), lambda candidate: candidate.update(sweep_time_us=0)
+    )
+    require(not zero_sweep_result["pass"] and failed(zero_sweep_result, "candidate-status-schema"),
+            "zero/uninitialized candidate sweep time was not rejected")
+
     blank_result = compare(3, shaped, blank)
     require(not blank_result["pass"] and failed(blank_result, "not-blank"),
             "blank candidate was not rejected")
@@ -237,7 +250,7 @@ def main() -> int:
     print(
         "rejected=blank,flat-image,trace-erased,trace-columns-5pct,"
         "missing-status,flat-measured-array,wrong-fixture,wrong-cal,"
-        "bpf-flatness,display-readback,attenuator-steps"
+        "bpf-flatness,display-readback,attenuator-steps,sweep-time,zero-sweep-time"
     )
     return 0
 

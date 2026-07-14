@@ -167,10 +167,12 @@ run_variant() {
   fi
   pass_count=$(grep -c 'ZS407_TWIN_SELFTEST=PASS case=' "$log" || true)
   ready_count=$(grep -c 'ZS407_TWIN_SELFTEST_VISUAL=READY case=' "$log" || true)
+  settled_count=$(grep -c 'ZS407_TWIN_SELFTEST_DISPLAY=VISUALLY_SETTLED case=' "$log" || true)
   status_count=$(grep -c 'ZS407_TWIN_SELFTEST_STATUS case=' "$log" || true)
   screen_count=$(grep -c 'ZS407_TWIN_SCREEN=SAVED' "$log" || true)
   [ "$pass_count" -eq 14 ] || die "$variant reported $pass_count/14 passing self-tests"
   [ "$ready_count" -eq 14 ] || die "$variant retained $ready_count/14 visual result screens"
+  [ "$settled_count" -eq 14 ] || die "$variant proved $settled_count/14 visually settled result screens"
   [ "$status_count" -eq 14 ] || die "$variant reported $status_count/14 visual metrics"
   [ "$screen_count" -eq 14 ] || die "$variant saved $screen_count/14 raw LCD frames"
   printf '%s_selftests=14/14\n' "$variant"

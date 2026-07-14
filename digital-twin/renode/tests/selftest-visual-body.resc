@@ -11,6 +11,10 @@ twinStatus SetCalibrationLoopback 1 -35.3
 twinStatus RunInteractiveSelfTestCase 1
 emulation RunFor "5.00"
 twinStatus AssertInteractiveSelfTestCase 1 1
+emulation RunFor "3.00"
+twinStatus BeginSelfTestDisplaySettlement 1
+emulation RunFor "0.50"
+twinStatus AssertSelfTestDisplaySettled 1
 twinStatus ReportSelfTestCase 1
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-01.png
 twinStatus SaveScreenRaw $captureDir/case-01.rgb565
@@ -23,6 +27,10 @@ twinStatus AssertSelfTestCase 1 1
 twinStatus RunInteractiveSelfTestCase 2
 emulation RunFor "5.00"
 twinStatus AssertInteractiveSelfTestCase 2 1
+emulation RunFor "3.00"
+twinStatus BeginSelfTestDisplaySettlement 2
+emulation RunFor "0.50"
+twinStatus AssertSelfTestDisplaySettled 2
 twinStatus ReportSelfTestCase 2
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-02.png
 twinStatus SaveScreenRaw $captureDir/case-02.rgb565
@@ -35,6 +43,10 @@ twinStatus AssertSelfTestCase 2 1
 twinStatus RunInteractiveSelfTestCase 3
 emulation RunFor "3.00"
 twinStatus AssertInteractiveSelfTestCase 3 1
+emulation RunFor "3.00"
+twinStatus BeginSelfTestDisplaySettlement 3
+emulation RunFor "0.50"
+twinStatus AssertSelfTestDisplaySettled 3
 twinStatus ReportSelfTestCase 3
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-03.png
 twinStatus SaveScreenRaw $captureDir/case-03.rgb565
@@ -47,6 +59,10 @@ twinStatus AssertSelfTestCase 3 1
 twinStatus RunInteractiveSelfTestCase 4
 emulation RunFor "3.00"
 twinStatus AssertInteractiveSelfTestCase 4 1
+emulation RunFor "3.00"
+twinStatus BeginSelfTestDisplaySettlement 4
+emulation RunFor "0.50"
+twinStatus AssertSelfTestDisplaySettled 4
 twinStatus ReportSelfTestCase 4
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-04.png
 twinStatus SaveScreenRaw $captureDir/case-04.rgb565
@@ -59,6 +75,10 @@ twinStatus AssertSelfTestCase 4 1
 twinStatus RunInteractiveSelfTestCase 5
 emulation RunFor "5.00"
 twinStatus AssertInteractiveSelfTestCase 5 1
+emulation RunFor "3.00"
+twinStatus BeginSelfTestDisplaySettlement 5
+emulation RunFor "0.50"
+twinStatus AssertSelfTestDisplaySettled 5
 twinStatus ReportSelfTestCase 5
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-05.png
 twinStatus SaveScreenRaw $captureDir/case-05.rgb565
@@ -71,6 +91,10 @@ twinStatus AssertSelfTestCase 5 1
 twinStatus RunInteractiveSelfTestCase 6
 emulation RunFor "3.00"
 twinStatus AssertInteractiveSelfTestCase 6 1
+emulation RunFor "3.00"
+twinStatus BeginSelfTestDisplaySettlement 6
+emulation RunFor "0.50"
+twinStatus AssertSelfTestDisplaySettled 6
 twinStatus ReportSelfTestCase 6
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-06.png
 twinStatus SaveScreenRaw $captureDir/case-06.rgb565
@@ -83,6 +107,10 @@ twinStatus AssertSelfTestCase 6 1
 twinStatus RunInteractiveSelfTestCase 7
 emulation RunFor "2.00"
 twinStatus AssertInteractiveSelfTestCase 7 1
+emulation RunFor "3.00"
+twinStatus BeginSelfTestDisplaySettlement 7
+emulation RunFor "0.50"
+twinStatus AssertSelfTestDisplaySettled 7
 twinStatus ReportSelfTestCase 7
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-07.png
 twinStatus SaveScreenRaw $captureDir/case-07.rgb565
@@ -95,6 +123,10 @@ twinStatus AssertSelfTestCase 7 1
 twinStatus RunInteractiveSelfTestCase 8
 emulation RunFor "2.00"
 twinStatus AssertInteractiveSelfTestCase 8 1
+emulation RunFor "3.00"
+twinStatus BeginSelfTestDisplaySettlement 8
+emulation RunFor "0.50"
+twinStatus AssertSelfTestDisplaySettled 8
 twinStatus ReportSelfTestCase 8
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-08.png
 twinStatus SaveScreenRaw $captureDir/case-08.rgb565
@@ -107,6 +139,10 @@ twinStatus AssertSelfTestCase 8 1
 twinStatus RunInteractiveSelfTestCase 9
 emulation RunFor "5.00"
 twinStatus AssertInteractiveSelfTestCase 9 1
+emulation RunFor "3.00"
+twinStatus BeginSelfTestDisplaySettlement 9
+emulation RunFor "0.50"
+twinStatus AssertSelfTestDisplaySettled 9
 twinStatus ReportSelfTestCase 9
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-09.png
 twinStatus SaveScreenRaw $captureDir/case-09.rgb565
@@ -119,6 +155,10 @@ twinStatus AssertSelfTestCase 9 1
 twinStatus RunInteractiveSelfTestCase 10
 emulation RunFor "3.00"
 twinStatus AssertInteractiveSelfTestCase 10 1
+emulation RunFor "3.00"
+twinStatus BeginSelfTestDisplaySettlement 10
+emulation RunFor "0.50"
+twinStatus AssertSelfTestDisplaySettled 10
 twinStatus ReportSelfTestCase 10
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-10.png
 twinStatus SaveScreenRaw $captureDir/case-10.rgb565
@@ -131,6 +171,10 @@ twinStatus AssertSelfTestCase 10 1
 twinStatus RunInteractiveSelfTestCase 11
 emulation RunFor "2.00"
 twinStatus AssertInteractiveSelfTestCase 11 1
+emulation RunFor "3.00"
+twinStatus BeginSelfTestDisplaySettlement 11
+emulation RunFor "0.50"
+twinStatus AssertSelfTestDisplaySettled 11
 twinStatus ReportSelfTestCase 11
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-11.png
 twinStatus SaveScreenRaw $captureDir/case-11.rgb565
@@ -143,6 +187,10 @@ twinStatus AssertSelfTestCase 11 1
 twinStatus RunInteractiveSelfTestCase 12
 emulation RunFor "5.00"
 twinStatus AssertInteractiveSelfTestCase 12 1
+emulation RunFor "6.00"
+twinStatus BeginSelfTestDisplaySettlement 12
+emulation RunFor "0.50"
+twinStatus AssertSelfTestDisplaySettled 12
 twinStatus ReportSelfTestCase 12
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-12.png
 twinStatus SaveScreenRaw $captureDir/case-12.rgb565
@@ -155,6 +203,10 @@ twinStatus AssertSelfTestCase 12 1
 twinStatus RunInteractiveSelfTestCase 13
 emulation RunFor "8.00"
 twinStatus AssertInteractiveSelfTestCase 13 1
+emulation RunFor "6.00"
+twinStatus BeginSelfTestDisplaySettlement 13
+emulation RunFor "0.50"
+twinStatus AssertSelfTestDisplaySettled 13
 twinStatus ReportSelfTestCase 13
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-13.png
 twinStatus SaveScreenRaw $captureDir/case-13.rgb565
@@ -167,6 +219,10 @@ twinStatus AssertSelfTestCase 13 1
 twinStatus RunInteractiveSelfTestCase 14
 emulation RunFor "3.00"
 twinStatus AssertInteractiveSelfTestCase 14 1
+emulation RunFor "3.00"
+twinStatus BeginSelfTestDisplaySettlement 14
+emulation RunFor "0.50"
+twinStatus AssertSelfTestDisplaySettled 14
 twinStatus ReportSelfTestCase 14
 spi1.spiFabric.lcd SaveScreenshot $captureDir/case-14.png
 twinStatus SaveScreenRaw $captureDir/case-14.rgb565
