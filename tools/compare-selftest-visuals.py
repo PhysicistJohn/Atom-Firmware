@@ -323,7 +323,12 @@ def status_schema_errors(case: int, status: dict[str, object]) -> list[str]:
         if abs(float(status["dynamic_range_db"]) - (float(status["measured_max"]) - float(status["measured_min"]))) > 0.03:
             errors.append("dynamic_range does not equal max-min")
         if case not in SUPPRESSION_CASES:
-            if int(status["peak_index"]) != int(status["measured_peak_index"]):
+            # Some activity-oriented tests leave an intentionally flat
+            # measurement array.  Every point is then an equally valid maximum,
+            # so live and captured-array scans may select different indices.
+            # Their dBm/range and dedicated activity gates remain strict.
+            peak_is_unique = float(status["dynamic_range_db"]) > 0.011
+            if peak_is_unique and int(status["peak_index"]) != int(status["measured_peak_index"]):
                 errors.append(
                     f"peak_index={status['peak_index']} measured_index={status['measured_peak_index']}"
                 )

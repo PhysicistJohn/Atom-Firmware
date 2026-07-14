@@ -133,6 +133,26 @@ def main() -> int:
     valid = compare(3, shaped, copy.copy(shaped))
     require(valid["pass"], "identical populated signal frame must pass")
 
+    def choose_equal_display_maximum(candidate: dict[str, object]) -> None:
+        candidate["peak_index"] = 449
+        candidate["measured_peak_index"] = 0
+        candidate["measured_min"] = -40.0
+        candidate["measured_max"] = -40.0
+        candidate["dynamic_range_db"] = 0.0
+        candidate["mean"] = -40.0
+        candidate["stddev"] = 0.0
+
+    for activity_case in (12, 13):
+        activity_status = status(activity_case, shaped)
+        choose_equal_display_maximum(activity_status)
+        require(not COMPARATOR.status_schema_errors(activity_case, activity_status),
+                f"flat case {activity_case} may choose different equal-maximum indices")
+
+    signal_status = status(3, shaped)
+    signal_status["peak_index"] = 449
+    require(any("peak_index=" in error for error in COMPARATOR.status_schema_errors(3, signal_status)),
+            "non-flat signal peak-index disagreement was not rejected")
+
     blank_result = compare(3, shaped, blank)
     require(not blank_result["pass"] and failed(blank_result, "not-blank"),
             "blank candidate was not rejected")
