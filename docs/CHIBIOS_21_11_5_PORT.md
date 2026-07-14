@@ -28,6 +28,10 @@ Port changes
   behavior.
 - Convert custom `BaseSequentialStream` VMTs to the current layout, including
   the required `instance_offset` field.
+- Preserve the legacy hard-FPU build's `-fsingle-precision-constant` behavior
+  explicitly. ChibiOS 21.11.x no longer adds it automatically; omitting it
+  promotes unsuffixed sweep constants to software double precision and causes
+  a measurable self-test sweep regression.
 
 Reproduce the builds
 --------------------
