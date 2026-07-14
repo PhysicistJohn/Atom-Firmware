@@ -1,8 +1,11 @@
 # tinySA upstream bug-fix queue
 
-These patches are intentionally conservative. They repair reproducibility,
-bounds, and one divide-by-zero path in the existing firmware; they do not
-introduce DSP, scheduling, UI, RF, or architectural changes.
+These patches are intentionally conservative. The seven published root-level
+patches repair reproducibility, bounds, and one divide-by-zero path in the
+existing firmware. A newly proven scientific-formatting fix is packaged
+separately under [`scientific-format/`](scientific-format/) so it cannot be
+mistaken for part of that already published series. None introduces DSP,
+scheduling, UI, RF, or architectural changes.
 
 The queue is based on upstream `tinySA` commit
 `c97938697b6c7485e7cab50bca9af76996b7d671` with its pinned ChibiOS gitlink
@@ -21,6 +24,10 @@ Publication proceeded one explicitly approved patch at a time. As of
 3–7 were also flashed to the physical ZS407 and passed their targeted runtime
 checks and complete built-in self-test gates.
 
+The scientific-formatting handoff is local preparation only. It has not been
+published, added to the seven-patch integration branch, or incorporated into
+the sealed v0.4 RC5 firmware.
+
 ## Queue
 
 | # | Patch | Observable defect | Runtime risk |
@@ -33,8 +40,50 @@ checks and complete built-in self-test gates.
 | 6 | Validate shell-controlled indices | Trace, marker, palette, and remote-menu inputs could index outside arrays | Low |
 | 7 | Bound remote keypad text | A 47-byte shell argument was copied without bounds into a 28-byte F303 UI buffer | Low |
 
-The generated mailbox files form the exact combined series that was built and
-tested. From a clean checkout at the stated base:
+## Independent scientific-format handoff
+
+The official `c979386` firmware's compact `chprintf.c::etoa()` stops upper
+normalization when the mantissa is exactly 10, then converts that integer to a
+single character by adding it to `'0'`. Exact powers of ten can therefore use
+ASCII `':'` as their leading "digit". The physical ZS407 warm diagnostic
+observed `-:.000000e+01` for the `-100.0` value at self-test case 3, point 238.
+
+This is proven firmware behavior rather than a USB/parser loss:
+
+- `data 0` and `data 2` each returned all 450 result rows plus their complete
+  echo and prompt;
+- their result bodies were byte-identical and both contained the same token at
+  point 238; and
+- independently formatted trace 4 and trace 1 both reported `-100.00` at that
+  point.
+
+The focused handoff contains:
+
+- [`0001-chprintf-normalize-exact-powers.patch`](scientific-format/0001-chprintf-normalize-exact-powers.patch),
+  a one-line `num >= 10` normalization correction against `c979386`;
+- [`PR_DRAFT.md`](scientific-format/PR_DRAFT.md), with the physical evidence
+  boundary and maintainer test recommendation; and
+- [`reproduce-etoa-power-boundary.c`](scientific-format/reproduce-etoa-power-boundary.c),
+  a hardware-free original-versus-fixed reproducer covering both signs, exact
+  powers, and immediately adjacent float values.
+
+The mailbox patch applies cleanly to `c979386`. The reproducer passes with a
+strict C11 host build and demonstrates the legacy `':'` result before checking
+the corrected output. Publication should remain independent from PRs
+#156–#162 and requires explicit approval.
+
+```text
+etoa_power_boundary=PASS legacy_minus_100=-:.000000e+01 fixed_minus_100=-1.000000e+02 exact=8 boundaries=16
+```
+
+The already sealed RC5 F303 BIN remains unchanged at SHA-256
+`1e3f45a9744b18985622d5abf6c2445524a4ad53a831316766c37de80ac96685`.
+The capture-side fail-closed decoder records and trace-validates the known
+legacy token, but that evidence accommodation is not a firmware fix and is not
+part of the proposed upstream patch.
+
+The seven root-level mailbox files form the exact combined series that was
+built and tested. From a clean checkout at the stated base:
 
 ```bash
 git am /path/to/upstream-patches/tinysa/000*.patch
@@ -138,6 +187,19 @@ check. The new UI helper uses the firmware's existing bounded formatter and
 always terminates the destination before the existing numeric parser consumes
 it.
 
+### Independent scientific exact-power formatting
+
+Changing the upper `etoa()` normalization comparison from `>` to `>=` keeps
+the mantissa below 10 before it is emitted as one character. It corrects exact
+powers without changing adjacent representable floats, shell syntax, or
+measurements.
+
+Recommended upstream tests cover positive and negative exact powers, the
+`nextafterf()` value on each side of every power, zero, ordinary non-power
+values, and both default and explicit precision. This fix is deliberately not
+folded into the ChibiOS port: the defect exists in untouched official
+`c979386`, and changing RC5 now would invalidate its completed simulation seal.
+
 ## Build and analysis evidence
 
 Arm GNU Toolchain 11.3.Rel1 was used for the audit, matching the compiler family
@@ -158,7 +220,7 @@ firmware and ChibiOS debt; none was promoted into this minimal queue.
 
 ## Exact combined artifacts
 
-The reproducible build used `SOURCE_DATE_EPOCH=1778074389`. Files remain local
+The seven-patch reproducible build used `SOURCE_DATE_EPOCH=1778074389`. Files remain local
 under
 `.artifacts/firmware-fix-queue/bece91ea29adc86ee2cd4804c6d8be407526f35e/`
 and are not committed:
@@ -225,6 +287,9 @@ Keep review surfaces small:
 5. Correction bounds alone after USB transcripts.
 6. Shell index bounds alone after USB transcripts.
 7. Keypad text bound alone after USB transcripts.
+8. Scientific exact-power formatting alone, from a fresh upstream base, only
+   when explicitly approved; do not amend the already open seven-PR queue or
+   the sealed RC5 firmware.
 
 The hard-fault veneer, compiler modernization, warning cleanup, DSP work,
 interrupt/DMA redesign, and UI changes are intentionally excluded. They may be

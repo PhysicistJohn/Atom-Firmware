@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: PhysicistJohn <54456354+PhysicistJohn@users.noreply.github.com>
+Date: Tue, 14 Jul 2026 11:30:00 -0700
+Subject: [PATCH] fix: normalize exact powers in scientific output
+
+The compact scientific formatter emits its leading digit by adding the
+normalized integer mantissa to '0'.  Its upper normalization loop stops at
+exactly 10, however, so powers of ten use ':' (the character after '9') as
+their leading digit.  For example, -100.0 becomes -:.000000e+01.
+
+Keep the normalized mantissa below 10.  This preserves surrounding values
+and renders exact powers with a valid leading digit and adjusted exponent.
+
+---
+ chprintf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/chprintf.c b/chprintf.c
+index 07f52f4..6bba7fe 100644
+--- a/chprintf.c
++++ b/chprintf.c
+@@ -231,7 +231,7 @@ static char *etoa(char *p, float num, uint32_t precision) {
+   int exp = 0;
+   if (num == 0) { *p++ = '0'; return p; }
+   while (num < 10) { num *= 10.0; exp--; }
+-  while (num > 10) { num /= 10.0; exp++; }
++  while (num >= 10) { num /= 10.0; exp++; }
+   *p++ = ((int)num) + '0'; num *=10.0;
+   *p++ = '.';
+   if (precision == 0) precision = 6;
+-- 
+2.50.1 (Apple Git-155)
+

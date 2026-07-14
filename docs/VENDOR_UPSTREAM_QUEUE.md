@@ -14,6 +14,7 @@ was read-only: it did not open an issue, publish a branch, comment, or push.
 | --- | --- | --- |
 | tinySA | Seven focused safety/build fixes | Already open as PRs #156 through #162; do not duplicate |
 | tinySA | ChibiOS 21.11.5 application port | RC5 is reproducibly built and its complete exact-image simulator seal passes; hardware qualification remains pending |
+| tinySA | Scientific formatter at exact powers of ten | New focused legacy defect physically proven on untouched official `c979386`; local patch/draft/reproducer are ready, but publish separately and leave sealed RC5 unchanged |
 | tinySA | Current zero-span time grid | New focused application correctness fix; inherited exact simulator evidence is complete, but publish only after the exact RC5 hardware run |
 | tinySA | Deterministic warm-reset backup checksum | New focused application bug fix; retain separately from the RTOS port and publish only after exact hardware reset testing |
 | tinySA | Stack-safe MSP/PSP hard-fault entry | New focused application fix; simulator-qualified, but hold for forced-fault and recovery testing on hardware |
@@ -167,8 +168,35 @@ application port.
 
 ### New tinySA findings from port qualification
 
-Keep the following three fixes independent of the RTOS-port review. They are
+Keep the following four fixes independent of the RTOS-port review. They are
 application defects present in the legacy code, not ChibiOS defects.
+
+**Scientific formatting at exact powers of ten.** The compact
+`chprintf.c::etoa()` upper-normalization loop uses `num > 10`, then emits
+`((int)num) + '0'` as one leading digit. An exact normalized mantissa of 10
+therefore becomes ASCII `':'`. During an untouched official
+`tinySA4_v1.4-224-gc979386` physical warm diagnostic, self-test case 3 returned
+all 450 rows for both `data 0` and `data 2`, but point 238 in each was
+`-:.000000e+01`. Their result bodies were otherwise byte-identical, and the
+independently formatted mapped traces 4 and 1 both reported `-100.00` at that
+point. Complete responses, matching repetition, and the valid trailing prompt
+exclude a missing-row parser or USB transport explanation.
+
+The focused correction continues normalization while `num >= 10`, producing
+`-1.000000e+02`. The local handoff under
+[`upstream-patches/tinysa/scientific-format/`](../upstream-patches/tinysa/scientific-format/PR_DRAFT.md)
+contains the one-line mailbox patch, PR text, and a hardware-free C reproducer.
+Its recommendation covers positive and negative exact powers, both adjacent
+`nextafterf()` boundaries, zero, ordinary values, and default/explicit
+precision. Keep this independent from PRs #156–#162 and publish only with
+explicit approval.
+
+This finding does not reopen or mutate RC5. The sealed F303 BIN remains exactly
+193,980 bytes with SHA-256
+`1e3f45a9744b18985622d5abf6c2445524a4ad53a831316766c37de80ac96685`.
+The physical observation qualifies official `c979386` formatter behavior, not
+an RC5 hardware run. A later firmware candidate may take the upstream fix and
+must then be rebuilt and requalified under its own hash.
 
 **Current zero-span time grid.** The legacy grid is calculated before the
 completed CW sweep replaces `actual_sweep_time_us`, so the displayed time-axis
@@ -495,22 +523,25 @@ project-local qualification infrastructure.
 1. Keep RC4 rejected, finish the exact RC5 simulation seal, and complete RC5
    physical qualification before calling any v0.4 image hardware-qualified.
 2. Leave tinySA PRs #156-#162 and Renode PRs #217/#218 alone pending review.
-3. When explicitly authorized, ask ChibiOS maintainers for the intake path and
+3. Keep the exact-power scientific formatter as a separate tinySA handoff. It
+   is ready for maintainer review when explicitly authorized, but must not be
+   amended into PRs #156–#162 or the already sealed RC5 image.
+4. When explicitly authorized, ask ChibiOS maintainers for the intake path and
    integration branch (or use their SourceForge support path), then submit
    separate TIM14 and USB PMA changes; let maintainers choose stable backports.
-4. When explicitly authorized, publish the separate Renode HardFault-priority
+5. When explicitly authorized, publish the separate Renode HardFault-priority
    issue and issue-numbered infrastructure PR.
-5. After both required ChibiOS fixes are public (and stable backports are
+6. After both required ChibiOS fixes are public (and stable backports are
    selected), update and requalify the tinySA ChibiOS port, then submit the
    single RTOS-port PR.
-6. After the exact RC5 hardware self-test, offer the current zero-span-grid fix
+7. After the exact RC5 hardware self-test, offer the current zero-span-grid fix
    as its own tinySA correctness PR.
-7. After exact hardware reset testing, offer the deterministic backup checksum
+8. After exact hardware reset testing, offer the deterministic backup checksum
    as a separate tinySA fix if the maintainer wants another focused PR.
-8. Hold the hard-fault veneer until forced PSP/MSP faults, LCD reporting, stack
+9. Hold the hard-fault veneer until forced PSP/MSP faults, LCD reporting, stack
    canaries, reboot and DFU recovery all pass on the physical ZS407; then offer
    it as a separate tinySA safety PR.
-9. Only after the existing Renode review queue has moved, ask maintainers about
+10. Only after the existing Renode review queue has moved, ask maintainers about
    the ST7796S new model and the broader STM32F3 SPI-v2/channel-DMA design as
    separate issues.
 
