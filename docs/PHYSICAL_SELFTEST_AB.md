@@ -99,6 +99,51 @@ RC5 binary, perform the same cold boot, and capture RC5. Official TINYSA4 has
 no compiled DFU shell argument or DFU menu, so automation must not claim it
 can make that transition.
 
+## 2026-07-14 official IF-discrimination survey (non-qualifying)
+
+The official firmware was also measured in three controlled receiver
+configurations to distinguish coherent internal responses from random noise
+maxima and real CAL-path products. Each row is the average of two fresh
+450-point scans using the connected CAL-to-RF loopback:
+
+- `base`: `spur off`, `avoid off`;
+- `alternate`: `spur off`, `avoid on`;
+- `dual`: `spur on`, `avoid off`, which measures both paths and retains the
+  lower RSSI at each point.
+
+| Scene | Base SFDR | Alternate SFDR | Dual SFDR | Interpretation |
+| --- | ---: | ---: | ---: | --- |
+| 30 MHz, 1 MHz span, LNA off (case-3-like) | 60.78 dB | 58.50 dB | 65.00 dB | Noise-limited secondary maxima moved between repeats; dual acquisition lowered the visible maximum by about 4 dB. |
+| 30 MHz, 5 MHz span, LNA on (case-14-like) | 42.00 dB | 43.78 dB | 55.28 dB | Coherent responses repeated at the same bins for each single-IF path; dual acquisition suppressed the worst response by about 13 dB while the wanted carrier changed by 0.50 dB. |
+| 30 MHz, 7 MHz span, 32 dB attenuation (case-11-like) | 31.03 dB | 31.75 dB | 33.50 dB | The strongest out-of-lobe bin moved by megahertz between repeats, identifying a noise maximum rather than a stable spur. |
+| 915 MHz, 5 MHz span, 15 MHz CAL and LNA on (case-10-like) | 24.50 dB | 24.00 dB | 24.25 dB | The approximately -468.75 kHz companion remained repeatable under both IF choices; it is consistent with a real CAL/harmonic-path product, not a one-path image that the minimum detector can remove. |
+
+The raw, hash-bound records are:
+
+- `.artifacts/diagnostics/official-c979-spur-if-ab-run2-20260714/run.json`,
+  SHA-256
+  `8fb296862e8064a7a72c0afa2d81b56f65f89d967971685e4817a04fcb764e8b`;
+- `.artifacts/diagnostics/official-c979-switch-spur-if-ab-20260714/run.json`,
+  SHA-256
+  `e08fec5b0dc3524ac093ef44d9789c863652f403349c4293f06ba46581f78aa8`;
+- `.artifacts/diagnostics/official-c979-915m-spur-if-ab-20260714/run.json`,
+  SHA-256
+  `54e708b748b61485d9b971c7ca818dbbf1cbccd9cf1c76c26e6cc4b8b26be811`.
+
+Every survey ended by disabling CAL output, warm-resetting untouched official
+firmware, re-authenticating `tinySA4_v1.4-224-gc979386`, and verifying that
+the initial resumed 0--900 MHz sweep and automatic 850 kHz RBW were restored.
+These measurements characterize the official receiver only; they do not
+qualify RC5 and do not justify making factory self-tests cosmetically cleaner.
+
+The lowest-risk later-firmware improvement is selective dual-IF confirmation:
+in normal low-input `AUTO`, perform the second acquisition only for frequencies
+already classified `F_AT_SPUR` by `avoid_spur()`. Keep full two-pass behavior
+for explicit `ON` and Ultra `AUTO_ON`, and exclude self-test, direct, tracking,
+and zero-span paths until each has its own timing and RF qualification. This
+uses the existing frequency/IF-aware tables rather than a peak heuristic, so a
+real narrow signal that persists under both IF choices remains visible.
+
 ## Capture the A/B pair
 
 After flashing and cold-booting the official image:

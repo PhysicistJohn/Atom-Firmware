@@ -86,7 +86,7 @@ renaming a candidate without closing its disposition fails the host suite.
 | E051 | Qualify the MAX2871 fast-lock topology | specified | Requires physical loop-filter/SW inspection and settling measurements. |
 | E052 | Qualify cycle-slip reduction | specified | Charge-pump, phase-noise and lock-time effects require a spectrum analyzer campaign. |
 | E053 | Schedule CPU work during analog settling | specified | Only safe after GPIO/cycle correlation proves digital work does not create RF spurs. |
-| E054 | Selective spur verification | specified | Selection and validity rules exist; live acquisition integration needs repeatable signals. |
+| E054 | Selective spur verification | specified | Official-hardware base/alternate/dual scans now prove repeatable selective benefit and distinguish invariant CAL-path products; table-selected live integration and candidate qualification remain pending. |
 | E055 | Coarse-first progressive survey | specified | Progressive UI semantics exist; no unmeasured point is currently synthesized into a live trace. |
 | E056 | Focused rescans around peaks | experimental | Host-tested window selection and live dry-run reporting exist; rescans are not executed. |
 | E057 | Dynamic attenuation pre-ranging | specified | Needs overload observability and discontinuity calibration before changing the live path. |
