@@ -153,8 +153,9 @@ left without a provider.
 
 Local commit `2b8f425d26a61a7887916f7052b401f9e767a949` restores the handler and is the
 only ChibiOS delta required by the tinySA dual-target port. Its patch applies
-cleanly to authoritative `main` at `fbbfad31`. No matching issue or PR existed
-in the authoritative repository when checked.
+cleanly to authoritative `main` at `fbbfad31` and `stable-21.11.x` at
+`eb9a832b`. No matching issue or PR existed in the authoritative repository
+when checked.
 
 Do not publish `2b8f425d` verbatim: it carries a workstation-local author
 email and a tinySA-specific source comment. Prepare a fresh, vendor-neutral
