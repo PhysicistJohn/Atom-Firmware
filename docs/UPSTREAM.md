@@ -4,8 +4,8 @@ All personal development remains on the private PhysicistJohn repository.
 Upstream candidates are isolated from the replacement-firmware roadmap and
 carry the PhysicistJohn noreply identity.
 
-Publication proceeds one explicitly approved contribution at a time. As of
-2026-07-11, all seven tinySA packages are open as PRs
+Publication proceeds one explicitly approved contribution at a time. Status
+was rechecked on 2026-07-14: all seven tinySA packages are open as PRs
 [#156](https://github.com/erikkaashoek/tinySA/pull/156),
 [#157](https://github.com/erikkaashoek/tinySA/pull/157), and
 [#158](https://github.com/erikkaashoek/tinySA/pull/158),
@@ -65,28 +65,37 @@ superseded by `ver21.11.5`'s `ALIGN_WITH_INPUT` linker rules. Preserve only a
 small fork delta when the dual-target build, executable twin or hardware
 qualification proves it is still required.
 
-That isolated port is now complete on `codex/chibios-latest` at `ed558b3`
-(implementation commit `751b622`). Both F303 and F072 build with zero warnings
-on pinned GNU 11.3.1, and the F303 candidate reproduces the qualified twin boot
-signature and passes USB enumeration/CDC/reset qualification. Only one ChibiOS
-delta proved necessary: local commit `2b8f425d` restores the generic STM32F0
-TIM14 GPT ISR that F072 uses as `DELAY_TIMER`. Treat it as a focused upstream
-fix or carried hotpatch; do not replace it by disabling TIM14. The F072 image
-is already at 96.76% of its 116 KiB flash region, so further upstream growth is
-a release constraint.
+The selected isolated port is packaged from exact RC4 release commit `f5f912c`
+(implementation `f7b0d5c`, based on the port and hardening lineage). For each
+target, two clean builds reproduce all six retained outputs with zero warnings
+and zero undefined symbols on pinned Arm GNU 11.3.Rel1. The 193,948-byte F303
+image has SHA-256
+`17fa401eac68e514c99fdb55ed0c106601107b4c973876aa28d18993aee22fae`
+and passes exact-image boot, UI/RF, all fourteen paired exact-or-better
+screenshot/trace cases, USB enumeration/CDC/reset, and disconnected-CAL
+qualification. Only one ChibiOS delta proved necessary: local commit `2b8f425d`
+restores the generic STM32F0 TIM14 GPT ISR that F072 uses as `DELAY_TIMER`.
+Treat it as a focused upstream fix or carried hotpatch; do not replace it by
+disabling TIM14. The 115,188-byte F072 compatibility image has only 3,596 bytes
+free in its 116 KiB flash region and is build evidence only, so further upstream
+growth is a release constraint. The sealed package remains explicitly
+`hardware_qualified=false` until the exact RC4 BIN passes the physical
+screenshot, RF, USB, reset, and recovery gates.
 
 ## Renode
 
 Three emulator fixes are packaged under
 [`upstream-patches/renode/`](../upstream-patches/renode/README.md) against
 `renode-infrastructure`
-`1c3c1c1f9f1a1c4c7b7302bca3a37b9aa361c7a2`.
+`1c3c1c1f9f1a1c4c7b7302bca3a37b9aa361c7a2`; the fourth row is the newly
+qualified finding still awaiting a fresh issue/branch package.
 
 | Candidate | Observable failure | Recommended PR |
 | --- | --- | --- |
 | NVIC `ICSR.RETTOBASE` | Armv7/Armv8 bit always read zero; ChibiOS could not reschedule from the ZS407 startup IRQ | One NVIC PR |
 | Independent STM32 IDR/ODR | ODR initialization falsely asserted input-mode jog contacts | GPIO PR, commit 1 |
 | STM32 BSRR set priority | Simultaneous set/reset incorrectly let reset win | GPIO PR, commit 2 |
+| Architectural HardFault priority | A configurable priority-zero IRQ cannot be preempted because HardFault is also modeled as numeric priority zero | New issue and separate NVIC PR |
 
 The completed self-test also exposed gaps in the project-local STM32F3 SPI/DMA
 and ST7796S models, but those local fixes are not ready-made upstream patches.
@@ -113,7 +122,10 @@ independent-IDR/ODR GPIO change and its tightly related BSRR set-priority
 follow-up are the two commits in
 [PR #218](https://github.com/renode/renode-infrastructure/pull/218). Both Renode
 PRs are mergeable and their CLA checks pass; neither has maintainer feedback
-yet.
+yet. Do not add the HardFault-priority correction to PR #217: open a new
+`renode/renode` issue and issue-numbered infrastructure PR, with focused tests
+for configurable priority zero, NMI, `PRIGROUP`, Arm-version coverage, and
+interrupt masks.
 
 ## Exact-build finding for tinySA issue 152
 
@@ -133,25 +145,52 @@ routines differently.
 If the maintainer welcomes a response, contribute a concise reproducibility
 comment or small manifest—not the personal research history.
 
-## Deferred, not queued as “obvious”
+## Simulator-qualified findings still held from publication
+
+### Current zero-span time grid
+
+The legacy grid can remain based on the previous CW sweep because it is
+calculated before `actual_sweep_time_us` is updated. RC4 calculates and applies
+the exact grid tuple from the completed sweep, with 64-bit arithmetic through
+the final division and no redraw when the tuple is unchanged. Paired cases 12
+and 13 prove formula-exact columns, zero unexplained framebuffer pixels, and
+byte-identical trace memory against the pinned pre-ChibiOS
+`lab-v0.2.0-protocol` behavioral baseline (commit `d12bd826`; BIN SHA-256
+`a1dbaa03978a25b2a8b2a0e85f60029a6cc736481732eff68e93362724683dd7`).
+That baseline is distinct from the official `c979386` rollback image. Keep this
+as a focused tinySA application PR after the exact RC4 hardware self-test; do
+not include the local simulator classifier.
 
 ### Hard-fault entry
 
-`hard_fault_handler_c(uint32_t *sp)` is marked `naked` but contains ordinary
-C, locals, calls, and an infinite loop. Clang correctly rejects this; GCC emits
-stack-relative stores without a normal allocation prologue. A correct fix needs
-an assembly-only MSP/PSP veneer and a normal C diagnostic routine.
+`hard_fault_handler_c(uint32_t *sp)` is marked `naked` but contains ordinary C,
+locals, calls, and an infinite loop. Clang correctly rejects this; GCC emits
+stack-relative stores without a normal allocation prologue. RC4 uses an
+assembly-only EXC_RETURN MSP/PSP selector, saves r4-r11, and tail-branches to a
+normal C diagnostic routine on a 1 KiB main stack.
 
-This is a real correctness concern but not a few-line, low-risk change. It
-requires forced thread/handler faults, stack canaries, debugger comparison, and
-hardware validation before packaging.
+Simulator fault injection rejected one incorrect intermediate design: an
+extended floating-point exception still places the core R0..xPSR frame at the
+selected stack pointer, so adding 72 bytes made the reported PC zero. The
+corrected entry must still pass forced thread/handler faults, stack canaries,
+LCD reporting, reset and DFU recovery on physical hardware before it becomes a
+separate tinySA PR.
+
+### Deterministic warm-reset checksum
+
+The RTC backup checksum included a reserved byte from an uninitialized
+stack-local `backup_t`. RC4 initializes the complete structure before assigning
+fields, and the digital twin preserves the configured range and attenuation
+across an MCU reset. Keep this one-line application fix independent of the
+ChibiOS port, but do not publish it until the exact image passes warm reset,
+cold reset and power-cycle checks on hardware.
 
 ### Reproducible release manifest
 
-The image embeds `__DATE__` and `__TIME__`. A release manifest should record
-source/submodule commits, toolchain package, epoch, flags, sizes, and hashes.
-That is useful process work, but separate from the two-line pinned-submodule
-fix.
+RC4 closes this process gap: although the image embeds `__DATE__` and `__TIME__`,
+the builder fixes `SOURCE_DATE_EPOCH`, and the sealed manifest records source
+and submodule commits, toolchain, epoch, flags, sizes, hashes, and qualification
+state. Offer any equivalent upstream process change separately from PR #156.
 
 ### Licensing clarity
 

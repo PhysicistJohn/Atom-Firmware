@@ -5,7 +5,7 @@ digital twin and porting the firmware to ChibiOS 21.11.5. It separates code
 that is already public, code that is ready to prepare for a vendor, and local
 test infrastructure that must not be sent upstream.
 
-Status was checked against the public repositories on 2026-07-13. This audit
+Status was checked against the public repositories on 2026-07-14. This audit
 was read-only: it did not open an issue, publish a branch, comment, or push.
 
 ## Disposition at a glance
@@ -13,10 +13,15 @@ was read-only: it did not open an issue, publish a branch, comment, or push.
 | Vendor | Item | Disposition |
 | --- | --- | --- |
 | tinySA | Seven focused safety/build fixes | Already open as PRs #156 through #162; do not duplicate |
-| tinySA | ChibiOS 21.11.5 application port | Hold until complete candidate simulation and hardware qualification, then rebase and submit as a separate RTOS-port PR |
+| tinySA | ChibiOS 21.11.5 application port | Exact simulation is complete; hold until exact-image hardware qualification, then rebase, rebuild, requalify, and submit as a separate RTOS-port PR |
+| tinySA | Current zero-span time grid | New focused application correctness fix; exact simulator evidence is complete, but publish only after the exact RC4 hardware run |
+| tinySA | Deterministic warm-reset backup checksum | New focused application bug fix; retain separately from the RTOS port and publish only after exact hardware reset testing |
+| tinySA | Stack-safe MSP/PSP hard-fault entry | New focused application fix; simulator-qualified, but hold for forced-fault and recovery testing on hardware |
+| tinySA | Sweep/display timing recovery and explicit single-precision constants | Keep in the ChibiOS port because these changes preserve baseline timing under the new RTOS build |
 | ChibiOS | STM32F0 TIM14 GPT ISR | New upstream bug; prepare one issue and a `main` PR, then let the maintainer select a `stable-21.11.x` backport |
 | Renode | NVIC `RETTOBASE` | Already open as PR #217; do not duplicate |
 | Renode | STM32 GPIO IDR/ODR and BSRR priority | Already open as the two commits in PR #218; do not duplicate |
+| Renode | Architectural HardFault priority | New issue in `renode/renode`, followed by one issue-numbered infrastructure PR; keep separate from #217 |
 | Renode | Local DMA peer-channel heuristic | **Not for upstream**; upstream Renode already models SPI RX DMA requests through GPIO request lines |
 | Renode | STM32F3 SPI-v2/data packing and channel DMA | Possible future feature, after it is redesigned around Renode request lines and focused tests |
 | Renode | ST7796S GRAM readback | Possible future *new peripheral model*; there is no upstream ST7796S file to patch |
@@ -59,40 +64,76 @@ that becomes conflicted or is explicitly requested by the maintainer.
 
 ### ChibiOS 21.11.5 application port
 
-The isolated port is represented by:
+The isolated port and selected RC4 release lineage are represented by:
 
-- parent implementation commit
+- base port commit
   `751b62257e9d04fc29a3debc9c74c490628069ee`;
-- qualification/documentation commit `ed558b3`;
+- initial boot/USB qualification documentation commit `ed558b3`;
 - official ChibiOS tag `ver21.11.5` at
   `f4bbadf964fc746aef8bbcf34135c7d8fabb8eae`;
 - local ChibiOS compatibility commit
-  `2b8f425d26a61a7887916f7052b401f9e767a949` on top of that tag.
+  `2b8f425d26a61a7887916f7052b401f9e767a949` on top of that tag;
+- timing/display recovery commit `67948e1`;
+- deterministic-state and release-diagnostic commit `80161c7`;
+- corrected extended-FPU core-frame commit `eae9983`;
+- rejected RC3 gate commit
+  `134ccdeaf710f5266bb8b1e447e0c915385566ea`;
+- self-test timing, trace-preservation, and current zero-span-grid implementation
+  `f7b0d5c6a6894655108cd6e8626d56ff25ad76ee`;
+- exact audited RC4 package commit
+  `f5f912c1bdc95b785dcbde85495aa5153fe0721a`.
 
-The implementation changes 21 application/build files (449 insertions and
-203 deletions). It is a coupled RTOS migration, not an appropriate addition to
-any of the seven safety PRs.
+The base port commit changes 21 files (449 insertions and 203 deletions); the
+later commits add qualification-driven timing, state, diagnostic, and display
+corrections. It is a coupled RTOS migration, not an appropriate addition to any
+of the seven safety PRs.
 
 Current build evidence with Arm GNU 11.3.Rel1 is:
 
 | Target | Bytes | Flash use | SHA-256 |
 | --- | ---: | ---: | --- |
-| F303 | 193,060 | 78.56% of 240 KiB | `6a442a53c71eb5e85880714863d80e13c47ebad1106187586e7724aebc3450b9` |
-| F072 | 114,940 | 96.76% of 116 KiB | `396922a90a643d247bbe4ef56cdc137f3ba4df439cfad31b15745af87330c07c` |
+| F303 RC4 | 193,948 | 78.92% of 240 KiB | `17fa401eac68e514c99fdb55ed0c106601107b4c973876aa28d18993aee22fae` |
+| F072 compatibility | 115,188 | 96.97% of 116 KiB | `01f4fb2ad5d7296a67bc987dd7276f4287192146cfdd4432421d11b87a3200d0` |
 
-Both clean builds completed with zero compiler warnings. The F303 image
-matched the qualified twin boot signature and passed the modeled USB device
-matrix. Candidate-specific self-test/UI/RF qualification and the physical
-device gate must be recorded before publication. The F072 size is a release
-constraint and needs to be called out prominently to the maintainer.
+The builder produced two byte-identical clean builds of all six retained
+artifacts (BIN/ELF/HEX/MAP/LIST/DMP) for both targets, with zero compiler
+warnings and zero undefined symbols. A hostile-environment rebuild reproduced
+the same F303 hash after poisoning the caller's output-directory, optimization,
+FPU, define, phase, version, and compiler variables. The exact F303 image passed
+boot, jog, touch, a visibly non-flat 445.9 MHz RF tone, all fourteen positive
+self-tests, disconnected-CAL failure/recovery, and the complete USB
+enumeration/CDC/STALL/reset matrix.
+
+The authoritative paired visual run captured the direct pre-ChibiOS
+`lab-v0.2.0-protocol` ancestor (`d12bd826`, BIN SHA-256
+`a1dbaa03978a25b2a8b2a0e85f60029a6cc736481732eff68e93362724683dd7`)
+and RC4 result screen plus all four 450-point trace planes for every case. This
+is the port's behavioral baseline, not the official `c979386` rollback image.
+Cases 1..11 and 14 passed the strict visual comparator. Cases 12 and 13 passed
+the additive `mathematically-better-time-grid` classifier: RC4's observed grid
+columns exactly match its completed sweep time, the lab baseline is demonstrably
+stale, and every changed pixel is an expected grid intersection or bounded time
+label. All fourteen 7,200-byte trace matrices are byte-identical between the
+baseline and RC4, including the non-flat filter and gain responses. Physical
+qualification is still required. The F072 image has only 3,596 bytes of flash
+headroom and remains a release constraint.
+
+The simulation-sealed package contains a 220-entry `SHA256SUMS` inventory with
+SHA-256
+`bc221054ff0a80954f59dce844f19328d6e3d01321bbffa843ae564d25844360`.
+Its manifest remains `hardware_qualified=false`, and `HARDWARE_PENDING` names
+the physical screenshot, RF, USB, reset, forced-fault, and recovery gates.
 
 Publication dependencies, in order:
 
-1. Complete all candidate-specific twin scenarios, including the regenerated
-   symbol profile, 14 self-tests, UI/RF scenario, and USB reset/re-enumeration.
+1. Retain the completed hash-bound twin evidence: symbol profile, paired
+   all-14 visual/trace captures, UI/RF, USB/reset, runtime-state, and fault
+   scenarios.
 2. Qualify the exact packaged F303 binary on the physical device, including
-   recovery/DFU, cold boot, complete self-test, USB traffic, controls, touch,
-   acquisition, and RF behavior. Preserve the exact binary hash in evidence.
+   recovery/DFU, cold boot, complete self-test with paired screenshot review,
+   USB traffic, controls, touch, acquisition, RF behavior, warm/cold/power-cycle
+   retention, and forced PSP/MSP fault recovery. Preserve the exact binary hash
+   in evidence.
 3. Make the TIM14 ChibiOS fix publicly fetchable. Prefer the authoritative
    ChibiOS `main` fix and its selected stable backport. A parent repository
    must never point at the current local-only `2b8f425d` gitlink.
@@ -118,6 +159,52 @@ old `67fdcd8ed` linker alignment change. The former combines unrelated
 CMSIS/HAL/USB/serial changes; the latter is superseded by 21.11.5's
 `ALIGN_WITH_INPUT` rules. Do not mix the digital-twin fixtures into the
 application port.
+
+### New tinySA findings from RC4 qualification
+
+Keep the following three fixes independent of the RTOS-port review. They are
+application defects present in the legacy code, not ChibiOS defects.
+
+**Current zero-span time grid.** The legacy grid is calculated before the
+completed CW sweep replaces `actual_sweep_time_us`, so the displayed time-axis
+columns can describe the previous measurement. RC4 calculates the exact
+`(offset,width,span)` tuple from the completed sweep, uses 64-bit arithmetic
+until the final division, and redraws only if that tuple changed. In paired
+cases 12 and 13, expected and observed columns match exactly while the baseline
+columns are stale; every framebuffer delta is explained by relocated grid
+intersections or bounded time text, and the four trace planes remain
+byte-identical. Prepare this as a focused application PR after the same RC4
+binary passes the physical self-test and display checks. Do not bundle the
+simulator classifier or test-specific activity thresholds.
+
+**Deterministic backup checksum.** `Thread1` copied a stack-local `backup_t`
+into RTC backup storage after checksumming all bytes except the checksum byte,
+but the packed structure's reserved byte was never initialized. Optimized
+builds could therefore persist a checksum over indeterminate data and reject
+otherwise valid analyzer settings after reset. RC4 zero-initializes the entire
+structure before assigning fields. The digital twin preserved the configured
+123,456,789..987,654,321 Hz range and 9 dB attenuation across an MCU reset,
+including a deterministic reserved byte. Prepare this as a tiny one-line
+correctness PR only after the exact image also passes physical warm/cold reset
+and power-cycle tests.
+
+**Hard-fault entry.** The legacy handler marks ordinary C containing locals,
+calls, and an infinite loop as `naked`, reads PSP unconditionally, and does not
+reliably preserve r4-r11. RC4 uses an assembly-only EXC_RETURN MSP/PSP selector,
+saves r4-r11 on the 1 KiB main stack, then tail-branches to a normal noreturn C
+diagnostic. A forced PSP fault with active FPU state proved that the Cortex-M4
+core frame is already at the selected stack pointer; an attempted 72-byte
+adjustment was rejected because it reported PC as zero. Submit the final
+minimal veneer as its own PR only after both PSP/thread and MSP/handler faults,
+LCD diagnostics, stack canaries, reset, and DFU recovery pass on hardware.
+
+The explicit `-fsingle-precision-constant` policy, fast-sweep timer-read
+gating, factory-self-test scratch preservation, and three narrowly selected
+display hot paths belong in the ChibiOS port. Together they restore paired
+self-test timing, trace planes, and display throughput under the newer
+kernel/compiler rules; splitting them out would leave the port with a known
+performance regression. Do not propose whole-firmware `-O3`, strict-aliasing
+changes, or the simulator's activity thresholds upstream.
 
 ## 2. ChibiOS
 
@@ -197,7 +284,7 @@ Recommended publication order:
 4. Once a public commit is available, update the tinySA port gitlink and repeat
    its build/qualification gates.
 
-Only this TIM14 defect belongs in the ChibiOS queue. The 449-line tinySA
+Only this TIM14 defect belongs in the ChibiOS queue. The multi-file tinySA
 application adaptation belongs to tinySA, and the historical fork's mixed
 `ade76dea8` changes do not belong in either ChibiOS PR.
 
@@ -206,8 +293,9 @@ application adaptation belongs to tinySA, and the historical fork's mixed
 Model fixes target <https://github.com/renode/renode-infrastructure>, while
 the contribution workflow tracks their issues in
 <https://github.com/renode/renode>. It requires an issue and an
-issue-numbered infrastructure branch before a PR. Current infrastructure `master` was
-`66feec8e42bc86145b51355c95c5f1e2adcd8e06` when status was checked.
+issue-numbered infrastructure branch before a PR. Current infrastructure
+`master` was `7068985cd454911e4137bbffcce177fd7b488950` when status was
+checked.
 
 ### Already published queue
 
@@ -222,6 +310,29 @@ latest generated merge refs have current `master` as their first parent, so
 there is no observed merge conflict. Do not create duplicates or add unrelated
 model changes to either PR. Wait for review and rebase only if GitHub later
 reports a conflict or a maintainer requests it.
+
+### Architectural HardFault priority: new issue and PR
+
+The RC4 nested-handler qualifier exposed a distinct NVIC modeling defect.
+Cortex-M assigns HardFault a fixed architectural priority above every
+configurable interrupt, but the current model represents it with numeric
+priority zero. A configurable IRQ also left at priority zero therefore cannot
+be preempted by HardFault. The local qualification scenario must assign the
+outer IRQ priority `0x80` to exercise the correct nested MSP path.
+
+This is not part of `RETTOBASE` PR #217. Open a new issue in
+`renode/renode`, then prepare one issue-numbered `renode-infrastructure` PR
+that gives HardFault its fixed priority. Focused tests should prove:
+
+- HardFault preempts a configurable priority-zero IRQ;
+- NMI still preempts HardFault;
+- `PRIGROUP` does not make a configurable interrupt outrank HardFault;
+- behavior is correct across the supported Cortex-M/Arm versions;
+- `PRIMASK`, `BASEPRI`, and `FAULTMASK` retain their architectural effects.
+
+The RC4 PSP and nested-MSP scenarios are integration evidence, not a substitute
+for managed NVIC unit tests. No matching public issue or PR existed when this
+queue was checked.
 
 ### DMA peer-channel heuristic: not for upstream
 
@@ -293,13 +404,22 @@ project-local qualification infrastructure.
 
 ## Recommended cross-vendor order
 
-1. Finish and package the exact F303 candidate; complete twin and physical
-   qualification without changing the binary between evidence and release.
+1. Keep the simulation-sealed RC4 hash fixed and complete its physical
+   qualification before calling it hardware-qualified.
 2. Leave tinySA PRs #156-#162 and Renode PRs #217/#218 alone pending review.
 3. Publish the ChibiOS TIM14 issue and `main` PR when explicitly authorized.
-4. After that fix is public (and a stable backport is selected), update and
+4. When explicitly authorized, publish the separate Renode HardFault-priority
+   issue and issue-numbered infrastructure PR.
+5. After the TIM14 fix is public (and a stable backport is selected), update and
    requalify the tinySA ChibiOS port, then submit the single RTOS-port PR.
-5. Only after the existing Renode review queue has moved, ask maintainers about
+6. After the exact RC4 hardware self-test, offer the current zero-span-grid fix
+   as its own tinySA correctness PR.
+7. After exact hardware reset testing, offer the deterministic backup checksum
+   as a separate tinySA fix if the maintainer wants another focused PR.
+8. Hold the hard-fault veneer until forced PSP/MSP faults, LCD reporting, stack
+   canaries, reboot and DFU recovery all pass on the physical ZS407; then offer
+   it as a separate tinySA safety PR.
+9. Only after the existing Renode review queue has moved, ask maintainers about
    the ST7796S new model and the broader STM32F3 SPI-v2/channel-DMA design as
    separate issues.
 
