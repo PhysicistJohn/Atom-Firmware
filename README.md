@@ -81,6 +81,7 @@ Read first
 - [Private phase-image release policy](docs/PRIVATE_RELEASES.md)
 - [Portable firmware/Mac core and generated contracts](modern/README.md)
 - [Exact ZS407 executable digital twin](docs/DIGITAL_TWIN.md)
+- [ChibiOS 21.11.5 port and qualification boundary](docs/CHIBIOS_21_11_5_PORT.md)
 - [Atomic 480×320 embedded UI](docs/EMBEDDED_UI.md)
 - [LLVM hybrid build experiment](experiments/llvm/README.md)
 - [Known issues and community research](docs/KNOWN_ISSUES.md)

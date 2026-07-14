@@ -132,6 +132,8 @@ endif
 #CHIBIOS = ../ChibiOS-RT
 CHIBIOS = ChibiOS
 PROJ = .
+# ChibiOS 21.11.x keeps its license policy header in a dedicated include.
+include $(CHIBIOS)/os/license/license.mk
 # Startup files.
 
 ifeq ($(TARGET),F303)
@@ -147,13 +149,13 @@ include $(CHIBIOS)/os/hal/ports/STM32/STM32F0xx/platform.mk
 include NANOVNA_STM32_F072/board.mk
 endif
 
-include $(CHIBIOS)/os/hal/osal/rt/osal.mk
+include $(CHIBIOS)/os/hal/osal/rt-nil/osal.mk
 # RTOS files (optional).
 include $(CHIBIOS)/os/rt/rt.mk
 ifeq ($(TARGET),F303)
-include $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC/mk/port_v7m.mk
+include $(CHIBIOS)/os/common/ports/ARMv7-M/compilers/GCC/mk/port.mk
 else
-include $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC/mk/port_v6m.mk
+include $(CHIBIOS)/os/common/ports/ARMv6-M/compilers/GCC/mk/port.mk
 endif
 # Other files (optional).
 #include $(CHIBIOS)/test/rt/test.mk
@@ -202,6 +204,7 @@ endif
 ifeq ($(TARGET),F303)
 CSRC = $(STARTUPSRC) \
        $(KERNSRC) \
+       $(OSLIBSRC) \
        $(PORTSRC) \
        $(OSALSRC) \
        $(HALSRC) \
@@ -217,6 +220,7 @@ CSRC = $(STARTUPSRC) \
 else
 CSRC = $(STARTUPSRC) \
        $(KERNSRC) \
+       $(OSLIBSRC) \
        $(PORTSRC) \
        $(OSALSRC) \
        $(HALSRC) \
@@ -252,10 +256,11 @@ TCSRC =
 #       option that results in lower performance and larger code size.
 TCPPSRC =
 
-# List ASM source files here
-ASMSRC = $(STARTUPASM) $(PORTASM) $(OSALASM)
+# ChibiOS startup and port assembly is preprocessed (.S), not plain assembly.
+ASMSRC =
+ASMXSRC = $(STARTUPASM) $(PORTASM) $(OSALASM)
 
-INCDIR = $(STARTUPINC) $(KERNINC) $(PORTINC) $(OSALINC) \
+INCDIR = $(LICINC) $(STARTUPINC) $(KERNINC) $(OSLIBINC) $(PORTINC) $(OSALINC) \
          $(HALINC) $(PLATFORMINC) $(BOARDINC)  \
          $(STREAMSINC)
 
@@ -313,7 +318,7 @@ CPPWARN = -Wall -Wextra -Wundef
 
 # List all user C define here, like -D_DEBUG=1
 ifeq ($(TARGET),F303)
- UDEFS = -DARM_MATH_CM4 -DVERSION=\"$(VERSION)\" -DTINYSA_F303 -D__FPU_USED -DST7796S -DTINYSA4
+ UDEFS = -DARM_MATH_CM4 -DVERSION=\"$(VERSION)\" -DTINYSA_F303 -DST7796S -DTINYSA4
 ifneq ($(PHASE),)
  UDEFS+= -DZS407_PHASE_BUILD=1 -DZS407_PHASE=$(PHASE)
 endif
@@ -345,18 +350,11 @@ ULIBS = -lm
 # End of user defines
 ##############################################################################
 
-RULESPATH = $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC
+RULESPATH = $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/mk
+include $(RULESPATH)/arm-none-eabi.mk
 include $(RULESPATH)/rules.mk
 #include $(CHIBIOS)/memory.mk
 
-
-ifeq ($(TARGET),F303)
-clean:
-	rm -f -rf build/tinySA4.* build/lst/*.* build/obj/*.*
-else
-clean:
-	rm -f -rf build/$(PROJECT).* build/lst/*.* build/obj/*.*
-endif
 
 flash: build/$(PROJECT).bin
 	-@printf "reset dfu\r" >/dev/cu.usbmodem401 # mac
