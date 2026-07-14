@@ -92,8 +92,8 @@ application flash headroom, so further growth is a release constraint.
 
 The simulation-sealed package is under
 `.artifacts/chibios-releases/v0.4-chibios21.11.5-rc4/f5f912c1bdc95b785dcbde85495aa5153fe0721a/`.
-Its 220-entry `SHA256SUMS` inventory has SHA-256
-`bc221054ff0a80954f59dce844f19328d6e3d01321bbffa843ae564d25844360`.
+Its 353-entry `SHA256SUMS` inventory has SHA-256
+`fb58d8ad59192c25fa4fa5d13a11ba4f164ce122fc372fbbe9733de2c2dd7aaa`.
 The package carries `HARDWARE_PENDING`, not a hardware-release approval.
 
 Digital-twin qualification
@@ -111,11 +111,11 @@ negative control made case 3 fail with firmware status 2 and cause
 `Signal level`, retained the real interactive failure screen, accepted touch
 acknowledgement, restored normal sweep state, and reconnected the fixture.
 
-The authoritative paired visual gate ran all fourteen cases on the pinned
+The primary paired visual gate ran all fourteen cases on the pinned
 pre-ChibiOS `lab-v0.2.0-protocol` baseline (`d12bd826`, BIN SHA-256
 `a1dbaa03978a25b2a8b2a0e85f60029a6cc736481732eff68e93362724683dd7`)
 and the exact RC4 image. This direct ancestor is the port's behavioral A/B
-reference; it is not the separate official `c979386` rollback image. Both runs
+reference. Both runs
 produced fourteen firmware passes, settled result screens, status records,
 307,200-byte raw LCD frames, and 7,200-byte four-plane trace captures, with zero
 model errors. Cases 1..11 and 14 pass the strict legacy comparator. Cases 12
@@ -127,6 +127,22 @@ trace matrices are byte-identical baseline-to-RC4. The suite visibly retains
 the narrow peaks, broad filter responses, and the 104.03 dB-span case-14 gain
 trace; flat status-only evidence is explicitly rejected.
 
+A supplemental all-fourteen gate then ran the official `c979386` firmware
+(BIN SHA-256
+`3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41`)
+from scratch and compared its screenshots and trace memory with the same exact
+RC4 capture. Both variants produced 14/14 PASS, READY, settled, status, raw
+screen, and trace captures. All fourteen 7,200-byte trace matrices and all raw
+vs actual measured-trace planes are byte-identical. Cases 1..11 and 14 pass
+strictly. Cases 12
+and 13 pass the adversarial-tested exact-or-better classifier: every delta is a
+formula-current grid intersection or bounded elapsed-time glyph, with zero
+unexplained pixels. Case 12 preserves the exact 307,520 display-read bytes and
+uses 0.510101% fewer redundant pixel writes. Reviewed contact sheets retain the
+real peak, filter, suppression, isolation, and 278-pixel LNA shapes; flat-line
+status evidence cannot satisfy the gate. The initial conservative classifier
+result remains in the package for audit beside the final calibrated report.
+
 Runtime-state qualification retained the configured RTC state across warm
 reset, completed all fourteen tests again, left 624 bytes of sweep stack and
 912 bytes of MSP, and transferred a 131-packet/8,300-byte remote redraw over
@@ -134,9 +150,12 @@ USB. Both the extended-FPU PSP and nested-handler MSP HardFault paths preserved
 their core frames and r4-r11 diagnostics; the fatal screens were captured from
 the authoritative raw framebuffer with 584 and 552 bytes of MSP remaining.
 
-Every exact scenario exited zero with zero unexpected simulator warnings. Known
-warnings were limited to the pinned Renode model's documented translation-cache
-clamp, Thumb-entry normalization, USART LBDIE/EIE/ICR gaps, and TIM1 MMS bit 5.
+Every exact RC4 candidate scenario exited zero with zero unexpected simulator
+warnings. Its known warnings were limited to the pinned Renode model's
+documented translation-cache clamp, Thumb-entry normalization, USART
+LBDIE/EIE/ICR gaps, and TIM1 MMS bit 5. The supplemental official run also
+emitted the legacy firmware's documented EXTI register-model warnings and had
+zero harness error markers.
 The nested-MSP test assigned the outer configurable IRQ priority `0x80` because
 the pinned model represents HardFault as numeric priority zero; that distinct
 Renode defect is retained in the vendor queue.
@@ -152,8 +171,9 @@ launch, qualify at least:
 
 1. Cold boot, normal boot, DFU entry, and recovery.
 2. Complete self-test and calibration-preservation checks; capture every result
-   screen and compare it with the sealed lab-baseline/candidate evidence for
-   exact or demonstrably better behavior, including real non-flat traces.
+   screen and compare it with both sealed simulator baselines (the direct
+   pre-port ancestor and official `c979386`) for exact or demonstrably better
+   behavior, including real non-flat traces.
 3. USB enumeration, shell traffic, suspend/resume, disconnect/reconnect, and
    sustained frame transfer.
 4. Lever, push, touch, SD-card detect/power, and serial-mode PAL events.

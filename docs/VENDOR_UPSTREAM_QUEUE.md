@@ -104,12 +104,12 @@ boot, jog, touch, a visibly non-flat 445.9 MHz RF tone, all fourteen positive
 self-tests, disconnected-CAL failure/recovery, and the complete USB
 enumeration/CDC/STALL/reset matrix.
 
-The authoritative paired visual run captured the direct pre-ChibiOS
+The primary paired visual run captured the direct pre-ChibiOS
 `lab-v0.2.0-protocol` ancestor (`d12bd826`, BIN SHA-256
 `a1dbaa03978a25b2a8b2a0e85f60029a6cc736481732eff68e93362724683dd7`)
 and RC4 result screen plus all four 450-point trace planes for every case. This
-is the port's behavioral baseline, not the official `c979386` rollback image.
-Cases 1..11 and 14 passed the strict visual comparator. Cases 12 and 13 passed
+is the port's direct behavioral baseline. Cases 1..11 and 14 passed the strict
+visual comparator. Cases 12 and 13 passed
 the additive `mathematically-better-time-grid` classifier: RC4's observed grid
 columns exactly match its completed sweep time, the lab baseline is demonstrably
 stale, and every changed pixel is an expected grid intersection or bounded time
@@ -118,9 +118,20 @@ baseline and RC4, including the non-flat filter and gain responses. Physical
 qualification is still required. The F072 image has only 3,596 bytes of flash
 headroom and remains a release constraint.
 
-The simulation-sealed package contains a 220-entry `SHA256SUMS` inventory with
+The supplemental visual run used the official `c979386` image itself (BIN
 SHA-256
-`bc221054ff0a80954f59dce844f19328d6e3d01321bbffa843ae564d25844360`.
+`3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41`).
+Both official and RC4 runs produced all six required capture counters for all
+fourteen cases, and all trace matrices were byte-identical. Cases 1..11 and 14
+passed strictly. Cases 12/13 passed the adversarial-tested exact-or-better
+classification with formula-current candidate grids, bounded time text, and
+zero unexplained pixels. The contact sheets preserve real shaped traces rather
+than accepting flat-line status output. The conservative pre-calibration
+rejection remains sealed beside the final report for audit.
+
+The simulation-sealed package contains a 353-entry `SHA256SUMS` inventory with
+SHA-256
+`fb58d8ad59192c25fa4fa5d13a11ba4f164ce122fc372fbbe9733de2c2dd7aaa`.
 Its manifest remains `hardware_qualified=false`, and `HARDWARE_PENDING` names
 the physical screenshot, RF, USB, reset, forced-fault, and recovery gates.
 
@@ -173,7 +184,9 @@ until the final division, and redraws only if that tuple changed. In paired
 cases 12 and 13, expected and observed columns match exactly while the baseline
 columns are stale; every framebuffer delta is explained by relocated grid
 intersections or bounded time text, and the four trace planes remain
-byte-identical. Prepare this as a focused application PR after the same RC4
+byte-identical. The separate official `c979386` A/B run confirms the same
+formula-current result with zero unexplained pixels and byte-identical trace
+matrices. Prepare this as a focused application PR after the same RC4
 binary passes the physical self-test and display checks. Do not bundle the
 simulator classifier or test-specific activity thresholds.
 

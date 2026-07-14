@@ -72,8 +72,9 @@ and zero undefined symbols on pinned Arm GNU 11.3.Rel1. The 193,948-byte F303
 image has SHA-256
 `17fa401eac68e514c99fdb55ed0c106601107b4c973876aa28d18993aee22fae`
 and passes exact-image boot, UI/RF, all fourteen paired exact-or-better
-screenshot/trace cases, USB enumeration/CDC/reset, and disconnected-CAL
-qualification. Only one ChibiOS delta proved necessary: local commit `2b8f425d`
+screenshot/trace cases against both the direct pre-port and official `c979386`
+baselines, USB enumeration/CDC/reset, and disconnected-CAL qualification. Only
+one ChibiOS delta proved necessary: local commit `2b8f425d`
 restores the generic STM32F0 TIM14 GPT ISR that F072 uses as `DELAY_TIMER`.
 Treat it as a focused upstream fix or carried hotpatch; do not replace it by
 disabling TIM14. The 115,188-byte F072 compatibility image has only 3,596 bytes
@@ -157,9 +158,12 @@ and 13 prove formula-exact columns, zero unexplained framebuffer pixels, and
 byte-identical trace memory against the pinned pre-ChibiOS
 `lab-v0.2.0-protocol` behavioral baseline (commit `d12bd826`; BIN SHA-256
 `a1dbaa03978a25b2a8b2a0e85f60029a6cc736481732eff68e93362724683dd7`).
-That baseline is distinct from the official `c979386` rollback image. Keep this
-as a focused tinySA application PR after the exact RC4 hardware self-test; do
-not include the local simulator classifier.
+The supplemental official `c979386` comparison independently reproduces the
+same conclusion: cases 1..11 and 14 pass strictly, all fourteen trace matrices
+are byte-identical, and cases 12/13 contain only formula-current grid and
+bounded time-text changes with zero unexplained pixels. Keep this as a focused
+tinySA application PR after the exact RC4 hardware self-test; do not include
+the local simulator classifier.
 
 ### Hard-fault entry
 

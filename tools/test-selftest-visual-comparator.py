@@ -345,6 +345,38 @@ def main() -> int:
         "exact formula-derived time-grid improvement was not accepted additively",
     )
 
+    def retain_official_write_efficiency(candidate: dict[str, object]) -> None:
+        candidate["sweep_time_us"] = 5300
+        candidate["case_pixel_writes"] = 198_800
+
+    efficient_grid_result = compare(
+        12,
+        stale_time_grid,
+        current_5300,
+        retain_official_write_efficiency,
+    )
+    require(
+        not efficient_grid_result["pass"]
+        and COMPARATOR.classify_release([efficient_grid_result, improved_13])["pass"],
+        "bounded zero-span write reduction was not accepted",
+    )
+
+    def reduce_grid_writes_one_percent(candidate: dict[str, object]) -> None:
+        candidate["sweep_time_us"] = 5300
+        candidate["case_pixel_writes"] = 198_000
+
+    low_write_grid_result = compare(
+        12,
+        stale_time_grid,
+        current_5300,
+        reduce_grid_writes_one_percent,
+    )
+    require(
+        failed(low_write_grid_result, "display-readback-numeric-activity")
+        and not COMPARATOR.classify_release([low_write_grid_result, improved_13])["pass"],
+        "one-percent zero-span write loss was accepted",
+    )
+
     stale_candidate_12 = compare(12, stale_time_grid, copy.copy(stale_time_grid))
     require(
         not COMPARATOR.classify_release([stale_candidate_12, improved_13])["pass"],
