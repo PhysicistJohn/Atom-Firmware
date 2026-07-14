@@ -1,5 +1,8 @@
 # Upstream contribution queue
 
+The exact pause/resume state for the next publication session is recorded in
+[Upstream return checkpoint](UPSTREAM_RETURN_CHECKPOINT.md).
+
 All personal development remains on the private PhysicistJohn repository.
 Upstream candidates are isolated from the replacement-firmware roadmap and
 carry the PhysicistJohn noreply identity.
