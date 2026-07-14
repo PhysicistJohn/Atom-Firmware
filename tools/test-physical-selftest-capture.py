@@ -102,6 +102,25 @@ class CaptureHelpersTest(unittest.TestCase):
         self.assertAlmostEqual(comparison["rmse"], 0.5)
         self.assertAlmostEqual(comparison["pearson"], 1.0)
 
+    def test_physical_sweeptime_parses_seconds_and_milliseconds(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            shell = root / "case-01-shell"
+            shell.mkdir()
+            response = shell / "sweeptime.txt"
+            response.write_bytes(
+                b"sweeptime\r\nusage: sweeptime 0.003..60\r\n1.925s\r\nch> "
+            )
+            self.assertAlmostEqual(COMPARE.load_sweeptime(root, 1), 1.925)
+            response.write_bytes(
+                b"sweeptime\r\nusage: sweeptime 0.003..60\r\n 55.6ms\r\nch> "
+            )
+            self.assertAlmostEqual(COMPARE.load_sweeptime(root, 1), 0.0556)
+            response.write_bytes(b"sweeptime\r\nunparseable\r\nch> ")
+            self.assertIsNone(COMPARE.load_sweeptime(root, 1))
+
 
 if __name__ == "__main__":
     unittest.main()

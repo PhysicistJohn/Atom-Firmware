@@ -160,8 +160,15 @@ def load_frequencies(root: Path, case: int) -> list[int]:
 def load_sweeptime(root: Path, case: int) -> float | None:
     path = root / f"case-{case:02d}-shell/sweeptime.txt"
     response = path.read_bytes().replace(b"\r", b"")
-    matches = re.findall(rb"(?:^|\n)\s*([0-9]+(?:\.[0-9]+)?)s(?:\n|ch> )", response)
-    return float(matches[-1]) if matches else None
+    matches = re.findall(
+        rb"(?:^|\n)[ \t]*([0-9]+(?:\.[0-9]+)?)(ms|s)[ \t]*(?:\n|ch> )",
+        response,
+    )
+    if not matches:
+        return None
+    value, unit = matches[-1]
+    seconds = float(value)
+    return seconds / 1000.0 if unit == b"ms" else seconds
 
 
 def load_trace_planes(root: Path, case: int) -> list[list[float]]:
