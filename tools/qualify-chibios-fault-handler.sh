@@ -325,6 +325,7 @@ import pathlib
 import re
 import struct
 import sys
+import zlib
 
 (
     psp_log_path,
@@ -359,6 +360,40 @@ capture_dir = pathlib.Path(capture_dir_path)
 
 def fail(message):
     raise SystemExit(f"HardFault qualification failed: {message}")
+
+
+def png_chunk(kind, payload):
+    return (
+        struct.pack(">I", len(payload))
+        + kind
+        + payload
+        + struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF)
+    )
+
+
+def canonical_rgb565_png(raw, width, height):
+    pixels = struct.unpack(f"<{len(raw) // 2}H", raw)
+    scanlines = bytearray()
+    for row in range(height):
+        scanlines.append(0)
+        for pixel in pixels[row * width : (row + 1) * width]:
+            red = (pixel >> 11) & 0x1F
+            green = (pixel >> 5) & 0x3F
+            blue = pixel & 0x1F
+            scanlines.extend(
+                (
+                    (red << 3) | (red >> 2),
+                    (green << 2) | (green >> 4),
+                    (blue << 3) | (blue >> 2),
+                )
+            )
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + png_chunk(b"IHDR", ihdr)
+        + png_chunk(b"IDAT", zlib.compress(bytes(scanlines), level=9))
+        + png_chunk(b"IEND", b"")
+    )
 
 
 def parse_atomic(lines, prefix, fields):
@@ -488,6 +523,7 @@ for kind, log_path in (("psp", psp_log_path), ("msp", msp_log_path)):
     unique_pixels = len(set(struct.unpack(f"<{len(raw) // 2}H", raw)))
     if unique_pixels < 8:
         fail(f"{kind} fatal screen is flat ({unique_pixels} unique RGB565 values)")
+    png_path.write_bytes(canonical_rgb565_png(raw, 480, 320))
     png = png_path.read_bytes()
     if png[:8] != b"\x89PNG\r\n\x1a\n" or len(png) < 24:
         fail(f"{kind} screenshot is not a PNG")
@@ -539,6 +575,7 @@ report_lines = [
     "handler_origin_outer_exception=35",
     "handler_origin_outer_irq_priority=0x80",
     "handler_origin_priority_workaround=YES",
+    "fatal_screen_png_source=CANONICAL_RGB565",
     "callee_r4_r11=44444444,55555555,66666666,77777777,88888888,99999999,AAAAAAAA,BBBBBBBB",
 ]
 for kind in ("psp", "msp"):
