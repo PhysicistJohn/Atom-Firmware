@@ -24,6 +24,17 @@ TRACE_BYTES = len(PLANES) * TRACE_POINTS * 4
 SUPPRESSION_CASES = frozenset((1, 2, 5, 9))
 ABOVE_CASES = frozenset((6,))
 STRUCTURED_CASES = frozenset((3, 4, 6, 7, 8, 10, 11, 14))
+# Only these factory cases contain one intended, narrow carrier whose largest
+# out-of-lobe response has an unambiguous SFDR interpretation.  The other
+# cases are still measured below, but are diagnostic-only: suppression/noise
+# tests have no wanted carrier, cases 7/8 are broad filter responses, case 6
+# deliberately exercises a harmonic path, and cases 12/13 are zero-span.
+SFDR_GATED_CASES = frozenset((3, 4, 10, 11, 14))
+# 23 bins on either side is just over five percent of a 450-point sweep.  It
+# clears the widest official -30 dB carrier lobe (19 bins in case 11) while
+# retaining more than 89 percent of every sweep for secondary-response search.
+SFDR_GUARD_BINS = 23
+SFDR_REGRESSION_TOLERANCE_DB = 3.0
 
 
 def load_tool(name: str, filename: str) -> Any:
@@ -280,6 +291,123 @@ def compare_sequences(reference: list[float], candidate: list[float]) -> dict[st
     }
 
 
+def secondary_response_metrics(values: list[float], frequencies: list[int],
+                               guard_bins: int = SFDR_GUARD_BINS) -> dict[str, Any]:
+    """Measure the strongest response outside a fixed main-carrier guard.
+
+    The value is SFDR-like for the explicitly gated single-carrier cases.  It
+    remains useful raw diagnostic data for every other case, but must not be
+    interpreted as harmonic distortion or gated there.
+    """
+    if len(values) != len(frequencies) or not values:
+        raise ValueError("trace values and frequencies must be non-empty and aligned")
+    if guard_bins < 0 or len(values) <= 2 * guard_bins + 1:
+        raise ValueError("secondary-response guard leaves no searchable trace")
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError("secondary-response trace contains a non-finite value")
+
+    primary_index = max(range(len(values)), key=values.__getitem__)
+    guard_first = max(0, primary_index - guard_bins)
+    guard_last = min(len(values) - 1, primary_index + guard_bins)
+    searchable = [
+        index for index in range(len(values))
+        if index < guard_first or index > guard_last
+    ]
+    if not searchable:
+        raise ValueError("secondary-response guard covers the complete trace")
+    secondary_index = max(searchable, key=values.__getitem__)
+    primary_level = float(values[primary_index])
+    secondary_level = float(values[secondary_index])
+
+    # Report whether the selected response is a strict local maximum (with
+    # equal-valued plateaus treated as one peak) and its connected -3 dB width.
+    plateau_first = secondary_index
+    plateau_last = secondary_index
+    while (plateau_first > 0
+           and values[plateau_first - 1] == secondary_level):
+        plateau_first -= 1
+    while (plateau_last + 1 < len(values)
+           and values[plateau_last + 1] == secondary_level):
+        plateau_last += 1
+    left_lower = (
+        plateau_first > 0 and values[plateau_first - 1] < secondary_level
+    )
+    right_lower = (
+        plateau_last < len(values) - 1
+        and values[plateau_last + 1] < secondary_level
+    )
+    width_first = secondary_index
+    width_last = secondary_index
+    width_threshold = secondary_level - 3.0
+    while width_first > 0 and values[width_first - 1] >= width_threshold:
+        width_first -= 1
+    while (width_last + 1 < len(values)
+           and values[width_last + 1] >= width_threshold):
+        width_last += 1
+
+    positive_steps = [
+        right - left for left, right in zip(frequencies, frequencies[1:])
+        if right > left
+    ]
+    resolution_hz = statistics.median(positive_steps) if positive_steps else 0.0
+    return {
+        "guard_bins_each_side": guard_bins,
+        "guard_first_index": guard_first,
+        "guard_last_index": guard_last,
+        "guard_start_hz": frequencies[guard_first],
+        "guard_stop_hz": frequencies[guard_last],
+        "frequency_resolution_hz": resolution_hz,
+        "primary_index": primary_index,
+        "primary_frequency_hz": frequencies[primary_index],
+        "primary_level_dbm": primary_level,
+        "secondary_index": secondary_index,
+        "secondary_frequency_hz": frequencies[secondary_index],
+        "secondary_offset_hz": (
+            frequencies[secondary_index] - frequencies[primary_index]
+        ),
+        "secondary_level_dbm": secondary_level,
+        "secondary_is_local_peak": left_lower and right_lower,
+        "secondary_width_3db_bins": width_last - width_first + 1,
+        "sfdr_db": primary_level - secondary_level,
+    }
+
+
+def compare_secondary_response(case: int, reference: dict[str, Any],
+                               candidate: dict[str, Any]) -> dict[str, Any]:
+    gated = case in SFDR_GATED_CASES
+    if not gated:
+        return {
+            "pass": True,
+            "gated": False,
+            "detail": (
+                f"diagnostic-only kind={VISUAL.CASE_KIND[case]}; "
+                f"reference_sfdr={reference['sfdr_db']:.2f}dB "
+                f"candidate_sfdr={candidate['sfdr_db']:.2f}dB"
+            ),
+        }
+    sfdr_floor = float(reference["sfdr_db"]) - SFDR_REGRESSION_TOLERANCE_DB
+    secondary_ceiling = (
+        float(reference["secondary_level_dbm"])
+        + SFDR_REGRESSION_TOLERANCE_DB
+    )
+    passed = (
+        float(candidate["sfdr_db"]) >= sfdr_floor
+        and float(candidate["secondary_level_dbm"]) <= secondary_ceiling
+    )
+    return {
+        "pass": passed,
+        "gated": True,
+        "detail": (
+            f"guard=+/-{SFDR_GUARD_BINS}bins "
+            f"sfdr={reference['sfdr_db']:.2f}/{candidate['sfdr_db']:.2f}dB "
+            f"minimum={sfdr_floor:.2f}dB; secondary="
+            f"{reference['secondary_level_dbm']:.2f}/"
+            f"{candidate['secondary_level_dbm']:.2f}dBm "
+            f"ceiling={secondary_ceiling:.2f}dBm"
+        ),
+    }
+
+
 def validate_case_capture(root: Path, case: int,
                           record: dict[str, Any]) -> dict[str, Any]:
     display = record.get("display", {})
@@ -354,6 +482,15 @@ def compare_case(reference_root: Path, candidate_root: Path, case: int,
     reference_actual = reference_trace_metrics[0]
     candidate_actual = candidate_trace_metrics[0]
     actual_comparison = trace_comparison[0]
+    reference_secondary = secondary_response_metrics(
+        reference_planes[0], reference_frequencies
+    )
+    candidate_secondary = secondary_response_metrics(
+        candidate_planes[0], candidate_frequencies
+    )
+    secondary_comparison = compare_secondary_response(
+        case, reference_secondary, candidate_secondary
+    )
     reference_sweeptime = load_sweeptime(reference_root, case)
     candidate_sweeptime = load_sweeptime(candidate_root, case)
 
@@ -453,6 +590,12 @@ def compare_case(reference_root: Path, candidate_root: Path, case: int,
     add_check(checks, "measured-trace-range", range_ok,
               f"reference={reference_range:.3f}dB candidate={candidate_range:.3f}dB")
 
+    add_check(
+        checks, "measured-secondary-response-sfdr",
+        bool(secondary_comparison["pass"]),
+        str(secondary_comparison["detail"]),
+    )
+
     if case in STRUCTURED_CASES:
         peak_position_ok = abs(
             int(candidate_actual["peak_index"]) - int(reference_actual["peak_index"])
@@ -495,18 +638,21 @@ def compare_case(reference_root: Path, candidate_root: Path, case: int,
             "capture": reference_capture,
             "frame": reference_frame_metrics,
             "trace_planes": dict(zip(PLANES, reference_trace_metrics)),
+            "secondary_response": reference_secondary,
             "sweeptime_seconds": reference_sweeptime,
         },
         "candidate": {
             "capture": candidate_capture,
             "frame": candidate_frame_metrics,
             "trace_planes": dict(zip(PLANES, candidate_trace_metrics)),
+            "secondary_response": candidate_secondary,
             "sweeptime_seconds": candidate_sweeptime,
         },
         "comparison": {
             "frame": frame_comparison,
             "trace_planes": dict(zip(PLANES, trace_comparison)),
             "frequency_grid_exact": reference_frequencies == candidate_frequencies,
+            "secondary_response": secondary_comparison,
         },
         "_frames": (reference_frame, candidate_frame),
     }
@@ -553,6 +699,29 @@ def write_markdown(output: Path, report: dict[str, Any]) -> None:
         f"- Case {case['case']} `{check['name']}`: {check['detail']}"
         for case in report["cases"] for check in case["checks"] if not check["pass"]
     ]
+    lines.extend((
+        "", "## Secondary-response diagnostics", "",
+        "SFDR is a release gate only for the five unambiguous single-carrier "
+        "cases. All other rows are recorded for diagnosis only; in particular, "
+        "case 6 deliberately exercises a harmonic path.", "",
+        "| Case | Kind | Gate | Primary MHz R/C | Secondary MHz R/C | "
+        "Secondary dBm R/C | SFDR dB R/C |",
+        "|---:|:---|:---:|---:|---:|---:|---:|",
+    ))
+    for case in report["cases"]:
+        reference = case["reference"]["secondary_response"]
+        candidate = case["candidate"]["secondary_response"]
+        lines.append(
+            f"| {case['case']} | {case['kind']} | "
+            f"{'yes' if case['comparison']['secondary_response']['gated'] else 'no'} | "
+            f"{reference['primary_frequency_hz'] / 1e6:.6f}/"
+            f"{candidate['primary_frequency_hz'] / 1e6:.6f} | "
+            f"{reference['secondary_frequency_hz'] / 1e6:.6f}/"
+            f"{candidate['secondary_frequency_hz'] / 1e6:.6f} | "
+            f"{reference['secondary_level_dbm']:.2f}/"
+            f"{candidate['secondary_level_dbm']:.2f} | "
+            f"{reference['sfdr_db']:.2f}/{candidate['sfdr_db']:.2f} |"
+        )
     lines.extend(("", "## Failed checks", ""))
     lines.extend(failures or ["None."])
     lines.extend((
@@ -613,6 +782,12 @@ def compare(reference_root: Path, candidate_root: Path, output: Path,
             "structured_trace_pearson": 0.95,
             "structured_trace_rmse_db": 2.0,
             "peak_level_tolerance_db": 2.0,
+            "sfdr_gated_cases": sorted(SFDR_GATED_CASES),
+            "sfdr_guard_bins_each_side": SFDR_GUARD_BINS,
+            "sfdr_regression_tolerance_db": SFDR_REGRESSION_TOLERANCE_DB,
+            "secondary_level_regression_tolerance_db": (
+                SFDR_REGRESSION_TOLERANCE_DB
+            ),
             "timing_limit": "candidate <= reference*1.10 + 0.010 seconds",
         },
         "cases": case_results,

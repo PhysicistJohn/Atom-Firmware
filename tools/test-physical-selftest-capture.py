@@ -102,6 +102,54 @@ class CaptureHelpersTest(unittest.TestCase):
         self.assertAlmostEqual(comparison["rmse"], 0.5)
         self.assertAlmostEqual(comparison["pearson"], 1.0)
 
+    def test_secondary_response_metric_excludes_main_lobe_guard(self) -> None:
+        values = [-100.0] * 80
+        values[38:43] = [-50.0, -30.0, -20.0, -30.0, -50.0]
+        values[65:68] = [-80.0, -60.0, -80.0]
+        frequencies = [1_000_000 + index * 1_000 for index in range(80)]
+        metrics = COMPARE.secondary_response_metrics(
+            values, frequencies, guard_bins=5
+        )
+        self.assertEqual(metrics["primary_index"], 40)
+        self.assertEqual(metrics["secondary_index"], 66)
+        self.assertEqual(metrics["secondary_offset_hz"], 26_000)
+        self.assertEqual(metrics["secondary_width_3db_bins"], 1)
+        self.assertTrue(metrics["secondary_is_local_peak"])
+        self.assertAlmostEqual(metrics["sfdr_db"], 40.0)
+
+    def test_secondary_response_gate_is_narrowly_scoped(self) -> None:
+        reference = {"sfdr_db": 50.0, "secondary_level_dbm": -70.0}
+        candidate_ok = {"sfdr_db": 47.0, "secondary_level_dbm": -67.0}
+        candidate_bad = {"sfdr_db": 46.99, "secondary_level_dbm": -66.99}
+        for case in COMPARE.SFDR_GATED_CASES:
+            self.assertTrue(
+                COMPARE.compare_secondary_response(
+                    case, reference, candidate_ok
+                )["pass"]
+            )
+            self.assertFalse(
+                COMPARE.compare_secondary_response(
+                    case, reference, candidate_bad
+                )["pass"]
+            )
+        # Broad passbands and the deliberate harmonic case remain diagnostics,
+        # even for a deliberately awful synthetic regression.
+        for case in (1, 2, 5, 6, 7, 8, 9, 12, 13):
+            result = COMPARE.compare_secondary_response(
+                case, reference,
+                {"sfdr_db": 0.0, "secondary_level_dbm": 0.0},
+            )
+            self.assertTrue(result["pass"])
+            self.assertFalse(result["gated"])
+
+    def test_secondary_response_rejects_invalid_shapes(self) -> None:
+        with self.assertRaises(ValueError):
+            COMPARE.secondary_response_metrics([1.0], [1], guard_bins=1)
+        with self.assertRaises(ValueError):
+            COMPARE.secondary_response_metrics(
+                [0.0] * 10, list(range(9)), guard_bins=1
+            )
+
     def test_physical_sweeptime_parses_seconds_and_milliseconds(self) -> None:
         import tempfile
 
