@@ -379,11 +379,11 @@ include $(RULESPATH)/rules.mk
 #include $(CHIBIOS)/memory.mk
 
 
-flash: build/$(PROJECT).bin
-	-@printf "reset dfu\r" >/dev/cu.usbmodem401 # mac
-	-@printf "reset dfu\r" >/dev/ttyACM0 # linux
-	sleep 2
-	dfu-util -d 0483:df11 -a 0 -s 0x08000000:leave -D $<
+.PHONY: flash
+flash:
+	@echo "Direct firmware writes are disabled in TinySA_Firmware." >&2
+	@echo "Package the committed Phase 6 image, then import its manifest into ../TinySA_Flasher." >&2
+	@false
 
 dfu:	build/$(PROJECT).hex
 	-@#c:/work/dfu/HEX2DFU $< build/$(PROJECT).dfu # win

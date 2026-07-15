@@ -44,11 +44,12 @@ Package a committed custom ZS407 build for the standalone TinySA Flasher:
 
 ```bash
 version="tinySA4_lab-v0.3.0-g$(git rev-parse --short=7 HEAD)"
-tools/package-flasher-build.sh "$version" -- PHASE=6
+tools/package-flasher-build.sh "$version"
 ```
 
-The packaging gate never flashes. It builds the F303 image twice from the
-committed tracked tree, requires identical BIN hashes, checks the embedded
+The packaging gate never flashes. It builds one fixed F303 Phase 6 profile
+twice from a clean, sanitized environment and the committed tracked tree,
+requires identical BIN hashes, checks the embedded
 version and ZS407 identity, validates the STM32 vector table and 240 KiB write
 limit, then emits a content-addressed BIN plus
 `tinysa-flasher-build-v1.json` under `.artifacts/flasher-builds/`. In Flasher,
@@ -232,20 +233,13 @@ Using [this docker image](https://hub.docker.com/r/edy555/arm-embedded) and with
     $ cd tinySA
     $ docker run -it --rm -v $(PWD):/work edy555/arm-embedded:8.2 make
 
-## Flash firmware
+## Install firmware
 
-First, make device enter DFU mode by one of following methods.
-
-* Jumper BOOT0 pin at powering device
-* Select menu Config->DFU (needs recent firmware)
-
-Then, flash firmware using dfu-util via USB.
-
-    $ dfu-util -d 0483:df11 -a 0 -s 0x08000000:leave -D build/ch.bin
-
-Or simply use make.
-
-    $ make flash
+The direct upstream write commands are intentionally disabled in this fork.
+Package a committed custom build with `tools/package-flasher-build.sh`, then
+select the emitted JSON manifest in standalone `../TinySA_Flasher`. The Flasher
+alone owns device preflight, DFU admission, the physical write, recovery
+journaling, and post-reboot identity verification.
 
 ## Companion Tools
 

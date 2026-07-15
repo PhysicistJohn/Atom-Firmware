@@ -56,7 +56,8 @@
       "allOf": [
         {
           "if": { "properties": { "hardwareQualification": { "const": "qualified-on-zs407" } } },
-          "then": { "required": ["qualificationEvidenceSha256"] }
+          "then": { "required": ["qualificationEvidenceSha256"] },
+          "else": { "not": { "required": ["qualificationEvidenceSha256"] } }
         }
       ]
     },

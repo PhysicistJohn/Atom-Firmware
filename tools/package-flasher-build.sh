@@ -5,8 +5,8 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 . "$ROOT/tools/lib.sh"
 
 usage() {
-  printf 'Usage: %s VERSION [--simulation-passed] [--hardware-qualified EVIDENCE] [-- MAKE_ARGUMENT...]\n' "$0"
-  printf 'Build a clean F303/ZS407 image twice and emit a no-auto-flash TinySA Flasher manifest.\n'
+  printf 'Usage: %s VERSION [--simulation-passed] [--hardware-qualified EVIDENCE]\n' "$0"
+  printf 'Build the fixed F303/ZS407 Phase 6 profile twice and emit a no-auto-flash TinySA Flasher manifest.\n'
 }
 
 [ "$#" -ge 1 ] || { usage >&2; exit 2; }
@@ -14,7 +14,6 @@ version=$1
 shift
 simulation_passed=false
 hardware_evidence=
-make_arguments=
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --simulation-passed) simulation_passed=true; shift ;;
@@ -23,19 +22,10 @@ while [ "$#" -gt 0 ]; do
       hardware_evidence=$2
       shift 2
       ;;
-    --)
-      shift
-      make_arguments="$*"
-      break
-      ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown package option: $1" ;;
   esac
 done
-
-case " $make_arguments " in
-  *' TARGET='*|*' VERSION='*) die 'TARGET and VERSION are owned by the Flasher packaging gate' ;;
-esac
 
 git -C "$ROOT" diff --quiet -- || die 'tracked firmware worktree changes must be committed before packaging'
 git -C "$ROOT" diff --cached --quiet -- || die 'staged firmware changes must be committed before packaging'
@@ -58,11 +48,12 @@ first_binary="$ROOT/.artifacts/flasher-build-first-$$.bin"
 trap 'rm -f "$first_binary"' EXIT HUP INT TERM
 
 build_once() {
-  make -C "$ROOT" TARGET=F303 clean >/dev/null
-  # Intentional word splitting: make arguments are operator-provided NAME=VALUE
-  # tokens accepted only after `--`; TARGET and VERSION are rejected above.
-  # shellcheck disable=SC2086
-  SOURCE_DATE_EPOCH="$source_date_epoch" make -C "$ROOT" TARGET=F303 VERSION="$version" $make_arguments -j"$(host_jobs)"
+  env -i HOME="$HOME" PATH="$PATH" LC_ALL=C TMPDIR="${TMPDIR:-/tmp}" \
+    make -C "$ROOT" TARGET=F303 PHASE=6 RELEASE_PROFILE= RELEASE_HARD_FAULT_VENEER=no clean >/dev/null
+  env -i HOME="$HOME" PATH="$PATH" LC_ALL=C TMPDIR="${TMPDIR:-/tmp}" \
+    SOURCE_DATE_EPOCH="$source_date_epoch" \
+    make -C "$ROOT" TARGET=F303 PHASE=6 RELEASE_PROFILE= RELEASE_HARD_FAULT_VENEER=no \
+      VERSION="$version" -j"$(host_jobs)"
 }
 
 build_once
