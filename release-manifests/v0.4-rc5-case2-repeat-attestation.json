@@ -1,0 +1,109 @@
+{
+  "schema": "tinysa-physical-suppression-repeat-evidence-v1",
+  "recorded_utc": "2026-07-15T04:24:10Z",
+  "device": {
+    "product": "tinySA ULTRA+ ZS407",
+    "hardware_version": "V0.5.4 max2871",
+    "usb_serial": "706",
+    "usb_location": "0-1"
+  },
+  "fixture": "CAL-RF-LOOPBACK-CONNECTED",
+  "case": {
+    "display_number": 2,
+    "zero_based_case": 1,
+    "frequency_start_hz": 50000,
+    "frequency_stop_hz": 150000,
+    "points": 450,
+    "declared_suppression_tolerance_db": 2.0,
+    "metric": "median of five highest finite actual-trace samples; lower is better"
+  },
+  "candidate_flash_binding": {
+    "candidate_sha256": "1e3f45a9744b18985622d5abf6c2445524a4ad53a831316766c37de80ac96685",
+    "flash_inventory_sha256": "b96880fb1c5a5ce3eaac93e34bc24a994aa3ed41e358346f06b1f57b10573301",
+    "flash_run_json_sha256": "0657dd6f5e541eeeb7900c5ee42aa89ddb6f5d0efa4a1eb2e7552607d9d86565",
+    "readback_bytes": 193980,
+    "readback_exact_match": true
+  },
+  "reference": {
+    "variant": "official-c979",
+    "expected_version": "tinySA4_v1.4-224-gc979386",
+    "capture_inventory_sha256": "28b7ed7bc5f4214da8cbba7fc21340ef4b534437b3f66c7598f673ef0d0d2890",
+    "run_json_sha256": "278da82fd158676d41c63bb45be08b397be31c7048dae611b447f1eab36ba41f",
+    "top5_median_dbm": -53.41,
+    "q95_dbm": -64.134999,
+    "raw_max_dbm": -51.91,
+    "peak_index": 287
+  },
+  "candidate_observations": [
+    {
+      "variant": "rc5-readback-final",
+      "boot_context": "operator-attested cold boot after exact flash/readback",
+      "capture_inventory_sha256": "488cd1f908bc7aff655b5ef43e325ed542bd9cdc66c0d0ca5e2eba2a84aca156",
+      "run_json_sha256": "72a472e23a79a4f01fe6c0467c13f6eac220e7307889b6ae2e14c44d12a4d6dd",
+      "frame_sha256": "6f7d13bdfdde7242f2d74cb96fa626ab05270e756e04bfb68c814f3e21476bf6",
+      "top5_median_dbm": -48.91,
+      "q95_dbm": -64.789003,
+      "raw_max_dbm": -47.91,
+      "peak_index": 288,
+      "passes_declared_tolerance": false
+    },
+    {
+      "variant": "rc5-case2-readback-repeat2",
+      "boot_context": "warm repeat",
+      "capture_inventory_sha256": "0bd6693f5904d8504391d285b3564859d427305655d0b5296ef8a27e710a85fd",
+      "run_json_sha256": "0942ea50f83386025f394259093cebab1336535029ef9a9e081c788b22a163ba",
+      "frame_sha256": "723892d01dc7bd2d1ef2eba383e2bb828d15bcf4d4aa97c736bfa4042f469c06",
+      "top5_median_dbm": -52.810001,
+      "q95_dbm": -63.9535,
+      "raw_max_dbm": -52.310001,
+      "peak_index": 287,
+      "passes_declared_tolerance": true
+    },
+    {
+      "variant": "rc5-case2-readback-repeat3",
+      "boot_context": "warm repeat",
+      "capture_inventory_sha256": "f75462ee9461044fd7914e271e883ee4c49fc62cb29926e64eb767508a637e8d",
+      "run_json_sha256": "14a308332213d4599c33913c7e1ab3d409814814a411fec4963ec7e3b8a10fc4",
+      "frame_sha256": "d3081083c0626cfe2279d5c0d887f6ce988faacb4bcc05b6d27273cfad46a135",
+      "top5_median_dbm": -60.310001,
+      "q95_dbm": -65.148499,
+      "raw_max_dbm": -59.310001,
+      "peak_index": 287,
+      "passes_declared_tolerance": true
+    },
+    {
+      "variant": "rc5-case2-second-cold",
+      "boot_context": "second operator-attested cold boot of the exact readback-verified image",
+      "capture_inventory_sha256": "52aed9ef4489ecd3ec74a33f419bd9f50bbaa639bcbcb8f2addeb1fd45156480",
+      "run_json_sha256": "716de073d5e231762de567c60b58753515ba374c27e3de2a240aa1d468d44f2d",
+      "frame_sha256": "1141714aaefd0fe4ba405219a4de997e2b82d0ced246b27106ce413a7774cdf0",
+      "top5_median_dbm": -52.810001,
+      "q95_dbm": -63.7695,
+      "raw_max_dbm": -51.810001,
+      "peak_index": 287,
+      "passes_declared_tolerance": true,
+      "capture_result": "PASS",
+      "persisted_config_integrity": "PASS"
+    }
+  ],
+  "summary": {
+    "candidate_observation_count": 4,
+    "candidate_pass_count": 3,
+    "candidate_top5_median_of_observations_dbm": -52.810001,
+    "candidate_q95_min_dbm": -65.148499,
+    "candidate_q95_max_dbm": -63.7695,
+    "second_cold_delta_from_reference_db": 0.599999,
+    "median_candidate_delta_from_reference_db": 0.599999,
+    "cold_start_dependence_reproduced": false,
+    "classification": "narrow frequency-coherent response with variable amplitude; first-cold threshold excursion not reproduced"
+  },
+  "integrity_and_scope": [
+    "All four candidate captures report tinySA4_v0.4-chibios21-rc5 and USB location 0-1; their complete SHA256SUMS inventories authenticate the cited files.",
+    "The candidate_flash_binding object references the earlier sealed flash record; this repeat attestation does not revalidate those flash files or make the self-test captures exact-byte-bound.",
+    "The original fresh A/B report remains failed for its single case-2 measured-peak-level observation and is not rewritten or waived.",
+    "This repeatability record is supplemental evidence; it does not retroactively change a sealed report or the predeclared tolerance.",
+    "The screenshots are populated, retain the exact green Test 2: Pass result, and show shaped measured traces rather than blank or substituted flat data.",
+    "No physical-source, spur, harmonic, or long-term-stability attribution is made from these four sweeps.",
+    "The second cold power removal is operator-attested because the serial capture cannot sense supply voltage."
+  ]
+}

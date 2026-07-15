@@ -1,0 +1,52 @@
+{
+  "schema": "tinysa-physical-cold-boot-attestation-v1",
+  "evidence_type": "operator-attested",
+  "recorded_utc": "2026-07-15T04:11:43Z",
+  "attestor": "device operator (user)",
+  "recorded_by": "Codex qualification task",
+  "device": {
+    "product": "tinySA ULTRA+ ZS407",
+    "hardware_version": "V0.5.4 max2871",
+    "usb_location": "0-1"
+  },
+  "cal_rf_fixture": "CAL-RF-LOOPBACK-CONNECTED",
+  "candidate_flash_binding": {
+    "candidate_sha256": "1e3f45a9744b18985622d5abf6c2445524a4ad53a831316766c37de80ac96685",
+    "flash_inventory_sha256": "b96880fb1c5a5ce3eaac93e34bc24a994aa3ed41e358346f06b1f57b10573301",
+    "flash_run_json_sha256": "0657dd6f5e541eeeb7900c5ee42aa89ddb6f5d0efa4a1eb2e7552607d9d86565",
+    "readback_bytes": 193980,
+    "readback_exact_match": true,
+    "normal_usb_serial": "706"
+  },
+  "events": [
+    {
+      "role": "candidate",
+      "variant": "rc5-readback-final",
+      "expected_version": "tinySA4_v0.4-chibios21-rc5",
+      "capture_inventory_sha256": "488cd1f908bc7aff655b5ef43e325ed542bd9cdc66c0d0ca5e2eba2a84aca156",
+      "capture_started_utc": "2026-07-15T04:02:56.032152+00:00",
+      "usb_location": "0-1",
+      "boot_mode": "normal",
+      "minimum_power_off_seconds": 5,
+      "operator_confirmed": true,
+      "operator_statement_summary": "After the exact RC5 DFU download/read-back and linked USB/reset runs, the operator confirmed a complete power-off interval of at least five seconds and a normal boot before this fresh all-14 capture."
+    },
+    {
+      "role": "reference",
+      "variant": "official-c979",
+      "expected_version": "tinySA4_v1.4-224-gc979386",
+      "capture_inventory_sha256": "28b7ed7bc5f4214da8cbba7fc21340ef4b534437b3f66c7598f673ef0d0d2890",
+      "capture_started_utc": "2026-07-15T01:41:25.425763+00:00",
+      "usb_location": "0-1",
+      "boot_mode": "normal",
+      "minimum_power_off_seconds": 5,
+      "operator_confirmed": true,
+      "operator_statement_summary": "The unit was switched fully off for at least five seconds and booted normally before the untouched-official all-14 capture."
+    }
+  ],
+  "limitations": [
+    "Power removal is operator-attested because the serial capture cannot sense supply voltage.",
+    "The candidate flash/read-back record and capture share the admitted USB path and are ordered in the same qualification session; the self-test runner itself records version and USB identity but does not perform DFU read-back.",
+    "The historical official reference is exact-version-bound and was not retroactively DFU-read-back-bound."
+  ]
+}

@@ -4,9 +4,14 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import math
 from pathlib import Path
+import random
 import struct
 import sys
+import tempfile
+from types import SimpleNamespace
 import unittest
 
 
@@ -28,6 +33,64 @@ COMPARE_SPEC.loader.exec_module(COMPARE)
 
 
 class CaptureHelpersTest(unittest.TestCase):
+    @staticmethod
+    def port(device: str, serial: str, location: str = "0-1") -> SimpleNamespace:
+        return SimpleNamespace(
+            device=device,
+            vid=MODULE.DEFAULT_VID,
+            pid=MODULE.DEFAULT_PID,
+            serial_number=serial,
+            location=location,
+        )
+
+    def test_explicit_port_is_strict_and_serial_pinned(self) -> None:
+        events: list[str] = []
+        locator = MODULE.PortLocator(
+            "/dev/requested",
+            MODULE.DEFAULT_VID,
+            MODULE.DEFAULT_PID,
+            "706",
+            0.1,
+            events.append,
+        )
+        locator._ports = lambda: [
+            self.port("/dev/requested", "wrong"),
+            self.port("/dev/other", "706"),
+        ]
+        self.assertEqual(
+            [port.device for port in locator._matching_ports()],
+            ["/dev/requested"],
+        )
+        with self.assertRaisesRegex(RuntimeError, "USB serial"):
+            locator.resolve()
+        self.assertEqual(events, [])
+
+        locator = MODULE.PortLocator(
+            "/dev/absent",
+            MODULE.DEFAULT_VID,
+            MODULE.DEFAULT_PID,
+            "706",
+            0.1,
+            events.append,
+        )
+        locator._ports = lambda: [self.port("/dev/other", "706")]
+        self.assertEqual(locator._matching_ports(), [])
+
+    def test_reenumeration_never_falls_back_from_pinned_serial_to_location(self) -> None:
+        locator = MODULE.PortLocator(
+            "auto",
+            MODULE.DEFAULT_VID,
+            MODULE.DEFAULT_PID,
+            None,
+            0.1,
+            lambda unused: None,
+        )
+        locator.identity = MODULE.UsbIdentity(
+            MODULE.DEFAULT_VID, MODULE.DEFAULT_PID, "706", "0-1"
+        )
+        locator._ports = lambda: [self.port("/dev/replacement", "999", "0-1")]
+        self.assertEqual(locator._matching_ports(), [])
+
     def test_case_parser(self) -> None:
         self.assertEqual(MODULE.parse_case_set("0-2,5,13"), [0, 1, 2, 5, 13])
         with self.assertRaises(ValueError):
@@ -89,6 +152,39 @@ class CaptureHelpersTest(unittest.TestCase):
         with self.assertRaises(AssertionError):
             MODULE.parse_data_response(malformed)
 
+    def test_version_identity_is_exact_and_clean(self) -> None:
+        expected = "tinySA4_v0.4-chibios21-rc5"
+        MODULE.require_version(
+            b"version\r\ntinySA4_v0.4-chibios21-rc5\r\n"
+            b"HW Version:V0.5.4 max2871\r\nch> ",
+            expected,
+        )
+        with self.assertRaises(AssertionError):
+            MODULE.require_version(
+                b"version\r\ntinySA4_v0.4-chibios21-rc5-other\r\nch> ",
+                expected,
+            )
+        with self.assertRaises(AssertionError):
+            MODULE.require_version(
+                b"stale\r\nversion\r\ntinySA4_v0.4-chibios21-rc5\r\nch> ",
+                expected,
+            )
+
+    def test_reserved_variant_family_is_bound_to_exact_version(self) -> None:
+        MODULE.require_variant_version(
+            "official-c979-spur-repeat2",
+            "tinySA4_v1.4-224-gc979386",
+        )
+        MODULE.require_variant_version(
+            "rc5-spur-repeat3",
+            "tinySA4_v0.4-chibios21-rc5",
+        )
+        with self.assertRaises(ValueError):
+            MODULE.require_variant_version(
+                "rc5",
+                "tinySA4_v1.4-224-gc979386",
+            )
+
     def test_populated_frame_guard(self) -> None:
         with self.assertRaises(AssertionError):
             MODULE.frame_metrics(bytes(MODULE.PIXEL_BYTES))
@@ -101,6 +197,126 @@ class CaptureHelpersTest(unittest.TestCase):
         self.assertAlmostEqual(comparison["mean_delta"], 0.5)
         self.assertAlmostEqual(comparison["rmse"], 0.5)
         self.assertAlmostEqual(comparison["pearson"], 1.0)
+
+    def test_robust_structured_comparison_accepts_independent_noise(self) -> None:
+        first = random.Random(407)
+        second = random.Random(979)
+        envelope = [
+            -108.0 + 72.0 * math.exp(-((index - 224.0) / 8.0) ** 2)
+            for index in range(COMPARE.TRACE_POINTS)
+        ]
+        reference = [value + first.uniform(-4.0, 4.0) for value in envelope]
+        candidate = [value + second.uniform(-4.0, 4.0) for value in envelope]
+        raw = COMPARE.compare_sequences(reference, candidate)
+        robust = COMPARE.compare_smoothed_aligned(reference, candidate)
+        self.assertGreater(raw["rmse"], COMPARE.STRUCTURED_ALIGNED_RMSE_MAX_DB)
+        self.assertGreaterEqual(
+            robust["pearson"], COMPARE.STRUCTURED_CORRELATION_MIN
+        )
+        self.assertLessEqual(
+            robust["aligned_rmse_db"],
+            COMPARE.STRUCTURED_ALIGNED_RMSE_MAX_DB,
+        )
+
+    def test_robust_structured_comparison_rejects_substituted_shape(self) -> None:
+        reference = [
+            -108.0 + 72.0 * math.exp(-((index - 224.0) / 8.0) ** 2)
+            for index in range(COMPARE.TRACE_POINTS)
+        ]
+        flat = [-108.0] * COMPARE.TRACE_POINTS
+        shifted = [
+            -108.0 + 72.0 * math.exp(-((index - 244.0) / 8.0) ** 2)
+            for index in range(COMPARE.TRACE_POINTS)
+        ]
+        for candidate in (flat, shifted):
+            result = COMPARE.compare_smoothed_aligned(reference, candidate)
+            shape_pass = (
+                isinstance(result["pearson"], float)
+                and result["pearson"] >= COMPARE.STRUCTURED_CORRELATION_MIN
+                and result["aligned_rmse_db"]
+                <= COMPARE.STRUCTURED_ALIGNED_RMSE_MAX_DB
+            )
+            self.assertFalse(shape_pass, result)
+
+    def test_robust_range_ignores_one_startup_transient(self) -> None:
+        reference = [-36.0] * COMPARE.TRACE_POINTS
+        candidate = [-36.0] * COMPARE.TRACE_POINTS
+        reference[0] = -54.0
+        candidate[0] = -50.0
+        self.assertEqual(max(reference) - min(reference), 18.0)
+        self.assertEqual(max(candidate) - min(candidate), 14.0)
+        self.assertEqual(
+            COMPARE.robust_sequence_metrics(reference)["robust_range_q99_q01"],
+            0.0,
+        )
+        self.assertEqual(
+            COMPARE.robust_sequence_metrics(candidate)["robust_range_q99_q01"],
+            0.0,
+        )
+
+    def test_exact_green_factory_pass_literal(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "persisted-config").mkdir()
+            (root / "persisted-config/before-color.txt").write_bytes(
+                b"color\r\n21: 0x00FF00\r\nch> "
+            )
+            for case in range(1, 15):
+                text = f"Test {case}: Pass"
+                y = COMPARE.PASS_LITERAL_Y0 + (
+                    case - 1
+                ) * COMPARE.PASS_LITERAL_SPACING
+                on, _ = COMPARE.literal_pixels(
+                    text, COMPARE.PASS_LITERAL_X, y
+                )
+                frame = bytearray(COMPARE.FRAME_BYTES)
+                for x, row in on:
+                    offset = 2 * (row * 480 + x)
+                    frame[offset:offset + 2] = b"\x07\xe0"
+                path = root / f"case-{case:02d}.rgb565be"
+                path.write_bytes(frame)
+                result = COMPARE.inspect_pass_literal(root, case)
+                self.assertTrue(result["pass"], result)
+
+                x, row = next(iter(on))
+                offset = 2 * (row * 480 + x)
+                frame[offset:offset + 2] = b"\x00\x00"
+                path.write_bytes(frame)
+                self.assertFalse(COMPARE.inspect_pass_literal(root, case)["pass"])
+
+    def test_trace_roi_covers_all_450_display_columns(self) -> None:
+        frame = [0] * (COMPARE.VISUAL.WIDTH * COMPARE.VISUAL.HEIGHT)
+        for x in range(COMPARE.VISUAL.TRACE_X0, COMPARE.VISUAL.TRACE_X1 + 1):
+            frame[100 * COMPARE.VISUAL.WIDTH + x] = COMPARE.VISUAL.TRACE_RGB565
+        metrics = COMPARE.VISUAL.frame_metrics(frame)
+        self.assertEqual(COMPARE.VISUAL.TRACE_X1, 479)
+        self.assertEqual(metrics["trace_active_columns"], COMPARE.TRACE_POINTS)
+
+    def test_zero_span_grid_uses_own_sweep_time(self) -> None:
+        sweep_seconds = 0.0557
+        layout = COMPARE.VISUAL.expected_time_grid_layout(55_700)
+        frame = [0] * (COMPARE.VISUAL.WIDTH * COMPARE.VISUAL.HEIGHT)
+        for x in layout["columns"]:
+            for y in range(
+                COMPARE.VISUAL.TIME_GRID_Y0,
+                COMPARE.VISUAL.TIME_GRID_Y1 + 1,
+            ):
+                frame[y * COMPARE.VISUAL.WIDTH + x] = (
+                    COMPARE.VISUAL.TIME_GRID_COLOR
+                )
+        self.assertTrue(
+            COMPARE.zero_span_grid_metrics(frame, sweep_seconds)["pass"]
+        )
+        wrong = list(frame)
+        removed = layout["columns"][-1]
+        for y in range(
+            COMPARE.VISUAL.TIME_GRID_Y0,
+            COMPARE.VISUAL.TIME_GRID_Y1 + 1,
+        ):
+            wrong[y * COMPARE.VISUAL.WIDTH + removed] = 0
+        self.assertFalse(
+            COMPARE.zero_span_grid_metrics(wrong, sweep_seconds)["pass"]
+        )
 
     def test_secondary_response_metric_excludes_main_lobe_guard(self) -> None:
         values = [-100.0] * 80
@@ -117,23 +333,21 @@ class CaptureHelpersTest(unittest.TestCase):
         self.assertTrue(metrics["secondary_is_local_peak"])
         self.assertAlmostEqual(metrics["sfdr_db"], 40.0)
 
-    def test_secondary_response_gate_is_narrowly_scoped(self) -> None:
+    def test_single_sweep_secondary_response_is_never_a_gate(self) -> None:
         reference = {"sfdr_db": 50.0, "secondary_level_dbm": -70.0}
-        candidate_ok = {"sfdr_db": 47.0, "secondary_level_dbm": -67.0}
-        candidate_bad = {"sfdr_db": 46.99, "secondary_level_dbm": -66.99}
-        for case in COMPARE.SFDR_GATED_CASES:
-            self.assertTrue(
-                COMPARE.compare_secondary_response(
-                    case, reference, candidate_ok
-                )["pass"]
+        for case in COMPARE.SFDR_ELIGIBLE_CASES:
+            result = COMPARE.compare_secondary_response(
+                case, reference,
+                {"sfdr_db": 0.0, "secondary_level_dbm": 0.0},
             )
-            self.assertFalse(
-                COMPARE.compare_secondary_response(
-                    case, reference, candidate_bad
-                )["pass"]
+            self.assertTrue(result["pass"])
+            self.assertFalse(result["gated"])
+            self.assertTrue(result["eligible_with_repeats"])
+            self.assertEqual(result["status"], "PENDING")
+            self.assertEqual(
+                result["minimum_independent_sweeps"],
+                COMPARE.SFDR_MINIMUM_INDEPENDENT_SWEEPS,
             )
-        # Broad passbands and the deliberate harmonic case remain diagnostics,
-        # even for a deliberately awful synthetic regression.
         for case in (1, 2, 5, 6, 7, 8, 9, 12, 13):
             result = COMPARE.compare_secondary_response(
                 case, reference,
@@ -141,6 +355,8 @@ class CaptureHelpersTest(unittest.TestCase):
             )
             self.assertTrue(result["pass"])
             self.assertFalse(result["gated"])
+            self.assertFalse(result["eligible_with_repeats"])
+            self.assertEqual(result["status"], "DIAGNOSTIC_ONLY")
 
     def test_secondary_response_rejects_invalid_shapes(self) -> None:
         with self.assertRaises(ValueError):
@@ -168,6 +384,163 @@ class CaptureHelpersTest(unittest.TestCase):
             self.assertAlmostEqual(COMPARE.load_sweeptime(root, 1), 0.0556)
             response.write_bytes(b"sweeptime\r\nunparseable\r\nch> ")
             self.assertIsNone(COMPARE.load_sweeptime(root, 1))
+
+    def test_ab_qualification_requires_distinct_exact_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            reference = root / "official"
+            candidate = root / "rc5"
+            checksums = {"sha256": "a" * 64}
+            candidate_checksums = {"sha256": "b" * 64}
+            reference_metadata = {
+                "variant": "official-c979",
+                "expected_version": "tinySA4_v1.4-224-gc979386",
+                "usb_identity": {
+                    "vid": 0x0483,
+                    "pid": 0x5740,
+                    "serial_number": "400",
+                    "location": "0-1",
+                },
+            }
+            candidate_metadata = {
+                "variant": "rc5",
+                "expected_version": "tinySA4_v0.4-chibios21-rc5",
+                "usb_identity": {
+                    "vid": 0x0483,
+                    "pid": 0x5740,
+                    "serial_number": "706",
+                    "location": "0-1",
+                },
+            }
+            self.assertEqual(
+                COMPARE.qualification_diagnostic_reasons(
+                    reference,
+                    candidate,
+                    checksums,
+                    candidate_checksums,
+                    reference_metadata,
+                    candidate_metadata,
+                ),
+                [],
+            )
+
+            candidate_metadata["variant"] = "rc5-readback-final"
+            self.assertEqual(
+                COMPARE.qualification_diagnostic_reasons(
+                    reference,
+                    candidate,
+                    checksums,
+                    candidate_checksums,
+                    reference_metadata,
+                    candidate_metadata,
+                ),
+                [],
+            )
+
+            reasons = COMPARE.qualification_diagnostic_reasons(
+                reference,
+                reference,
+                checksums,
+                checksums,
+                reference_metadata,
+                reference_metadata,
+            )
+            self.assertTrue(any("same capture root" in reason for reason in reasons))
+            self.assertTrue(any("inventories are identical" in reason for reason in reasons))
+            self.assertTrue(any("versions are identical" in reason for reason in reasons))
+
+            candidate_metadata["usb_identity"]["location"] = "0-2"
+            reasons = COMPARE.qualification_diagnostic_reasons(
+                reference,
+                candidate,
+                checksums,
+                candidate_checksums,
+                reference_metadata,
+                candidate_metadata,
+            )
+            self.assertTrue(any("same test path" in reason for reason in reasons))
+
+    def test_ab_output_must_not_overlap_capture_inventories(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            reference = root / "reference"
+            candidate = root / "candidate"
+            reference.mkdir()
+            candidate.mkdir()
+            with self.assertRaisesRegex(ValueError, "must not overlap"):
+                COMPARE.compare(
+                    reference, candidate, reference / "report",
+                    "official-c979", "rc5",
+                )
+            with self.assertRaisesRegex(ValueError, "must not overlap"):
+                COMPARE.compare(
+                    reference, candidate, root,
+                    "official-c979", "rc5",
+                )
+
+    def test_cold_boot_attestation_binds_both_capture_inventories(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "attestation.json"
+            reference = {
+                "variant": "official-c979",
+                "expected_version": "tinySA4_v1.4-224-gc979386",
+                "started_utc": "2026-01-01T00:00:00+00:00",
+                "usb_identity": {"location": "0-1"},
+            }
+            candidate = {
+                "variant": "rc5",
+                "expected_version": "tinySA4_v0.4-chibios21-rc5",
+                "started_utc": "2026-01-01T01:00:00+00:00",
+                "usb_identity": {"location": "0-1"},
+            }
+            document = {
+                "schema": "tinysa-physical-cold-boot-attestation-v1",
+                "evidence_type": "operator-attested",
+                "cal_rf_fixture": "CAL-RF-LOOPBACK-CONNECTED",
+                "events": [
+                    {
+                        "role": "reference",
+                        "variant": reference["variant"],
+                        "expected_version": reference["expected_version"],
+                        "capture_inventory_sha256": "a" * 64,
+                        "capture_started_utc": reference["started_utc"],
+                        "usb_location": "0-1",
+                        "boot_mode": "normal",
+                        "minimum_power_off_seconds": 5,
+                        "operator_confirmed": True,
+                    },
+                    {
+                        "role": "candidate",
+                        "variant": candidate["variant"],
+                        "expected_version": candidate["expected_version"],
+                        "capture_inventory_sha256": "b" * 64,
+                        "capture_started_utc": candidate["started_utc"],
+                        "usb_location": "0-1",
+                        "boot_mode": "normal",
+                        "minimum_power_off_seconds": 5,
+                        "operator_confirmed": True,
+                    },
+                ],
+            }
+            path.write_text(json.dumps(document), encoding="utf-8")
+            result = COMPARE.validate_cold_boot_attestation(
+                path,
+                reference,
+                candidate,
+                {"sha256": "a" * 64},
+                {"sha256": "b" * 64},
+            )
+            self.assertEqual(result["evidence_type"], "operator-attested")
+            document["events"][1]["minimum_power_off_seconds"] = 4
+            path.write_text(json.dumps(document), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "candidate mismatch"):
+                COMPARE.validate_cold_boot_attestation(
+                    path,
+                    reference,
+                    candidate,
+                    {"sha256": "a" * 64},
+                    {"sha256": "b" * 64},
+                )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,121 @@
+{
+  "schema": "tinysa-physical-qualification-status-v1",
+  "recorded_utc": "2026-07-15T04:38:31Z",
+  "release_id": "v0.4-chibios21.11.5-rc5",
+  "status": "physical-runtime-pass_ab-case2-disposition-and-fault-injection-pending",
+  "hardware_qualified": false,
+  "automated_flash": false,
+  "candidate": {
+    "filename": "tinySA4_v0.4-chibios21.11.5-rc5.bin",
+    "version": "tinySA4_v0.4-chibios21-rc5",
+    "size_bytes": 193980,
+    "sha256": "1e3f45a9744b18985622d5abf6c2445524a4ad53a831316766c37de80ac96685",
+    "target": "tinySA ULTRA+ ZS407 / STM32F303"
+  },
+  "tested_device": {
+    "product": "tinySA ULTRA+ ZS407",
+    "hardware_version": "V0.5.4 max2871",
+    "normal_usb_serial": "706",
+    "dfu_serial": "2066365B2036",
+    "usb_location": "0-1"
+  },
+  "earlier_scoped_bundle": {
+    "path": ".artifacts/physical-qualification/v0.4-chibios21.11.5-rc5",
+    "inventory_members": 26,
+    "sha256sums_sha256": "6bf2459d03627399da9c6b7f005eebd56dd01e637e8b46a4a69a7811afc06e2c",
+    "manifest_sha256": "1039e25e9bca22801e10e1229ed16e6dcb50404b8af417b0da163c98a627019b",
+    "qualification_report_sha256": "dec12c55beeafed9c29ed2be42c5a1ddb60aa5f132ea768b82f0b9c2263d0e6e",
+    "status": "physical-runtime-pass_fault-injection-pending",
+    "regeneration_blocked_by_current_packager": true,
+    "regeneration_blocker": "Fresh qualification-eligible v4 A/B remains failed on case 2; the earlier fault-injection-only status cannot be regenerated as the current disposition.",
+    "scope": "immutable earlier handoff; includes firmware and rollback but predates the final post-readback all-14 capture, fresh v4 A/B, case-2 repeats, and spur-persistence report"
+  },
+  "evidence": {
+    "exact_dfu_download_and_readback": {
+      "result": "PASS",
+      "image_range_bytes": 193980,
+      "readback_exact_match": true,
+      "option_bytes_written": false,
+      "inventory_sha256": "b96880fb1c5a5ce3eaac93e34bc24a994aa3ed41e358346f06b1f57b10573301",
+      "run_json_sha256": "0657dd6f5e541eeeb7900c5ee42aa89ddb6f5d0efa4a1eb2e7552607d9d86565"
+    },
+    "exact_readback_linked_usb_runtime": {
+      "result": "PASS",
+      "inventory_sha256": "508e94e28c768a6281801d2123769cff4076ea75332452dc56ba1aa6a2b005ee",
+      "run_json_sha256": "f6b7f6357530ae03da4a4c20a8da433950adb59a334011f9bb96ba301da12bef"
+    },
+    "exact_readback_linked_warm_reset_retention": {
+      "result": "PASS",
+      "inventory_sha256": "dd88b441a17c147b5ed4d64c19b933aa23448d24a62bb1b055fc8d64d07b6490",
+      "run_json_sha256": "edad72220c7b1dd14eec553aabb050a05872bb91a0d26300ed3313aa8beba59a"
+    },
+    "post_readback_exact_version_cold_all_14_selftests": {
+      "result": "PASS",
+      "binding_scope": "capture inventory, exact firmware version, USB identity, and operator-attested chronology; the self-test runner did not validate flash inventory/run hashes",
+      "inventory_sha256": "488cd1f908bc7aff655b5ef43e325ed542bd9cdc66c0d0ca5e2eba2a84aca156",
+      "run_json_sha256": "72a472e23a79a4f01fe6c0467c13f6eac220e7307889b6ae2e14c44d12a4d6dd",
+      "cold_boot_attestation_sha256": "f0baef6e17fd5c90f5b1f20fd87f97cdf52daa99f956e404aca8bbc3c8a1bc9a"
+    },
+    "fresh_official_vs_post_readback_candidate_ab": {
+      "result": "FAIL",
+      "binding_scope": "capture inventories, exact firmware versions, shared USB location, and operator-attested cold-boot chronology; the v4 comparator did not validate flash inventory/run hashes",
+      "qualification_eligible": true,
+      "qualification_pass": false,
+      "inventory_sha256": "e90dffaff79fc2990d6834790a510f517ea4a39c022b22c9a72b696fa6fe3022",
+      "report_json_sha256": "a93187eb1304f16eadb61fe6f9d16e80a3b2e92902c04183d695248d6e3b4ae8",
+      "sole_failed_case": 2,
+      "sole_failed_check": "measured-peak-level",
+      "diagnostic_exclusion": false
+    },
+    "case_2_repeatability": {
+      "result": "SUPPLEMENTAL_NON_REPRODUCTION",
+      "candidate_observations": 4,
+      "passing_observations": 3,
+      "candidate_top5_median_of_observations_dbm": -52.810001,
+      "official_top5_median_dbm": -53.41,
+      "second_cold_delta_from_official_db": 0.599999,
+      "attestation_sha256": "225c8a39f0ffbcd2ae4e5afce52043a5faa695a73176a26f67cd7d243ed9ee71",
+      "changes_v4_result": false
+    },
+    "spur_persistence": {
+      "result": "DIAGNOSTIC_COMPLETE",
+      "release_gate": false,
+      "candidate_only_persistent_clusters": 0,
+      "inventory_sha256": "b3aa84e71cc96ad8b2416bf3eab2c886304d36a869fa695c65b1d05c60c9377c",
+      "report_json_sha256": "0c95fc39737db7992026a6d2dba6ba4da81474e2ec68286c20bb41d8ecea04b7"
+    }
+  },
+  "remaining_or_limited": [
+    {
+      "item": "fresh-v4-case-2-disposition",
+      "state": "PENDING",
+      "reason": "The first-cold measured-peak-level check remains a sealed qualification failure; three passing repeats establish non-reproduction but do not retroactively waive or mutate it."
+    },
+    {
+      "item": "physical-psp-and-nested-msp-fault-injection",
+      "state": "PENDING",
+      "reason": "The mandatory physical fault path has not been safely injected; executable-twin coverage is not a waiver."
+    },
+    {
+      "item": "cold-power-cycle-sentinel-retention",
+      "state": "NOT_MEASURED",
+      "reason": "Cold boots are operator-attested, but no paired before/after sentinel configuration was measured across supply removal."
+    },
+    {
+      "item": "flash-bytes-beyond-candidate-range",
+      "state": "OUT_OF_SCOPE",
+      "reason": "The exact readback covers the 193,980-byte candidate image range and does not claim bytes beyond it."
+    },
+    {
+      "item": "long-term-spur-or-sfdr-qualification",
+      "state": "NOT_CLOSED",
+      "reason": "Three-sweep recurrence is diagnostic only and makes no harmonic or physical-source attribution."
+    }
+  ],
+  "release_decision": {
+    "firmware_and_rollback_packaged": true,
+    "scoped_physical_runtime_evidence_available": true,
+    "full_hardware_qualification_claim_allowed": false,
+    "vendor_publication_performed": false
+  }
+}

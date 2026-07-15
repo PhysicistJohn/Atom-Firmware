@@ -36,7 +36,10 @@ POPULATED_TRACE_EPSILON = 0.000001
 # frequency labels are excluded so yellow text cannot masquerade as a trace.
 TRACE_RGB565 = 0xFFE0
 TRACE_X0 = 30
-TRACE_X1 = 449
+# The 450 sweep points occupy columns 30..479 inclusive.  Keeping the final
+# thirty columns out of the physical trace mask made a partial trace look more
+# complete than it was and disagreed with the zero-span grid geometry below.
+TRACE_X1 = 479
 TRACE_Y0 = 30
 TRACE_Y1 = 309
 

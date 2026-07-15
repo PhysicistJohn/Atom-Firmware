@@ -13,12 +13,13 @@ was read-only: it did not open an issue, publish a branch, comment, or push.
 | Vendor | Item | Disposition |
 | --- | --- | --- |
 | tinySA | Seven focused safety/build fixes | Already open as PRs #156 through #162; do not duplicate |
-| tinySA | ChibiOS 21.11.5 application port | RC5 is reproducibly built and its complete exact-image simulator seal passes; hardware qualification remains pending |
+| tinySA | ChibiOS 21.11.5 application port | Exact-range readback, USB/reset, and all fourteen factory self-tests pass; fresh A/B remains formally failed on one first-cold case-2 peak check despite three passing repeats, `hardware_qualified=false`, and physical PSP/MSP fault injection remains unexecuted |
 | tinySA | Scientific formatter at exact powers of ten | New focused legacy defect physically proven on untouched official `c979386`; local patch/draft/reproducer are ready, but publish separately and leave sealed RC5 unchanged |
-| tinySA | Current zero-span time grid | New focused application correctness fix; inherited exact simulator evidence is complete, but publish only after the exact RC5 hardware run |
-| tinySA | Deterministic warm-reset backup checksum | New focused application bug fix; retain separately from the RTOS port and publish only after exact hardware reset testing |
+| tinySA | Current zero-span time grid | New focused application correctness fix; simulator and physical display/self-test evidence are complete, so prepare separately when publication is authorized |
+| tinySA | Deterministic warm-reset backup checksum | New focused application bug fix; exact-image warm-reset retention passes, while cold power-cycle sentinel retention remains unmeasured |
 | tinySA | Stack-safe MSP/PSP hard-fault entry | New focused application fix; simulator-qualified, but hold for forced-fault and recovery testing on hardware |
 | tinySA | Sweep/display timing recovery and explicit single-precision constants | Keep in the ChibiOS port because these changes preserve baseline timing under the new RTOS build |
+| tinySA | Selective dual-IF confirmation | Future enhancement only: an official-hardware survey shows targeted benefit, but no RC5 integration or candidate qualification exists; hold for table-boundary, timing, and RF tests |
 | ChibiOS | STM32F0 TIM14 GPT ISR | New upstream bug; seek maintainer guidance or use the ChibiOS SourceForge support path, then prepare one vendor-neutral change for the requested integration branch and let the maintainer select any stable backport |
 | ChibiOS | USB PMA reuse across `SET_CONFIGURATION` | Confirmed USBv1 defect on 21.11.5 and confirmed analogous USBv2 pattern on current `master`; prepare a separate USB change that reviews and corrects both maintained PMA drivers, with repeated-configuration and reset regressions |
 | Renode | NVIC `RETTOBASE` | Already open as PR #217; do not duplicate |
@@ -123,35 +124,86 @@ The exact RC4 ELF now fails the focused twin regression on repeated
 `1 -> 0 -> 1`, CDC setup and traffic, suspend/wakeup, STALL, and final bus-reset
 re-enumeration. The scenario requires five PMA-distinctness markers and three
 data-endpoint-disabled markers. The complete hash-bound RC5 simulator matrix
-and both all-14 visual/trace comparisons pass. The package is sealed
-`SIMULATION_PASS_HARDWARE_PENDING` and remains `hardware_qualified=false`; no
-RC5 physical pass is claimed.
+and both simulator all-14 visual/trace comparisons pass. The exact 193,980-byte RC5 image
+was later downloaded to the ZS407 and read back byte-for-byte over the image
+range. Fresh linked USB and reset-retention runs pass, as do the cold
+all-fourteen physical self-tests, CAL-disconnected negative branch,
+reconnected recovery branch, and manual touch/jog controls. The physical
+handoff is sealed `physical-runtime-pass_fault-injection-pending`; it remains
+`hardware_qualified=false` because physical PSP-origin and nested-MSP forced
+faults have not yet been safely injected. This is a scoped physical-runtime
+pass, not a full hardware-qualification claim.
+
+The earlier scoped physical bundle is
+`.artifacts/physical-qualification/v0.4-chibios21.11.5-rc5/`. Its 26-member
+inventory seal is
+`6bf2459d03627399da9c6b7f005eebd56dd01e637e8b46a4a69a7811afc06e2c`;
+the candidate binary SHA-256 is
+`1e3f45a9744b18985622d5abf6c2445524a4ad53a831316766c37de80ac96685`.
+The byte binding is deliberately limited to the image range and fresh linked
+USB/reset records; historical self-test/A/B/control evidence remains
+exact-version-bound. The bundle predates the final post-readback all-fourteen
+capture, fresh v4 A/B, case-2 repeats, and spur-persistence analysis, and is
+intentionally not mutated to imply that it packages those later records. The
+production packager is now fail-closed against regenerating its older
+fault-injection-only status until the fresh v4 failure is formally
+dispositioned.
+
+A second post-readback cold case-2 sweep passed the original suppression
+tolerance at -52.81 dBm versus -53.41 dBm official. Across four post-readback
+observations the median is -52.81 dBm. The first cold sweep's -48.91 dBm
+single-case failure remains preserved in the fresh A/B report rather than
+being waived; repeat evidence shows that excursion is not reproducibly tied
+to cold start. The separate spur-persistence analysis remains non-gating and
+makes no harmonic or physical-source attribution. The repeats are
+supplemental evidence and do not turn the sealed v4 failure into a pass; that
+formal result must remain visible in any full-qualification disposition. The
+spur analysis finds zero candidate-only persistent clusters across its five
+eligible cases, so it creates no new RC5-specific vendor defect. Keep the
+official-only selective dual-IF survey as a future enhancement, not a current
+RC5 integration claim or PR.
+
+The post-readback self-test and A/B records are exact-version, USB-identity,
+capture-inventory, and operator-chronology bound. Their runner/comparator did
+not validate the flash inventory/run hashes, so only the earlier linked
+USB/reset records carry the package validator's exact-byte binding.
+
+The current machine-readable disposition, including later evidence that is
+external to the immutable bundle, is
+`release-manifests/v0.4-rc5-physical-qualification-status.json`, SHA-256
+`2e3fd347053dcf9536611513882d535efc1f3f78d684f1119bef651bd9c0a11f`.
 
 Publication dependencies, in order:
 
 1. Retain the completed RC5 hash-bound twin evidence: symbol profile, paired
    all-14 visual/trace captures, UI/RF, USB/reset, runtime-state, and fault
    scenarios.
-2. Qualify the exact packaged F303 binary on the physical device, including
-   recovery/DFU, cold boot, complete self-test with paired screenshot review,
-   USB traffic, controls, touch, acquisition, RF behavior, warm/cold/power-cycle
-   retention, and forced PSP/MSP fault recovery. Preserve the exact binary hash
-   in evidence.
-3. Make both focused ChibiOS fixes publicly fetchable. Ask the maintainers
+2. Retain the completed scoped physical qualification: exact-range DFU
+   download/readback, recovery, cold boot, complete self-test with paired
+   screenshot review, USB traffic, controls, touch, acquisition, RF behavior,
+   reset retention, and cold-boot behavior. Preserve its exact binary and
+   evidence hashes.
+3. Formally disposition the preserved fresh v4 case-2 failure without changing
+   its threshold or report. The three passing repeats establish
+   non-reproduction but are not a retroactive waiver.
+4. Close the remaining physical PSP-origin and nested-MSP forced-fault gate,
+   including LCD diagnostics, stack canaries, reboot and DFU recovery. Do not
+   infer a waiver from the executable twin.
+5. Make both focused ChibiOS fixes publicly fetchable. Ask the maintainers
    which integration branch and reporting path to use; the current/default
    branch is `master`, while the retained PR template still says `main` and
    GitHub issue creation is restricted. Let maintainers select stable
    backports. A parent repository must never point at the current local-only
    `2b8f425d` / `b3f82b396` lineage.
-4. In the port PR, change `.gitmodules` from the historical
+6. In the port PR, change `.gitmodules` from the historical
    `edy555/ChibiOS` fork to the authoritative
    `chibios-upstream/chibios` repository and remove the obsolete
    `branch = I2SFULLDUPLEX` hint. The port no longer consumes that fork delta.
-5. Rebase the port after the seven focused PRs, because the migration touches
+7. Rebase the port after the seven focused PRs, because the migration touches
    `Makefile`, `main.c`, `sa_core.c`, and `ui.c`, which can overlap their
    changes.
-6. Rebuild both targets and rerun the exact candidate gates after the rebase.
-7. Recreate the public commit with the PhysicistJohn noreply identity. The
+8. Rebuild both targets and rerun the exact candidate gates after the rebase.
+9. Recreate the public commit with the PhysicistJohn noreply identity. The
    local port commits contain a workstation-local author email and must not be
    published verbatim.
 
@@ -208,8 +260,9 @@ columns are stale; every framebuffer delta is explained by relocated grid
 intersections or bounded time text, and the four trace planes remain
 byte-identical. The separate official `c979386` A/B run confirms the same
 formula-current result with zero unexplained pixels and byte-identical trace
-matrices. Prepare this as a focused application PR after the exact RC5
-binary passes the physical self-test and display checks. Do not bundle the
+matrices. The exact RC5 binary now also passes the physical self-test and
+display checks, satisfying that preparation dependency. Prepare this as a
+focused application PR when publication is authorized. Do not bundle the
 simulator classifier or test-specific activity thresholds.
 
 **Deterministic backup checksum.** `Thread1` copied a stack-local `backup_t`
@@ -219,10 +272,12 @@ builds could therefore persist a checksum over indeterminate data and reject
 otherwise valid analyzer settings after reset. RC5 zero-initializes the entire
 structure before assigning fields. The earlier digital-twin qualification
 preserved the configured 123,456,789..987,654,321 Hz range and 9 dB attenuation
-across an MCU reset, including a deterministic reserved byte. Prepare this as a
-tiny one-line
-correctness PR only after the exact image also passes physical warm/cold reset
-and power-cycle tests.
+across an MCU reset, including a deterministic reserved byte. The exact image
+now passes physical warm-reset retention. The operator-attested cold boots do
+not prove before/after sentinel-setting retention across removal of power.
+Prepare this as a tiny one-line correctness PR when publication is authorized,
+and add that cold sentinel test first if the maintainer wants a power-cycle
+claim.
 
 **Hard-fault entry.** The legacy handler marks ordinary C containing locals,
 calls, and an infinite loop as `naked`, reads PSP unconditionally, and does not
@@ -520,9 +575,10 @@ project-local qualification infrastructure.
 
 ## Recommended cross-vendor order
 
-1. Keep RC4 rejected, retain the completed exact RC5 simulation seal, and
-   complete RC5 physical qualification before calling any v0.4 image
-   hardware-qualified.
+1. Keep RC4 rejected and retain the completed exact RC5 simulation and scoped
+   physical-runtime seals. Do not call any v0.4 image hardware-qualified until
+   the fresh v4 case-2 failure is formally dispositioned and the forced PSP/MSP
+   fault gate closes.
 2. Leave tinySA PRs #156-#162 and Renode PRs #217/#218 alone pending review.
 3. Keep the exact-power scientific formatter as a separate tinySA handoff. It
    is ready for maintainer review when explicitly authorized, but must not be
@@ -535,10 +591,13 @@ project-local qualification infrastructure.
 6. After both required ChibiOS fixes are public (and stable backports are
    selected), update and requalify the tinySA ChibiOS port, then submit the
    single RTOS-port PR.
-7. After the exact RC5 hardware self-test, offer the current zero-span-grid fix
-   as its own tinySA correctness PR.
-8. After exact hardware reset testing, offer the deterministic backup checksum
-   as a separate tinySA fix if the maintainer wants another focused PR.
+7. When explicitly authorized, offer the current zero-span-grid fix as its own
+   tinySA correctness PR; its exact-image physical self-test dependency is now
+   satisfied.
+8. When explicitly authorized, offer the deterministic backup checksum as a
+   separate tinySA fix if the maintainer wants another focused PR; exact-image
+   warm-reset retention passes, but cold power-cycle sentinel retention has not
+   been measured.
 9. Hold the hard-fault veneer until forced PSP/MSP faults, LCD reporting, stack
    canaries, reboot and DFU recovery all pass on the physical ZS407; then offer
    it as a separate tinySA safety PR.

@@ -41,6 +41,10 @@ DEFAULT_PID = 0x5740
 EXPECTED_POINTS = 450
 NONFLAT_CASES = frozenset((1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 14))
 CONFIRMATION = "CAL-RF-LOOPBACK-CONNECTED"
+KNOWN_VARIANT_VERSIONS = {
+    "official-c979": "tinySA4_v1.4-224-gc979386",
+    "rc5": "tinySA4_v0.4-chibios21-rc5",
+}
 FLOAT_PATTERN = rb"[-+]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?"
 # The firmware's compact etoa() stops normalizing at a mantissa equal to 10,
 # then emits that value as a single digit.  ASCII '0' + 10 is ':', so an
@@ -325,26 +329,24 @@ class PortLocator:
 
     def _matching_ports(self) -> list[Any]:
         ports = self._ports()
+        if self.identity is None and self.requested != "auto":
+            # An explicit path is strict: never fall back to a different
+            # matching analyzer when the requested path is absent.  Return the
+            # descriptor at that path (if any) so resolve() can fail with the
+            # exact VID/PID/serial mismatch before opening it.
+            return [port for port in ports if port.device == self.requested]
         usb = [port for port in ports if port.vid == self.vid and port.pid == self.pid]
         if self.usb_serial is not None:
             usb = [port for port in usb if port.serial_number == self.usb_serial]
         if self.identity is not None and self.identity.serial_number:
-            by_serial = [
+            return [
                 port for port in usb
                 if port.serial_number == self.identity.serial_number
             ]
-            if by_serial:
-                return by_serial
         if self.identity is not None and self.identity.location:
-            by_location = [
+            return [
                 port for port in usb if port.location == self.identity.location
             ]
-            if by_location:
-                return by_location
-        if self.identity is None and self.requested != "auto":
-            explicit = [port for port in ports if port.device == self.requested]
-            if explicit:
-                return explicit
         return usb
 
     def resolve(self) -> str:
@@ -358,6 +360,14 @@ class PortLocator:
                     raise RuntimeError(
                         f"{port.device} is {port.vid!r}:{port.pid!r}, not "
                         f"{self.vid:04x}:{self.pid:04x}"
+                    )
+                if (
+                    self.usb_serial is not None
+                    and port.serial_number != self.usb_serial
+                ):
+                    raise RuntimeError(
+                        f"{port.device} USB serial is {port.serial_number!r}, not "
+                        f"the required {self.usb_serial!r}"
                     )
                 if self.identity is None:
                     self.identity = UsbIdentity(
@@ -726,10 +736,34 @@ def acknowledge_case(session: ShellSession, store: EvidenceStore,
     store.event(f"ZS407_PHYSICAL_SELFTEST_ACK=PASS case={case_number}")
 
 
+def require_variant_version(variant: str, expected: str) -> None:
+    """Bind reserved evidence-label families to their exact firmware identity."""
+    for prefix, required in KNOWN_VARIANT_VERSIONS.items():
+        if variant == prefix or variant.startswith(prefix + "-"):
+            if expected != required:
+                raise ValueError(
+                    f"variant {variant!r} requires exact version {required!r}; "
+                    f"got {expected!r}"
+                )
+            return
+
+
 def require_version(response: bytes, expected: str) -> None:
-    if expected.encode("ascii") not in response:
+    """Require one clean, exact firmware identity response."""
+    lines = [line.strip() for line in response.replace(b"\r", b"").split(b"\n")]
+    while lines and not lines[-1]:
+        lines.pop()
+    expected_bytes = expected.encode("ascii")
+    reported = [line for line in lines if line.startswith(b"tinySA") and b"_v" in line]
+    if not lines or lines[0] != b"version" or lines[-1] != PROMPT.strip():
         raise AssertionError(
-            f"device version does not contain {expected!r}: {visible(response)!r}"
+            "version response has stale/prefixed data, a missing exact echo, or "
+            f"no exact prompt: {visible(response)!r}"
+        )
+    if reported != [expected_bytes]:
+        raise AssertionError(
+            f"exact version mismatch: expected {expected!r}, reported "
+            f"{[line.decode('ascii', 'backslashreplace') for line in reported]!r}"
         )
 
 
@@ -740,14 +774,28 @@ def capture_run(args: argparse.Namespace) -> int:
             f"--confirm must be exactly {CONFIRMATION}; the short 50-ohm "
             "CAL-to-RF cable must be connected"
         )
-    if args.case_wait < 15.0:
-        raise ValueError("--case-wait must remain at least 15 seconds")
-    if args.pair_interval < 0.5:
-        raise ValueError("--pair-interval must remain at least 0.5 seconds")
-    if args.settle_attempts < 1:
-        raise ValueError("--settle-attempts must be positive")
+    if not math.isfinite(args.case_wait) or not 15.0 <= args.case_wait <= 300.0:
+        raise ValueError("--case-wait must be finite and within 15..300 seconds")
+    if not math.isfinite(args.pair_interval) or not 0.5 <= args.pair_interval <= 10.0:
+        raise ValueError("--pair-interval must be finite and within 0.5..10 seconds")
+    if not 1 <= args.settle_attempts <= 10:
+        raise ValueError("--settle-attempts must be within 1..10")
+    if (
+        not math.isfinite(args.settle_retry_wait)
+        or not 0.5 <= args.settle_retry_wait <= 60.0
+    ):
+        raise ValueError("--settle-retry-wait must be finite and within 0.5..60 seconds")
+    if not math.isfinite(args.ack_hold) or not 0.1 <= args.ack_hold <= 10.0:
+        raise ValueError("--ack-hold must be finite and within 0.1..10 seconds")
+    if (
+        not math.isfinite(args.reenumeration_timeout)
+        or args.reenumeration_timeout <= 0.0
+        or args.reenumeration_timeout > 300.0
+    ):
+        raise ValueError("--reenumeration-timeout must be finite and within (0, 300] seconds")
     if not re.fullmatch(r"[A-Za-z0-9._-]+", args.variant):
         raise ValueError("--variant may contain only letters, digits, dot, underscore and dash")
+    require_variant_version(args.variant, args.expected_version)
 
     arguments = {
         "port": args.port,
@@ -932,7 +980,7 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--variant", required=True,
                         help="evidence label, such as official-c979 or rc5")
     parser.add_argument("--expected-version", required=True,
-                        help="exact substring required from the version command")
+                        help="exact clean firmware identity required from the version command")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--cases", default="0-13",
                         help="zero-based case set (default: 0-13)")
