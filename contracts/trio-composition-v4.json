@@ -51,7 +51,7 @@
       "measurementBridgeStatus": "active",
       "measurementBridge": "signal-lab-measurement-bridge",
       "stimulusContractVersion": 1,
-      "closedProfileCount": 88,
+      "closedProfileCount": 34,
       "firmwareStimulusSinkStatus": "reserved-not-connected"
     }
   },
