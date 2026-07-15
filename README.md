@@ -63,6 +63,34 @@ Run the no-build packaging regression tests with:
 python3 tools/test-flasher-build-manifest.py
 ```
 
+Atomizer and Flasher integration
+--------------------------------
+
+The current cross-repository runtime authority is
+[`contracts/trio-composition-v4.json`](contracts/trio-composition-v4.json).
+Atomizer reaches this repository's executable Renode bridge only through its
+`tinysa-zs407` driver, as the explicitly selected `tinysa-firmware-twin` source
+kind. The twin never claims USB identity or modeled USB transactions. SignalLab
+is Atomizer's factory-default high-level measurement driver when no preference
+exists; its active measurement edge bypasses this repository. The separate
+SignalLab stimulus-intent sink remains `reserved-not-connected` here, and no
+source failure authorizes fallback to the twin.
+
+Firmware installation is not an Atomizer capability. Standalone sibling
+`../TinySA_Flasher` owns OEM and manifested custom-firmware artifact admission,
+CDC/DFU preflight, irreversible writes, durable journals, and post-write
+continuity verification. TinySA_Flasher's active interface catalog v3 retains
+active application contract v2 (`deviceContractVersion: 2`); interface catalog
+v2 and legacy application contract v1 are frozen. A custom build selected
+through its manifest remains distinct from OEM provenance and does not become
+hardware-qualified merely because it builds or reports matching version text.
+Atomizer may warning-admit a compatible unknown installed revision as
+`custom-unqualified`, but that operational status is neither exact byte proof
+nor permission to flash.
+
+NeptuneSDR is a future Atomizer driver and contract-evolution target, not a
+capability supplied by this firmware repository or the current twin.
+
 Run the exact executable ZS407 digital twin from the adjacent `TinySA_Twin`
 checkout without hardware (these compatibility commands delegate there):
 
@@ -86,8 +114,11 @@ The hybrid image is a compiler feasibility result only and is explicitly
 **not hardware-qualified**. It must not be flashed before the physical baseline
 and recovery gate are complete.
 
-Neither command flashes a device. There is intentionally no automated flash
-command in this fork yet.
+Neither command flashes a device. This firmware checkout intentionally exposes
+no automated physical flash command in its maintained workflow; admit the
+generated manifest through standalone `../TinySA_Flasher` instead. The original
+upstream README below is historical upstream guidance, not this fork's current
+cross-repository safety contract.
 
 Read first
 ----------

@@ -48,12 +48,15 @@ independently after the repository split.
 
 ## Compatibility boundary
 
-The active trio-composition contract is version 3. Atomizer currently
-looks up bridge launchers and `digital-twin/contracts/atomizer-twin-v1.json`
-under `TinySA_Firmware`, so those compatibility paths remain here and delegate
-execution to `TinySA_Twin`. Contractual ownership moves only in a coordinated
-new trio-contract version across TinySA, TinySA_Firmware, TinySA_Twin, and
-TinySA_SignalLab.
+The active trio-composition contract is version 4 and is byte-identical in
+TinySA, TinySA_Firmware, and TinySA_SignalLab. Atomizer currently looks up bridge
+launchers and `digital-twin/contracts/atomizer-twin-v1.json` under
+`TinySA_Firmware`, so those compatibility paths remain here and delegate
+execution to `TinySA_Twin`. TinySA_Twin is an implementation dependency behind
+Firmware's owned bridge, not a separate runtime-composition party. Contractual
+ownership moves only in a coordinated new trio-contract version across the
+three runtime repositories and a corresponding TinySA_Twin implementation
+update.
 
 The full model inventory, exact boot signature, RF/CAL/USB behavior, expected
 Renode warnings, interactive commands, and emulator-specific upstream queue
