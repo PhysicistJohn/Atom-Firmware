@@ -44,7 +44,7 @@ Respect the official RF limits. The wiki lists a maximum of +/-5 V DC and a
 maximum input of +6 dBm at 0 dB internal attenuation for Ultra-class hardware;
 software cannot protect a damaged front end.
 
-## 3. Prove DFU discovery without writing
+## 3. Record recovery inputs without a Firmware-side device tool
 
 For Ultra hardware, the official recovery entry is:
 
@@ -54,15 +54,12 @@ For Ultra hardware, the official recovery entry is:
 4. expect a black display;
 5. connect USB and enumerate the STM32 DFU device.
 
-On macOS/Linux, discovery can be checked without a download:
-
-```bash
-dfu-util -l
-```
-
-Do not run `dfu-util -D`, STM32CubeProgrammer download, or `make flash` during
-this discovery step. Record the DFU descriptor and confirm that normal reboot
-returns to the shipped firmware.
+Current discovery and admission belong to standalone `../TinySA_Flasher`.
+Firmware contributors may record the physical recovery gesture and expected
+USB identity here, but must not add a raw DFU/programmer invocation to this
+repository. Let the Flasher perform exact device enumeration and return to the
+shipped firmware without preparing a write when only recovery discovery is
+being checked.
 
 ## 4. First write qualification
 
@@ -73,7 +70,8 @@ change. The candidate must have this SHA-256:
 3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41
 ```
 
-Before that write:
+Select the Flasher's pinned OEM target for this exact baseline. Before allowing
+the Flasher's native confirmation and write workflow:
 
 - verify the candidate hash immediately before programming;
 - have the official `.bin` and `.dfu` cached and verified;
@@ -105,6 +103,11 @@ attenuator/LNA control, persistence layout, or interrupt/RTOS code require a
 larger matrix than display-only changes.
 
 ## 6. Executed package-3 qualification (2026-07-11)
+
+This and the following executed sections are historical evidence. They name
+the tools used at the time; they do not define current update authority. All
+new writes go through standalone TinySA_Flasher and a currently admitted OEM
+or manifested custom target.
 
 The physical unit enumerated as `0483:5740`, identified as
 `tinySA ULTRA+ ZS407`, and reported `HW Version:V0.5.4 max2871`. Battery voltage

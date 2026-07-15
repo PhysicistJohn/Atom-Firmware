@@ -3,7 +3,10 @@
 `tools/capture-physical-selftests.py` records the physical counterpart of the
 fourteen-case Renode visual gate. It has no flashing or DFU support. Run it
 once with the official `c979386` image and once with the exact RC5 image, with a
-human-controlled flash and cold boot between runs.
+human-controlled TinySA_Flasher installation and cold boot between runs. The
+record below predates the standalone boundary and is archival: the legacy RC5
+raw image is not currently manifest-admissible, so do not repeat the pair until
+it has a reviewed manifest migration or is rebuilt as a manifested target.
 
 ## Safety and setup
 
@@ -274,7 +277,9 @@ After flashing and cold-booting the official image:
   --confirm CAL-RF-LOOPBACK-CONNECTED
 ```
 
-Then flash the exact RC5 binary, perform a true power-off cold boot, and run:
+Historically, the exact RC5 binary was installed next. For any repeat, use only
+standalone TinySA_Flasher after the exact candidate has a reviewed manifest;
+then perform a true power-off cold boot and run:
 
 ```sh
 "$TINYSA_HW_PYTHON" \

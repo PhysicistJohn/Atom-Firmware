@@ -11,10 +11,11 @@
             }
         },
         {
-            "label": "flash",
+            "label": "Package current commit for TinySA Flasher",
             "type": "shell",
-            "command": "make dfu flash",
-            "group": "build"
+            "command": "version=\"tinySA4_lab-v0.3.0-g$(git rev-parse --short=7 HEAD)\"; exec tools/package-flasher-build.sh \"$version\"",
+            "group": "build",
+            "problemMatcher": []
         }
     ]
 }

@@ -14,6 +14,9 @@
 > historical hardware sequence and hold boundaries below remain evidence of
 > the earlier pause; use [Upstream contribution queue](UPSTREAM.md) for the
 > current public status.
+> The physical sequence is likewise archival. Any future write must use
+> standalone TinySA_Flasher with an admitted OEM target or strict manifested
+> custom build; the legacy raw RC5 image is not a current custom target.
 
 Recorded on 2026-07-14 before separating the executable digital twin into the
 adjacent `TinySA_Twin` repository. No public push, issue, pull request, or
@@ -65,9 +68,11 @@ The device is on untouched official firmware
 
 1. Switch fully off for at least five seconds, switch on normally, and capture
    a new cold official all-14 baseline.
-2. Enter TINYSA4 DFU manually, flash sealed RC5 BIN SHA-256
-   `1e3f45a9744b18985622d5abf6c2445524a4ad53a831316766c37de80ac96685`,
-   and verify warm USB enumeration.
+2. Before repeating RC5, produce or review a strict Flasher manifest migration
+   for sealed BIN SHA-256
+   `1e3f45a9744b18985622d5abf6c2445524a4ad53a831316766c37de80ac96685`;
+   then let standalone TinySA_Flasher own admission, the write, and warm USB
+   continuity verification. Without that manifest path, stop.
 3. Perform another true cold boot, capture all fourteen RC5 self-tests, and
    compare screenshots, all four traces, SFDR, sweep timing, and persisted
    configuration against the official baseline.

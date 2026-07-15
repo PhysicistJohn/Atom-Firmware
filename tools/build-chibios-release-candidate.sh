@@ -143,19 +143,26 @@ profile_hash=$(sha256_file "$profile")
   printf 'hardware_qualified=false\n'
   printf 'simulation_qualification=pending\n'
   printf 'automated_flash=false\n'
+  printf 'installation_owner=TinySA_Flasher\n'
+  printf 'installable_by_current_flasher=false\n'
 } > "$artifact_dir/manifest.txt"
 
-cat > "$artifact_dir/FLASHING.txt" <<EOF
+cat > "$artifact_dir/INSTALLATION.txt" <<EOF
 Candidate: $release_id
 Hardware: tinySA Ultra+ ZS407 / STM32F303 only
 Binary: $stem.bin
 SHA-256: $binary_hash
 
-This package is not hardware-qualified until qualification.txt says PASS.
-Keep the known-good rollback binary available before flashing.
+This is reproducible build evidence, not an installation package. It is not
+hardware-qualified until qualification.txt says PASS. TinySA_Firmware owns no
+device writer and intentionally emits no raw programming command.
 
-With the unit already in ROM DFU mode, the explicit flash command is:
-  dfu-util -d 0483:df11 -a 0 -s 0x08000000:leave -D $stem.bin
+This legacy candidate predates tinysa-flasher-build-v1.json and therefore is
+not admissible as a current custom target. For a new custom build, use
+tools/package-flasher-build.sh from a clean committed tree and select the
+emitted JSON manifest in standalone ../TinySA_Flasher. The Flasher alone owns
+artifact admission, device preflight, physical writes, recovery journaling,
+and post-write verification.
 
 Do not use this image on the F072 target.
 EOF

@@ -4,6 +4,11 @@ Status: **complete** on 2026-07-11 PDT / 2026-07-12 UTC. All four candidates
 passed targeted hardware qualification and the full built-in self-test. The
 enhanced v0.3 FFT1024 image was restored and passed its final self-test.
 
+This is an archived record of a completed pre-extraction session, not a current
+installation runbook. Any repeat must first package each candidate with the
+strict custom-build manifest and use standalone TinySA_Flasher; raw images in
+the old staging directories are not directly admissible.
+
 The completed evidence and hardware-specific findings are recorded in
 [UPSTREAM_HARDWARE_RESULTS.md](UPSTREAM_HARDWARE_RESULTS.md).
 
@@ -49,7 +54,7 @@ DFU transition.
 
 For packages 4, 5, 6 and 7 in order:
 
-1. Enter DFU physically and flash only that row's verified F303 image.
+1. Historical step: the operator installed only that row's verified F303 image.
 2. Boot normally and identify the returned `/dev/cu.usbmodem*` path.
 3. Run the matching command below, substituting only the exact serial path.
 4. Confirm the script reports `PASS` and preserves its Markdown transcript.

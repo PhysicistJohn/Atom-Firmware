@@ -2,30 +2,28 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "OpenOCD-Debug",
+            "name": "OpenOCD attach (symbols only; never program)",
             "type": "cortex-debug",
-            "request": "launch",
+            "request": "attach",
             "servertype": "openocd",
-            "executable": "build/ch.elf",
+            "executable": "build/tinySA4.elf",
             "configFiles": [
                 "interface/stlink.cfg",
-                "target/stm32f0x.cfg"
+                "target/stm32f3x.cfg"
             ],
             "cwd": "${workspaceRoot}",
-            "svdFile": "STM32F0x2.svd",
-            "device": "stm32f0x",
-            "preLaunchTask": "build",
+            "device": "stm32f303",
+            "preLaunchTask": "build"
         },
         {
-            "name": "STLink-Debug",
+            "name": "ST-Link attach (symbols only; never program)",
             "type": "cortex-debug",
-            "request": "launch",
+            "request": "attach",
             "servertype": "stutil",
-            "executable": "build/ch.elf",
+            "executable": "build/tinySA4.elf",
             "cwd": "${workspaceRoot}",
-            "svdFile": "STM32F0x2.svd",
-            "device": "stm32f0x",
-            "preLaunchTask": "build",
+            "device": "stm32f303",
+            "preLaunchTask": "build"
         }
     ]
 }

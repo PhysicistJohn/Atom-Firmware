@@ -58,6 +58,13 @@ source, ChibiOS, toolchain, image-digest, reproducibility, qualification, and
 operator-only flash-policy evidence. It cannot label a build hardware-qualified
 without an explicit immutable qualification-evidence file.
 
+The complete ownership rule is documented in
+[`docs/FIRMWARE_INSTALLATION_BOUNDARY.md`](docs/FIRMWARE_INSTALLATION_BOUNDARY.md).
+Legacy release candidates and the RC5 physical-qualification bundle are build
+or evidence archives, not alternate installation paths. The retired
+`tools/flash-physical-dfu-evidence.py` name remains only as a fail-closed
+compatibility tombstone for historical provenance.
+
 Run the no-build packaging regression tests with:
 
 ```bash
@@ -193,11 +200,11 @@ Use github issue list only for firmware bugs and preferrably cross post to: http
 
 ### MacOSX
 
-Install cross tools and firmware updating tool.
+Install the cross-compilation tools. Firmware installation is handled only by
+standalone TinySA_Flasher and is not a toolchain prerequisite here.
 
     $ brew tap px4/px4
     $ brew install gcc-arm-none-eabi-80
-    $ brew install dfu-util
 
 ### Linux (ubuntu)
 
@@ -206,7 +213,6 @@ Download arm cross tools from [here](https://developer.arm.com/tools-and-softwar
     $ wget https://developer.arm.com/-/media/Files/downloads/gnu-rm/8-2018q4/gcc-arm-none-eabi-8-2018-q4-major-linux.tar.bz2
     $ sudo tar xfj gcc-arm-none-eabi-8-2018-q4-major-linux.tar.bz2 -C /usr/local
     $ PATH=/usr/local/gcc-arm-none-eabi-8-2018-q4-major/bin:$PATH
-    $ sudo apt install -y dfu-util
 
 ## Fetch source code
 

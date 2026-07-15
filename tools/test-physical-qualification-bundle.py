@@ -966,17 +966,22 @@ class BundleTests(unittest.TestCase):
             self.assertEqual(digest((output / item["bundle_path"]).read_bytes()), item["sha256"])
         report = (output / "qualification-report.md").read_text(encoding="utf-8")
         self.assertIn("not a self-contained evidence archive", report)
-        flashing = (output / "FLASHING.txt").read_text(encoding="utf-8")
-        self.assertIn("operator must perform every admission", flashing)
-        self.assertIn("never enters DFU", flashing)
-        self.assertIn("exactly one DFU unit", flashing)
-        self.assertIn("NEVER select or write alt 1", flashing)
-        self.assertIn("-p 0-1 -S 2066365B2036 -c 1 -i 0 -a 0", flashing)
-        self.assertIn(f"0x08000000:{bundle.EXPECTED_CANDIDATE_SIZE}:leave -U candidate.readback.bin", flashing)
-        self.assertIn("cmp firmware/", flashing)
-        self.assertIn("serial 706", flashing)
-        self.assertIn("serial 400", flashing)
-        self.assertIn("Do not use either image on F072", flashing)
+        installation = (output / "INSTALLATION.txt").read_text(encoding="utf-8")
+        self.assertIn("not a current installation bundle", installation)
+        self.assertIn("TinySA_Flasher", installation)
+        self.assertIn("tinysa-flasher-build-v1.json", installation)
+        self.assertIn("not a raw BIN", installation)
+        self.assertIn("grants no write authority", installation)
+        self.assertNotIn("dfu-util -", installation)
+        self.assertNotIn(" -D ", installation)
+        self.assertNotIn(" -U ", installation)
+        self.assertIn("Do not use either image on F072", installation)
+        self.assertEqual(manifest["flash_policy"]["owner"], "TinySA_Flasher")
+        self.assertEqual(
+            manifest["flash_policy"]["flash_execution"],
+            "standalone-tinysa-flasher-only",
+        )
+        self.assertFalse(manifest["flash_policy"]["candidate_currently_admissible"])
         self.assertEqual(
             (output / "source-seal" / "SHA256SUMS").read_bytes(),
             (self.fixture.source / "SHA256SUMS").read_bytes(),

@@ -1440,8 +1440,8 @@ def render_report(evidence: Iterable[VerifiedEvidence]) -> bytes:
     return "\n".join(lines).encode("utf-8")
 
 
-def render_flashing() -> bytes:
-    text = f"""tinySA RC5 manual flashing instructions
+def render_installation_boundary() -> bytes:
+    text = f"""tinySA RC5 qualification-evidence archive
 
 QUALIFICATION STATUS: {QUALIFICATION_STATUS}
 FULL HARDWARE QUALIFICATION: NO (physical fault injection remains pending)
@@ -1452,51 +1452,29 @@ Candidate SHA-256: {EXPECTED_CANDIDATE_SHA256}
 Rollback: firmware/{EXPECTED_ROLLBACK_NAME}
 Rollback SHA-256: {EXPECTED_ROLLBACK_SHA256}
 
-This bundle never enters DFU, detects hardware, or flashes automatically.
-The operator must perform every admission below. A raw VID:PID match is not
-sufficient because 0483:df11 is shared by unrelated STM32/F072 devices.
+This bundle preserves authenticated historical build and qualification facts.
+It is not a current installation bundle and grants no write authority. Its raw
+candidate predates the strict tinysa-flasher-build-v1.json custom-build
+manifest, so standalone TinySA_Flasher must reject it as a new custom target.
+The qualification status above must not be interpreted as current artifact
+admission or as a waiver of the pending physical fault-injection gate.
 
-1. From the bundle root, verify the complete bundle inventory and the selected
-   image SHA-256. Stop on any mismatch.
-2. Manually put the intended unit in STM32 ROM DFU mode, then run `dfu-util -l`.
-   Continue only when exactly one DFU unit is present and it has all of:
-     USB path: 0-1
-     DFU serial: 2066365B2036
-     VID:PID: 0483:df11
-     alt 0: @Internal Flash (the application flash target)
-   The same unit also exposes alt 1 Option Bytes. NEVER select or write alt 1.
-   Stop if the path, serial, target name, device count, or alt setting differs.
-3. Only after that inspection, manually run the path-and-serial-bound download
-   for the selected image. Configuration 1, interface 0, and alternate 0 are
-   explicit; the download intentionally does not leave DFU before readback.
+All new firmware installation is owned exclusively by standalone
+../TinySA_Flasher. For a current custom build:
 
-   Candidate:
-     dfu-util -d 0483:df11 -p 0-1 -S 2066365B2036 -c 1 -i 0 -a 0 -s 0x08000000 -D firmware/{EXPECTED_CANDIDATE_NAME}
+1. Build a clean committed F303/ZS407 Phase 6 image with
+   tools/package-flasher-build.sh.
+2. In TinySA_Flasher, select the emitted tinysa-flasher-build-v1.json manifest,
+   not a raw BIN.
+3. Let TinySA_Flasher perform artifact admission, exact device preflight,
+   native confirmation, the physical write, durable recovery journaling, and
+   post-reboot continuity verification.
 
-   Official rollback:
-     dfu-util -d 0483:df11 -p 0-1 -S 2066365B2036 -c 1 -i 0 -a 0 -s 0x08000000 -D firmware/{EXPECTED_ROLLBACK_NAME}
-
-4. Require a successful one-shot download, then read back exactly the selected
-   image range and leave DFU. Write readback outside the firmware directory.
-
-   Candidate:
-     dfu-util -d 0483:df11 -p 0-1 -S 2066365B2036 -c 1 -i 0 -a 0 -s 0x08000000:{EXPECTED_CANDIDATE_SIZE}:leave -U candidate.readback.bin
-     cmp firmware/{EXPECTED_CANDIDATE_NAME} candidate.readback.bin
-
-   Official rollback:
-     dfu-util -d 0483:df11 -p 0-1 -S 2066365B2036 -c 1 -i 0 -a 0 -s 0x08000000:{EXPECTED_ROLLBACK_SIZE}:leave -U rollback.readback.bin
-     cmp firmware/{EXPECTED_ROLLBACK_NAME} rollback.readback.bin
-
-   Stop unless `cmp` succeeds and the readback SHA-256 equals the selected
-   image SHA-256 printed above. Qualification used the same bounded readback;
-   bytes beyond the selected image range are not covered.
-
-5. After normal enumeration,
-   confirm the same USB location 0-1 and normal VID:PID 0483:5740, then query
-   the device version. Candidate must enumerate with serial 706 and report
-   exactly {EXPECTED_VERSION}. Official rollback must enumerate with serial 400
-   and report exactly {EXPECTED_ROLLBACK_VERSION}. Stop and recover with the
-   verified rollback if identity, version, or normal USB behavior differs.
+Do not use the retired Firmware-side physical-writer path or a direct device
+utility. Use TinySA_Flasher's pinned OEM target when restoring the official
+{EXPECTED_ROLLBACK_VERSION} release. Repeating the legacy RC5 candidate would
+require a reviewed manifest migration or a new reproducible manifested build;
+this evidence archive intentionally provides neither shortcut.
 
 Do not use either image on F072 hardware. No F072 binary is included.
 """
@@ -1699,8 +1677,12 @@ def create_bundle(
         ],
         "flash_policy": {
             "automated_flash": False,
-            "dfu_entry": "manual-operator-only",
-            "flash_execution": "manual-explicit-command-only",
+            "owner": "TinySA_Flasher",
+            "bundle_authorization": "archive-only-no-current-write-authority",
+            "dfu_entry": "standalone-flasher-guided-operator-confirmed",
+            "flash_execution": "standalone-tinysa-flasher-only",
+            "custom_artifact_admission": "tinysa-flasher-build-v1-manifest-required",
+            "candidate_currently_admissible": False,
             "requires_known_good_rollback": True,
         },
     }
@@ -1714,7 +1696,7 @@ def create_bundle(
         "source-seal/qualification.txt": source["qualification_bytes"],
         "manifest.json": manifest_bytes,
         "qualification-report.md": render_report(verified),
-        "FLASHING.txt": render_flashing(),
+        "INSTALLATION.txt": render_installation_boundary(),
     }
     for item in verified:
         members[f"evidence-inventories/{item.spec.role}.SHA256SUMS"] = item.inventory_bytes

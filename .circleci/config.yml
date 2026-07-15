@@ -10,6 +10,8 @@ jobs:
           command: |
             python3 tools/test-flasher-build-manifest.py
             python3 tools/test-firmware-update-boundary.py
+            python3 tools/test-physical-dfu-flash-evidence.py
+            python3 tools/test-physical-qualification-bundle.py
 workflows:
   firmware-boundary:
     jobs:
