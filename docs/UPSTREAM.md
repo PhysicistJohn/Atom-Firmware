@@ -3,6 +3,21 @@
 The exact pause/resume state for the next publication session is recorded in
 [Upstream return checkpoint](UPSTREAM_RETURN_CHECKPOINT.md).
 
+> **ChibiOS port published as a draft on 2026-07-15.** The clean public-only
+> tinySA application stack is [PR #166](https://github.com/erikkaashoek/tinySA/pull/166)
+> at `5e0299009f29`; the independent stable ChibiOS backports are draft
+> [PR #86](https://github.com/chibios-upstream/chibios/pull/86) and
+> [PR #87](https://github.com/chibios-upstream/chibios/pull/87). The temporary
+> public ChibiOS integration pin is `db35f6df1370` on
+> `PhysicistJohn/chibios:codex/integration-tinysa-21.11.5`. The reproducible
+> public F303 BIN is 192,940 bytes with SHA-256
+> `13f72e9ee9a80af170438958fc26029c516f6106c87aed9a45eea335a9a59fc9`.
+> General, runtime-state, and PSP/MSP fault twin qualifiers pass with zero
+> unexpected warnings; their report SHA-256 values are `d0556431e247`,
+> `c27620424a44`, and `73a7fa6fe114`, respectively. Keep #166 draft until its
+> ChibiOS pin is canonical and that exact clean public binary receives a
+> physical cold/USB/all-14 smoke run.
+
 All personal development remains on the private PhysicistJohn repository.
 Upstream candidates are isolated from the replacement-firmware roadmap and
 carry the PhysicistJohn noreply identity.
@@ -106,12 +121,12 @@ gate with EP0 TX and EP1 TX both at `0x0040`; the RC5 ELF passes same-value
 re-enumeration. The complete gate requires five PMA-distinctness markers and
 three data-endpoint-disabled markers.
 
-The exact RC5 package is sealed
-`SIMULATION_PASS_HARDWARE_PENDING` and remains
-`hardware_qualified=false`. Its hash-bound general, runtime/reset,
-fault-handler, USB, and paired all-14 visual/trace gates all pass, including
-the official `c979386` exact-or-better comparison. No RC5 physical pass is
-claimed. The F072 artifact remains build evidence only.
+The exact RC5 package has a scoped physical-runtime pass: exact-range DFU
+download/readback, USB/reset behavior, cold boot, and all fourteen physical
+self-tests passed. The overall manifest remains `hardware_qualified=false`
+because the fresh v4 A/B preserves one first-cold case-2 threshold failure
+despite three passing repeats, and physical PSP/MSP forced-fault injection was
+not performed. The F072 artifact remains build evidence only.
 
 The TIM14 correction was recreated on current/default `master` with the public
 noreply identity as commit `14da3ecdf0e2` and is open as ChibiOS

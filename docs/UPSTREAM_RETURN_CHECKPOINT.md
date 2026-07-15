@@ -7,6 +7,10 @@
 > [#165](https://github.com/erikkaashoek/tinySA/pull/165), plus ChibiOS PRs
 > [#84](https://github.com/chibios-upstream/chibios/pull/84) and
 > [#85](https://github.com/chibios-upstream/chibios/pull/85), are open. The
+> clean ChibiOS port is now draft tinySA
+> [#166](https://github.com/erikkaashoek/tinySA/pull/166), with draft stable
+> backports ChibiOS [#86](https://github.com/chibios-upstream/chibios/pull/86)
+> and [#87](https://github.com/chibios-upstream/chibios/pull/87). The
 > historical hardware sequence and hold boundaries below remain evidence of
 > the earlier pause; use [Upstream contribution queue](UPSTREAM.md) for the
 > current public status.
@@ -28,6 +32,10 @@ comment was made while recording this checkpoint.
   fresh publication clone or branch and push only to the PhysicistJohn fork.
 
 ## Publication order
+
+The numbered list below is the historical pre-publication plan. It has now
+been executed through the draft-port stage; do not interpret its old hold
+language as current status.
 
 1. Restore GitHub authentication without putting a token in repository files,
    shell history, documentation, or chat.

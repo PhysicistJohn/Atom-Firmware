@@ -30,6 +30,16 @@ The scientific-formatting handoff is published independently as tinySA
 seven-patch integration branch or incorporated into the sealed v0.4 RC5
 firmware.
 
+The clean ChibiOS 21.11.5 application migration is published separately as
+draft tinySA [PR #166](https://github.com/erikkaashoek/tinySA/pull/166), head
+`5e0299009f29edf313e86452390a97119637a019`. It is a seven-commit public-only
+stack and temporarily pins public ChibiOS integration commit `db35f6df1370`.
+Its reproducible 192,940-byte F303 BIN has SHA-256
+`13f72e9ee9a80af170438958fc26029c516f6106c87aed9a45eea335a9a59fc9`;
+general, runtime-state, and fault-handler twin qualification all pass. It
+remains draft pending canonical ChibiOS stable commits and a physical smoke of
+that clean public binary.
+
 ## Queue
 
 | # | Patch | Observable defect | Runtime risk |

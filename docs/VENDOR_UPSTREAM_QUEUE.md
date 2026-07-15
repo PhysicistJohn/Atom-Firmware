@@ -6,8 +6,8 @@ that is already public, code that is ready to prepare for a vendor, and local
 test infrastructure that must not be sent upstream.
 
 The original read-only audit was completed on 2026-07-14. Publication status
-was refreshed on 2026-07-15 after tinySA PRs #163-#165 and ChibiOS PRs
-#84-#85 were opened from clean public-upstream clones. The private repository
+was refreshed on 2026-07-15 after tinySA PRs #163-#166 and ChibiOS PRs
+#84-#87 were opened from clean public-upstream clones. The private repository
 history and local qualification infrastructure remain unpublished.
 
 ## Disposition at a glance
@@ -15,15 +15,15 @@ history and local qualification infrastructure remain unpublished.
 | Vendor | Item | Disposition |
 | --- | --- | --- |
 | tinySA | Seven focused safety/build fixes | Already open as PRs #156 through #162; do not duplicate |
-| tinySA | ChibiOS 21.11.5 application port | Exact-range readback, USB/reset, and all fourteen factory self-tests pass; fresh A/B remains formally failed on one first-cold case-2 peak check despite three passing repeats, `hardware_qualified=false`, and physical PSP/MSP fault injection remains unexecuted |
+| tinySA | ChibiOS 21.11.5 application port | Open as draft [PR #166](https://github.com/erikkaashoek/tinySA/pull/166); clean public F303/F072 builds and the full exact-image twin matrix pass; predecessor RC5 physical runtime passes, while one non-reproduced first-cold A/B threshold failure and clean-binary physical smoke remain visible gates |
 | tinySA | Scientific formatter at exact powers of ten | Open as focused [PR #163](https://github.com/erikkaashoek/tinySA/pull/163); sealed RC5 remains unchanged |
 | tinySA | Current zero-span time grid | Open as focused [PR #164](https://github.com/erikkaashoek/tinySA/pull/164), with simulator and physical display/self-test evidence |
 | tinySA | Deterministic warm-reset backup checksum | Open as focused [PR #165](https://github.com/erikkaashoek/tinySA/pull/165); warm-reset retention passes and cold power-cycle sentinel retention remains unmeasured |
 | tinySA | Stack-safe MSP/PSP hard-fault entry | New focused application fix; simulator-qualified, but hold for forced-fault and recovery testing on hardware |
 | tinySA | Sweep/display timing recovery and explicit single-precision constants | Keep in the ChibiOS port because these changes preserve baseline timing under the new RTOS build |
 | tinySA | Selective dual-IF confirmation | Future enhancement only: an official-hardware survey shows targeted benefit, but no RC5 integration or candidate qualification exists; hold for table-boundary, timing, and RF tests |
-| ChibiOS | STM32F0 TIM14 GPT ISR | Open as vendor-neutral current-`master` [PR #84](https://github.com/chibios-upstream/chibios/pull/84); maintainer selects any stable backport |
-| ChibiOS | USB PMA reuse across `SET_CONFIGURATION` | Open as separate current-`master` [PR #85](https://github.com/chibios-upstream/chibios/pull/85), correcting both USBv1 and USBv2; runtime evidence is explicitly USBv1-only |
+| ChibiOS | STM32F0 TIM14 GPT ISR | Open as vendor-neutral current-`master` [PR #84](https://github.com/chibios-upstream/chibios/pull/84) and draft `stable-21.11.x` backport [#86](https://github.com/chibios-upstream/chibios/pull/86) |
+| ChibiOS | USB PMA reuse across `SET_CONFIGURATION` | Open as current-`master` [PR #85](https://github.com/chibios-upstream/chibios/pull/85) and draft USBv1 stable backport [#87](https://github.com/chibios-upstream/chibios/pull/87); runtime evidence remains USBv1-only |
 | Renode | NVIC `RETTOBASE` | Already open as PR #217; do not duplicate |
 | Renode | STM32 GPIO IDR/ODR and BSRR priority | Already open as the two commits in PR #218; do not duplicate |
 | Renode | Architectural HardFault priority | New issue in `renode/renode`, followed by one issue-numbered infrastructure PR; keep separate from #217 |
@@ -176,6 +176,11 @@ external to the immutable bundle, is
 `2e3fd347053dcf9536611513882d535efc1f3f78d684f1119bef651bd9c0a11f`.
 
 Publication dependencies, in order:
+
+Steps 5, 6, and 9 now have public draft implementations in ChibiOS #86/#87
+and tinySA #166. The port intentionally uses the public integration fork until
+the canonical stable commits exist; its final URL/gitlink transition and clean
+binary physical smoke remain open.
 
 1. Retain the completed RC5 hash-bound twin evidence: symbol profile, paired
    all-14 visual/trace captures, UI/RF, USB/reset, runtime-state, and fault

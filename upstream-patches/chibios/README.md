@@ -4,6 +4,12 @@ This directory preserves the stable-21.11.5 handoff for two independent
 ChibiOS findings from the tinySA port. Clean current-`master` versions are now
 published as ChibiOS [PR #84](https://github.com/chibios-upstream/chibios/pull/84)
 and [PR #85](https://github.com/chibios-upstream/chibios/pull/85).
+Draft `stable-21.11.x` backports are public as
+[PR #86](https://github.com/chibios-upstream/chibios/pull/86) and
+[PR #87](https://github.com/chibios-upstream/chibios/pull/87). The clean
+two-commit tag-based integration branch is public at
+`PhysicistJohn/chibios:codex/integration-tinysa-21.11.5`, commit
+`db35f6df137058c612dc13e4488ac923219d881a`.
 
 | Finding | Proven base | Local integration commit | Upstream shape |
 | --- | --- | --- | --- |
