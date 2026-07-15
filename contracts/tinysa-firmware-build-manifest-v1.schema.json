@@ -47,7 +47,7 @@
       "required": ["sourceDateEpoch", "toolchain", "reproducibleCleanBuilds", "hardwareQualification", "simulationQualification"],
       "properties": {
         "sourceDateEpoch": { "type": "integer", "minimum": 1 },
-        "toolchain": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "toolchain": { "type": "string", "minLength": 1, "maxLength": 200 },
         "reproducibleCleanBuilds": { "const": true },
         "hardwareQualification": { "enum": ["unqualified", "qualified-on-zs407"] },
         "simulationQualification": { "enum": ["not-run", "passed"] },

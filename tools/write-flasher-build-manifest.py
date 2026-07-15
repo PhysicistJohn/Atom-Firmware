@@ -54,7 +54,7 @@ def main() -> int:
         fail("reserved OEM revisions cannot be packaged as a local custom build")
     if arguments.source_date_epoch <= 0:
         fail("source-date epoch must be positive")
-    if not arguments.toolchain or len(arguments.toolchain) > 240 or any(character in arguments.toolchain for character in "\r\n"):
+    if not arguments.toolchain or len(arguments.toolchain) > 200 or any(character in arguments.toolchain for character in "\r\n"):
         fail("toolchain identity must be one bounded line")
 
     binary = read_regular_file(arguments.binary, MAXIMUM_WRITE_BYTES)
