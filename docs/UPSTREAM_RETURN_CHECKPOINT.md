@@ -1,5 +1,16 @@
 # Upstream return checkpoint
 
+> Superseded for publication state on 2026-07-15. GitHub authentication was
+> restored without storing a credential in this repository. tinySA PRs
+> [#163](https://github.com/erikkaashoek/tinySA/pull/163),
+> [#164](https://github.com/erikkaashoek/tinySA/pull/164), and
+> [#165](https://github.com/erikkaashoek/tinySA/pull/165), plus ChibiOS PRs
+> [#84](https://github.com/chibios-upstream/chibios/pull/84) and
+> [#85](https://github.com/chibios-upstream/chibios/pull/85), are open. The
+> historical hardware sequence and hold boundaries below remain evidence of
+> the earlier pause; use [Upstream contribution queue](UPSTREAM.md) for the
+> current public status.
+
 Recorded on 2026-07-14 before separating the executable digital twin into the
 adjacent `TinySA_Twin` repository. No public push, issue, pull request, or
 comment was made while recording this checkpoint.

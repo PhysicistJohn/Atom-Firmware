@@ -5,8 +5,10 @@ digital twin and porting the firmware to ChibiOS 21.11.5. It separates code
 that is already public, code that is ready to prepare for a vendor, and local
 test infrastructure that must not be sent upstream.
 
-Status was checked against the public repositories on 2026-07-14. This audit
-was read-only: it did not open an issue, publish a branch, comment, or push.
+The original read-only audit was completed on 2026-07-14. Publication status
+was refreshed on 2026-07-15 after tinySA PRs #163-#165 and ChibiOS PRs
+#84-#85 were opened from clean public-upstream clones. The private repository
+history and local qualification infrastructure remain unpublished.
 
 ## Disposition at a glance
 
@@ -14,14 +16,14 @@ was read-only: it did not open an issue, publish a branch, comment, or push.
 | --- | --- | --- |
 | tinySA | Seven focused safety/build fixes | Already open as PRs #156 through #162; do not duplicate |
 | tinySA | ChibiOS 21.11.5 application port | Exact-range readback, USB/reset, and all fourteen factory self-tests pass; fresh A/B remains formally failed on one first-cold case-2 peak check despite three passing repeats, `hardware_qualified=false`, and physical PSP/MSP fault injection remains unexecuted |
-| tinySA | Scientific formatter at exact powers of ten | New focused legacy defect physically proven on untouched official `c979386`; local patch/draft/reproducer are ready, but publish separately and leave sealed RC5 unchanged |
-| tinySA | Current zero-span time grid | New focused application correctness fix; simulator and physical display/self-test evidence are complete, so prepare separately when publication is authorized |
-| tinySA | Deterministic warm-reset backup checksum | New focused application bug fix; exact-image warm-reset retention passes, while cold power-cycle sentinel retention remains unmeasured |
+| tinySA | Scientific formatter at exact powers of ten | Open as focused [PR #163](https://github.com/erikkaashoek/tinySA/pull/163); sealed RC5 remains unchanged |
+| tinySA | Current zero-span time grid | Open as focused [PR #164](https://github.com/erikkaashoek/tinySA/pull/164), with simulator and physical display/self-test evidence |
+| tinySA | Deterministic warm-reset backup checksum | Open as focused [PR #165](https://github.com/erikkaashoek/tinySA/pull/165); warm-reset retention passes and cold power-cycle sentinel retention remains unmeasured |
 | tinySA | Stack-safe MSP/PSP hard-fault entry | New focused application fix; simulator-qualified, but hold for forced-fault and recovery testing on hardware |
 | tinySA | Sweep/display timing recovery and explicit single-precision constants | Keep in the ChibiOS port because these changes preserve baseline timing under the new RTOS build |
 | tinySA | Selective dual-IF confirmation | Future enhancement only: an official-hardware survey shows targeted benefit, but no RC5 integration or candidate qualification exists; hold for table-boundary, timing, and RF tests |
-| ChibiOS | STM32F0 TIM14 GPT ISR | New upstream bug; seek maintainer guidance or use the ChibiOS SourceForge support path, then prepare one vendor-neutral change for the requested integration branch and let the maintainer select any stable backport |
-| ChibiOS | USB PMA reuse across `SET_CONFIGURATION` | Confirmed USBv1 defect on 21.11.5 and confirmed analogous USBv2 pattern on current `master`; prepare a separate USB change that reviews and corrects both maintained PMA drivers, with repeated-configuration and reset regressions |
+| ChibiOS | STM32F0 TIM14 GPT ISR | Open as vendor-neutral current-`master` [PR #84](https://github.com/chibios-upstream/chibios/pull/84); maintainer selects any stable backport |
+| ChibiOS | USB PMA reuse across `SET_CONFIGURATION` | Open as separate current-`master` [PR #85](https://github.com/chibios-upstream/chibios/pull/85), correcting both USBv1 and USBv2; runtime evidence is explicitly USBv1-only |
 | Renode | NVIC `RETTOBASE` | Already open as PR #217; do not duplicate |
 | Renode | STM32 GPIO IDR/ODR and BSRR priority | Already open as the two commits in PR #218; do not duplicate |
 | Renode | Architectural HardFault priority | New issue in `renode/renode`, followed by one issue-numbered infrastructure PR; keep separate from #217 |
@@ -336,15 +338,12 @@ in 2019 while adding TIM10/TIM13 support; the F0 standalone-vector case was
 left without a provider.
 
 Local commit `2b8f425d26a61a7887916f7052b401f9e767a949` restores the handler and is the
-first of two focused ChibiOS deltas required by RC5. Its vendor-neutral patch
-dry-runs cleanly against current/default `master` at `f825669c`, retained
-`main` at `fbbfad31`, and `stable-21.11.x` at `eb9a832b`. No matching public
-change was found in the authoritative repository when checked; restricted
-GitHub issue creation means that absence is not permission to create an issue.
-
-Do not publish `2b8f425d` verbatim: it carries a workstation-local author
-email and a tinySA-specific source comment. Prepare a fresh, vendor-neutral
-commit that restores the pre-`00091c7aa` handler shape:
+first of two focused ChibiOS deltas required by RC5. It was not published
+verbatim because it carries a workstation-local author email and a
+tinySA-specific source comment. The clean vendor-neutral current-`master`
+commit is `14da3ecdf0e216da13fd2b638871cda0d1b42007`, open as ChibiOS
+[PR #84](https://github.com/chibios-upstream/chibios/pull/84). It restores the
+pre-`00091c7aa` handler shape:
 
 - validate `STM32_TIM14_HANDLER`;
 - define `OSAL_IRQ_HANDLER(STM32_TIM14_HANDLER)`;
@@ -369,20 +368,10 @@ Minimal reproducer and evidence for the issue/PR:
    GPTD14 periodic callback and its configured priority; do not claim that
    evidence until it exists.
 
-Recommended publication order:
-
-1. Ask the ChibiOS maintainers for the intended report channel and integration
-   branch. GitHub issue creation is restricted; use the official SourceForge
-   project support path if that is the available or requested intake route.
-2. Create a fresh branch from the branch the maintainer names (the current
-   default is `master`) and submit the one-file, vendor-neutral fix. Complete
-   the current style and ARM build gates; do not rely on the stale `main` text
-   in the repository PR template.
-3. After the integration change merges, let the maintainer select or request
-   the `stable-21.11.x` backport for the future 21.11.6 release. Do not open a
-   stable change first.
-4. Once a public commit is available, update the tinySA port gitlink and repeat
-   its build/qualification gates.
+Publication result: the unpatched F072 demo reproduced the exact error; the
+patched F072 demo, POSIX simulator, style check, and diff audit passed. The PR
+targets the repository's current/default `master`. Let maintainers select any
+`stable-21.11.x` backport after review.
 
 Keep the TIM14 defect independent from the USB allocator defect below. The
 multi-file tinySA application adaptation belongs to tinySA, and the historical
@@ -416,10 +405,11 @@ the still-configured EP0 IN and OUT maximum sizes before allocating nonzero
 endpoints. It changes only
 `os/hal/ports/STM32/LLD/USBv1/hal_usb_lld.c`, is directly based on the retained
 TIM14 commit, and increases the F303/F072 images by 32/48 bytes respectively.
-Do not publish it verbatim because it carries a workstation-local author
-identity. The vendor-neutral USBv1 mailbox patch dry-runs against audited
-`master` at `f825669c`, retained `main` at `fbbfad31`, and
-`stable-21.11.x` at `eb9a832b`.
+It was not published verbatim because it carries a workstation-local author
+identity. The clean current-`master` commit
+`f295e2908b8fff2677378b27453a3860b87b4693` is open as ChibiOS
+[PR #85](https://github.com/chibios-upstream/chibios/pull/85) and applies the
+same ownership correction to both USBv1 and USBv2.
 
 The exact regression sequence is:
 
@@ -443,18 +433,16 @@ function leaves EP0 active, resets `pmnext` to the descriptor-table boundary,
 and later endpoints allocate from that cursor. The read-only freshness audit
 confirmed that both USBv1 and USBv2 retain this ownership defect on current
 `master`. tinySA RC5 does not use USBv2, so its runtime evidence qualifies only
-USBv1. A `master`-targeted USB change must nevertheless review and correct both
-drivers, add driver-level repeated-configuration/reset coverage, and document
-any driver-specific differences. The exact stable mailbox patch remains a
-USBv1-only reproducer/fix for 21.11.5. Do not combine the USB work with the
-TIM14 change.
+USBv1. PR #85 reviews and corrects both drivers and records current-master
+F303/USBv1 and G0B1/USBv2 CDC builds. It does not convert the USBv1 runtime
+result into a USBv2 hardware claim. The exact stable mailbox patch remains a
+USBv1-only reproducer/fix for 21.11.5, separate from the TIM14 change.
 
 The local handoff in
 [`upstream-patches/chibios/`](../upstream-patches/chibios/README.md) contains a
 21.11.5 USBv1 patch, separate issue/PR drafts, the exact reproducer, and a
-USBv2 integration-branch recommendation. It is preparation only: this local
-update did not open an issue, publish a branch, push, or claim a current public
-status.
+USBv2 integration-branch recommendation. The public current-master result is
+PR #85; the local mailbox remains the stable-21.11.5 handoff.
 
 ## 3. Renode
 
@@ -579,25 +567,19 @@ project-local qualification infrastructure.
    physical-runtime seals. Do not call any v0.4 image hardware-qualified until
    the fresh v4 case-2 failure is formally dispositioned and the forced PSP/MSP
    fault gate closes.
-2. Leave tinySA PRs #156-#162 and Renode PRs #217/#218 alone pending review.
-3. Keep the exact-power scientific formatter as a separate tinySA handoff. It
-   is ready for maintainer review when explicitly authorized, but must not be
-   amended into PRs #156–#162 or the already sealed RC5 image.
-4. When explicitly authorized, ask ChibiOS maintainers for the intake path and
-   integration branch (or use their SourceForge support path), then submit
-   separate TIM14 and USB PMA changes; let maintainers choose stable backports.
+2. Leave tinySA PRs #156-#165, ChibiOS PRs #84/#85, and Renode PRs #217/#218
+   as separate review units; do not fold one into another.
+3. Keep the exact-power formatter in tinySA PR #163 and out of the sealed RC5
+   image.
+4. Let ChibiOS maintainers review PRs #84/#85 and select any stable backports.
 5. When explicitly authorized, publish the separate Renode HardFault-priority
    issue and issue-numbered infrastructure PR.
 6. After both required ChibiOS fixes are public (and stable backports are
    selected), update and requalify the tinySA ChibiOS port, then submit the
    single RTOS-port PR.
-7. When explicitly authorized, offer the current zero-span-grid fix as its own
-   tinySA correctness PR; its exact-image physical self-test dependency is now
-   satisfied.
-8. When explicitly authorized, offer the deterministic backup checksum as a
-   separate tinySA fix if the maintainer wants another focused PR; exact-image
-   warm-reset retention passes, but cold power-cycle sentinel retention has not
-   been measured.
+7. Keep the current zero-span-grid fix isolated in tinySA PR #164.
+8. Keep the deterministic backup checksum isolated in tinySA PR #165; do not
+   claim cold power-cycle sentinel retention because it has not been measured.
 9. Hold the hard-fault veneer until forced PSP/MSP faults, LCD reporting, stack
    canaries, reboot and DFU recovery all pass on the physical ZS407; then offer
    it as a separate tinySA safety PR.

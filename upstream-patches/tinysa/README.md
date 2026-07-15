@@ -24,9 +24,11 @@ Publication proceeded one explicitly approved patch at a time. As of
 3–7 were also flashed to the physical ZS407 and passed their targeted runtime
 checks and complete built-in self-test gates.
 
-The scientific-formatting handoff is local preparation only. It has not been
-published, added to the seven-patch integration branch, or incorporated into
-the sealed v0.4 RC5 firmware.
+The scientific-formatting handoff is published independently as tinySA
+[PR #163](https://github.com/erikkaashoek/tinySA/pull/163), public commit
+`ca5df0b598fe8022be5b01f8ff01fe2d5f7c622e`. It was not added to the
+seven-patch integration branch or incorporated into the sealed v0.4 RC5
+firmware.
 
 ## Queue
 

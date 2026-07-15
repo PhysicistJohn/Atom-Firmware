@@ -8,14 +8,22 @@ Upstream candidates are isolated from the replacement-firmware roadmap and
 carry the PhysicistJohn noreply identity.
 
 Publication proceeds one explicitly approved contribution at a time. Status
-was rechecked on 2026-07-14: all seven tinySA packages are open as PRs
+was rechecked after publication on 2026-07-15: the original seven tinySA
+packages remain open as PRs
 [#156](https://github.com/erikkaashoek/tinySA/pull/156),
 [#157](https://github.com/erikkaashoek/tinySA/pull/157), and
 [#158](https://github.com/erikkaashoek/tinySA/pull/158),
 [#159](https://github.com/erikkaashoek/tinySA/pull/159),
 [#160](https://github.com/erikkaashoek/tinySA/pull/160),
 [#161](https://github.com/erikkaashoek/tinySA/pull/161), and
-[#162](https://github.com/erikkaashoek/tinySA/pull/162). Renode PRs
+[#162](https://github.com/erikkaashoek/tinySA/pull/162). The formatter,
+zero-span-grid, and backup-checksum fixes are now open as tinySA PRs
+[#163](https://github.com/erikkaashoek/tinySA/pull/163),
+[#164](https://github.com/erikkaashoek/tinySA/pull/164), and
+[#165](https://github.com/erikkaashoek/tinySA/pull/165). The ChibiOS TIM14
+and USB PMA fixes are open as
+[#84](https://github.com/chibios-upstream/chibios/pull/84) and
+[#85](https://github.com/chibios-upstream/chibios/pull/85). Renode PRs
 [#217](https://github.com/renode/renode-infrastructure/pull/217) and
 [#218](https://github.com/renode/renode-infrastructure/pull/218) are open.
 Packages 4 through 7 completed the physical batch documented in
@@ -39,6 +47,9 @@ upstream `c97938697b6c7485e7cab50bca9af76996b7d671` and pinned ChibiOS
 | Bound correction table access | `upstream/fix-correction-bounds` | `6cba8a9` | Dual reproducible build, GCC analyzer, exact-image twin, unchanged-table ZS407 test and built-in self-test pass | [PR #160](https://github.com/erikkaashoek/tinySA/pull/160) open |
 | Bound shell-controlled indices | `upstream/fix-shell-index-bounds` | `5a029f9` | Dual reproducible build, GCC analyzer, exact-image twin, targeted ZS407 index test and built-in self-test pass | [PR #161](https://github.com/erikkaashoek/tinySA/pull/161) open |
 | Bound remote keypad text | `upstream/fix-shell-text-bounds` | `89e5d11` | Dual reproducible build, GCC analyzer, exact-image twin, maximum-line ZS407 test and built-in self-test pass | [PR #162](https://github.com/erikkaashoek/tinySA/pull/162) open |
+| Normalize exact scientific powers | `fix/scientific-format-exact-powers` | `ca5df0b` | Strict boundary reproducer; F072/F303 builds; official-hardware defect observation | [PR #163](https://github.com/erikkaashoek/tinySA/pull/163) open |
+| Refresh zero-span grid from completed sweep | `fix/current-zero-span-grid` | `1a15e6e` | F072/F303 builds; formula-exact physical cases 12/13 with byte-identical trace planes | [PR #164](https://github.com/erikkaashoek/tinySA/pull/164) open |
+| Initialize complete backup checksum image | `fix/deterministic-backup-checksum` | `ead2a0a` | F072/F303 builds; physical warm-reset sentinel retention | [PR #165](https://github.com/erikkaashoek/tinySA/pull/165) open; cold power-cycle sentinel unmeasured |
 
 The tested aggregate is
 `physicistjohn/upstream-firmware-fixes` at
@@ -102,21 +113,18 @@ fault-handler, USB, and paired all-14 visual/trace gates all pass, including
 the official `c979386` exact-or-better comparison. No RC5 physical pass is
 claimed. The F072 artifact remains build evidence only.
 
-The ChibiOS 21.11.5 USBv2 driver contains the same allocator-reset pattern in
-its endpoint-disable path, and the 2026-07-14 read-only audit confirmed both
-USBv1 and USBv2 forms remain on current/default `master` at `f825669c`. RC5
-does not use USBv2, so its runtime result qualifies only USBv1. A current
-integration-branch USB change must correct and review both maintained PMA
-drivers and add `1 -> 1`, `1 -> 0 -> 1`, and final-reset tests. The prepared
-stable USBv1 patch dry-runs on audited `master`, retained `main`, and
-`stable-21.11.x`, but is not alone a complete `master` submission.
+The TIM14 correction was recreated on current/default `master` with the public
+noreply identity as commit `14da3ecdf0e2` and is open as ChibiOS
+[PR #84](https://github.com/chibios-upstream/chibios/pull/84). The unpatched
+F072 demo reaches the exact missing-ISR error; the patched demo, POSIX
+simulator, and style checks pass.
 
-The repository's checked-in PR template still unconditionally targets `main`,
-which conflicts with the current default `master`, and GitHub issue creation
-is restricted. Seek maintainer guidance on branch and intake path or use the
-[official ChibiOS SourceForge project](https://sourceforge.net/p/chibios/)
-support route. The unsubmitted issue, PR, and patch drafts are under
-[`upstream-patches/chibios/`](../upstream-patches/chibios/README.md).
+The USB correction was recreated independently as commit `f295e2908b8f` and
+is open as ChibiOS [PR #85](https://github.com/chibios-upstream/chibios/pull/85).
+It applies the same EP0-ownership rule to both current USBv1 and USBv2 drivers.
+Current-master F303/USBv1 and G0B1/USBv2 CDC builds, the POSIX simulator, and
+both style checks pass. RC5 supplies executable and physical runtime evidence
+for USBv1 only; the PR explicitly does not claim USBv2 runtime hardware.
 
 ## Renode
 

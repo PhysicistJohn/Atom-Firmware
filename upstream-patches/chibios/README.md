@@ -1,13 +1,18 @@
 # ChibiOS upstream handoff
 
-This directory packages two independent ChibiOS findings from the tinySA
-21.11.5 port. It is a local publication handoff, not evidence that an issue,
-branch, or pull request has been published.
+This directory preserves the stable-21.11.5 handoff for two independent
+ChibiOS findings from the tinySA port. Clean current-`master` versions are now
+published as ChibiOS [PR #84](https://github.com/chibios-upstream/chibios/pull/84)
+and [PR #85](https://github.com/chibios-upstream/chibios/pull/85).
 
 | Finding | Proven base | Local integration commit | Upstream shape |
 | --- | --- | --- | --- |
 | STM32F0 TIM14 GPT ISR missing | `ver21.11.5` / `f4bbadf964fc746aef8bbcf34135c7d8fabb8eae`; still present on `master` `f825669c` | `2b8f425d26a61a7887916f7052b401f9e767a949` | One vendor-neutral change for the maintainer-requested integration branch; maintainer-selected stable backport |
 | USB PMA allocator reuses active EP0 buffers | USBv1 proven on the release tag; both USBv1 and USBv2 retain the pattern on `master` `f825669c` | `b3f82b396de7cf2a9e85bc8f1575fbd58e9428d9` | Separate USB change; exact USBv1 stable patch plus required current-`master` USBv1/USBv2 correction and review |
+
+The public current-`master` heads are `14da3ecdf0e2` for PR #84 and
+`f295e2908b8f` for PR #85. The latter corrects both USBv1 and USBv2; its
+runtime qualification remains explicitly USBv1-only.
 
 The local ChibiOS chain is exactly:
 
@@ -83,24 +88,17 @@ Patch SHA-256 values:
 f3ed4e777be9093c15e320b75a34c299d39682dc6a70c9a721c874c7fc56cd60  usb-pma/0001-usbv1-preserve-EP0-PMA-on-reconfigure.patch
 ```
 
-## Before publication
+## Published current-master form
 
-The 2026-07-14 read-only audit found `master` at `f825669c` as the
-current/default integration branch. Retained `main` and `stable-21.11.x` also
-exist, but the checked-in PR template's unconditional `main` workflow is stale
-and conflicts with the default branch. GitHub issue creation is restricted.
+Both findings were recreated independently from current/default `master` at
+`f825669c` with the public noreply identity:
 
-1. Ask the ChibiOS maintainers which integration branch and intake path to
-   use; use the [official ChibiOS SourceForge project](https://sourceforge.net/p/chibios/)
-   support path if directed there or if that is the available reporting route.
-2. Fetch current `chibios-upstream/chibios` and rebase each finding separately
-   onto the requested branch. The prepared mailbox patches dry-run on audited
-   `master`, retained `main`, and `stable-21.11.x`.
-3. For a current-`master` USB contribution, correct and review both USBv1 and
-   USBv2; do not submit the stable USBv1 patch as if it covered both drivers.
-4. Run the current repository style tool and relevant ARM build/test matrix.
-5. Keep TIM14 and USB PMA as separate reports and changes.
-6. Let maintainers choose stable backports after the integration fix.
-7. Use `PhysicistJohn <54456354+PhysicistJohn@users.noreply.github.com>`.
-8. Publish only with explicit approval; this package performs no network or
-   repository-host mutation.
+1. TIM14 commit `14da3ecdf0e2`, ChibiOS PR #84: unpatched F072 reproducer,
+   patched F072 build with `GPTD14`, POSIX simulator, style, and diff checks.
+2. USB PMA commit `f295e2908b8f`, ChibiOS PR #85: parallel USBv1/USBv2 fix,
+   F303/USBv1 and G0B1/USBv2 CDC builds, POSIX simulator, style, and diff
+   checks. Runtime qualification remains explicitly USBv1-only.
+
+Keep these current-master PRs separate and let maintainers select any stable
+backports. The mailbox patches in this directory remain useful for the exact
+21.11.5 lineage consumed by RC5.
