@@ -40,6 +40,29 @@ For an ordinary development build:
 tools/build-zs407.sh
 ```
 
+Package a committed custom ZS407 build for the standalone TinySA Flasher:
+
+```bash
+version="tinySA4_lab-v0.3.0-g$(git rev-parse --short=7 HEAD)"
+tools/package-flasher-build.sh "$version" -- PHASE=6
+```
+
+The packaging gate never flashes. It builds the F303 image twice from the
+committed tracked tree, requires identical BIN hashes, checks the embedded
+version and ZS407 identity, validates the STM32 vector table and 240 KiB write
+limit, then emits a content-addressed BIN plus
+`tinysa-flasher-build-v1.json` under `.artifacts/flasher-builds/`. In Flasher,
+select that JSON manifest—not the BIN directly. The manifest records exact
+source, ChibiOS, toolchain, image-digest, reproducibility, qualification, and
+operator-only flash-policy evidence. It cannot label a build hardware-qualified
+without an explicit immutable qualification-evidence file.
+
+Run the no-build packaging regression tests with:
+
+```bash
+python3 tools/test-flasher-build-manifest.py
+```
+
 Run the exact executable ZS407 digital twin from the adjacent `TinySA_Twin`
 checkout without hardware (these compatibility commands delegate there):
 
