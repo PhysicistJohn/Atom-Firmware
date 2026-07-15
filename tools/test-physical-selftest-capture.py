@@ -467,6 +467,34 @@ class CaptureHelpersTest(unittest.TestCase):
                 [],
             )
 
+            candidate_metadata.update({
+                "variant": "public-chibios-21.11.5-cold",
+                "expected_version": "tinySA4_v1.4-231-g5e02990",
+            })
+            self.assertEqual(
+                COMPARE.qualification_diagnostic_reasons(
+                    reference,
+                    candidate,
+                    checksums,
+                    candidate_checksums,
+                    reference_metadata,
+                    candidate_metadata,
+                ),
+                [],
+            )
+            candidate_metadata["expected_version"] = "tinySA4_v1.4-231-spoofed"
+            self.assertTrue(any(
+                "admitted ChibiOS candidate" in reason
+                for reason in COMPARE.qualification_diagnostic_reasons(
+                    reference,
+                    candidate,
+                    checksums,
+                    candidate_checksums,
+                    reference_metadata,
+                    candidate_metadata,
+                )
+            ))
+
             reasons = COMPARE.qualification_diagnostic_reasons(
                 reference,
                 reference,

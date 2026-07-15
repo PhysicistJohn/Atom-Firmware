@@ -1197,19 +1197,26 @@ def qualification_diagnostic_reasons(
         reasons.append("reference and candidate checksum inventories are identical")
     if reference_metadata["expected_version"] == candidate_metadata["expected_version"]:
         reasons.append("reference and candidate firmware versions are identical")
+    candidate_family = next(
+        (
+            family for family in ("rc5", "public-chibios-21.11.5")
+            if candidate_metadata["variant"] == family
+            or candidate_metadata["variant"].startswith(family + "-")
+        ),
+        None,
+    )
     exact_role_pair = (
         reference_metadata["variant"] == "official-c979"
-        and (
-            candidate_metadata["variant"] == "rc5"
-            or candidate_metadata["variant"].startswith("rc5-")
-        )
         and reference_metadata["expected_version"]
         == CAPTURE.KNOWN_VARIANT_VERSIONS["official-c979"]
+        and candidate_family is not None
         and candidate_metadata["expected_version"]
-        == CAPTURE.KNOWN_VARIANT_VERSIONS["rc5"]
+        == CAPTURE.KNOWN_VARIANT_VERSIONS[candidate_family]
     )
     if not exact_role_pair:
-        reasons.append("pair is not exact official-c979 versus RC5 provenance")
+        reasons.append(
+            "pair is not exact official-c979 versus an admitted ChibiOS candidate provenance"
+        )
     reference_usb = reference_metadata.get("usb_identity")
     candidate_usb = candidate_metadata.get("usb_identity")
     if not isinstance(reference_usb, dict) or not isinstance(candidate_usb, dict):

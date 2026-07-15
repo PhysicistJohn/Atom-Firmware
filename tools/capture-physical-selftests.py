@@ -44,6 +44,7 @@ CONFIRMATION = "CAL-RF-LOOPBACK-CONNECTED"
 KNOWN_VARIANT_VERSIONS = {
     "official-c979": "tinySA4_v1.4-224-gc979386",
     "rc5": "tinySA4_v0.4-chibios21-rc5",
+    "public-chibios-21.11.5": "tinySA4_v1.4-231-g5e02990",
 }
 FLOAT_PATTERN = rb"[-+]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?"
 # The firmware's compact etoa() stops normalizing at a mantissa equal to 10,
