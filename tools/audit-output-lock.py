@@ -93,7 +93,7 @@ def audit(elf: Path) -> str:
 
     hardware_call = next(
         (index for index, (_, instruction) in enumerate(rows)
-         if "dmaStreamAllocate" in instruction),
+         if re.search(r"\b(?:bl|blx)\b.*<dmaStreamAlloc>", instruction)),
         -1,
     )
     if hardware_call < 0 or gate_index >= hardware_call:
@@ -106,12 +106,32 @@ def audit(elf: Path) -> str:
     )
     if target_index < 0:
         raise AuditError("qualification failure target is missing")
-    failure_path = " ".join(
-        instruction for _, instruction in rows[target_index:target_index + 4]
-    )
-    if not re.search(r"movs?\s+r0,\s*#6\b", failure_path) or \
-            not re.search(r"bx\s+lr\b", failure_path):
+    if target_index + 1 >= len(rows):
+        raise AuditError("qualification failure target is truncated")
+    failure_instruction = rows[target_index][1]
+    if not re.match(r"mov(?:s|\.w)?\s+r0,\s*#6\b", failure_instruction):
         raise AuditError("failure branch does not return NOT_QUALIFIED (6)")
+
+    def is_return(instruction: str) -> bool:
+        return bool(
+            re.search(r"\bbx\s+lr\b", instruction) or
+            re.search(r"\bpop(?:\.w)?\s+\{[^}]*\bpc\b[^}]*\}", instruction)
+        )
+
+    next_instruction = rows[target_index + 1][1]
+    return_proven = is_return(next_instruction)
+    if not return_proven:
+        return_branch = re.match(
+            r"b(?:\.n|\.w)?\s+([0-9a-f]+)\b", next_instruction
+        )
+        if return_branch:
+            return_target = int(return_branch.group(1), 16)
+            return_proven = any(
+                address == return_target and is_return(instruction)
+                for address, instruction in rows
+            )
+    if not return_proven:
+        raise AuditError("qualification failure does not reach a direct return")
 
     return (
         "output_lock=passed\n"

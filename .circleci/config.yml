@@ -2,17 +2,50 @@ version: 2.1
 jobs:
   boundary-check:
     docker:
-      - image: cimg/python:3.12
+      - image: cimg/python:3.12.10
     steps:
       - checkout
       - run:
-          name: "Verify firmware packaging boundary"
+          name: "Verify all firmware ownership and evidence boundaries"
+          command: tools/check.sh --boundary
+  host-and-firmware-check:
+    macos:
+      xcode: 16.4.0
+    resource_class: m4pro.medium
+    steps:
+      - checkout
+      - run:
+          name: "Initialize the recorded ChibiOS source"
           command: |
-            python3 tools/test-flasher-build-manifest.py
-            python3 tools/test-firmware-update-boundary.py
-            python3 tools/test-physical-dfu-flash-evidence.py
-            python3 tools/test-physical-qualification-bundle.py
+            git submodule sync --recursive
+            git submodule update --init --recursive --jobs 4
+      - restore_cache:
+          keys:
+            - arm-gnu-11.3-rel1-darwin-x86_64-v1
+      - run:
+          name: "Install pinned host tooling and run no-device gates"
+          command: |
+            set -e
+            if [ "$(uname -m)" = arm64 ] && ! /usr/bin/arch -x86_64 /usr/bin/true >/dev/null 2>&1; then
+              sudo /usr/sbin/softwareupdate --install-rosetta --agree-to-license
+            fi
+            export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+            test -s "$NVM_DIR/nvm.sh"
+            . "$NVM_DIR/nvm.sh"
+            set -u
+            nvm install "$(cat .node-version)"
+            nvm use "$(cat .node-version)"
+            test "$(node --version)" = "v$(cat .node-version)"
+            test "$(npm --version)" = "10.9.8"
+            npm ci
+            ZS407_REQUIRE_PROJECTION_TOOLCHAINS=1 tools/check.sh --host --firmware
+            tools/package-flasher-build.sh "tinySA4_ci-g$(git rev-parse --short=7 HEAD)"
+      - save_cache:
+          key: arm-gnu-11.3-rel1-darwin-x86_64-v1
+          paths:
+            - .artifacts/toolchains
 workflows:
-  firmware-boundary:
+  deterministic-firmware:
     jobs:
       - boundary-check
+      - host-and-firmware-check

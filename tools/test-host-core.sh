@@ -7,13 +7,16 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 export LC_ALL=C
 host_cc=${CC:-clang}
 command -v "$host_cc" >/dev/null 2>&1 || die "host compiler not found: $host_cc"
+python=${PYTHON:-python3}
+command -v "$python" >/dev/null 2>&1 || die "Python interpreter not found: $python"
+require_projections=${ZS407_REQUIRE_PROJECTION_TOOLCHAINS:-0}
 
 "$ROOT/tools/generate-contracts.py" --check
 "$ROOT/tools/generate-waveform-tables.py" --check
 "$ROOT/tools/compile-waveform.py" --self-test
 "$ROOT/tools/audit-enhancement-dispositions.py"
 "$ROOT/tools/audit-document-links.py"
-/usr/bin/python3 "$ROOT/tests/host/test_qualify_upstream_tinysa.py"
+"$python" "$ROOT/tests/host/test_qualify_upstream_tinysa.py"
 
 build_dir="$ROOT/.artifacts/host-tests"
 rm -rf "$build_dir"
@@ -152,6 +155,8 @@ if command -v clang >/dev/null 2>&1; then
       -o "$build_dir/arm-llvm/$source.o"
   done
   llvm_status=passed
+elif [ "$require_projections" = 1 ]; then
+  die 'clang is required when ZS407_REQUIRE_PROJECTION_TOOLCHAINS=1'
 fi
 
 if command -v swiftc >/dev/null 2>&1; then
@@ -161,6 +166,8 @@ if command -v swiftc >/dev/null 2>&1; then
   "$build_dir/test_swift_contract" "$ROOT/tests/fixtures"
   swift_status=passed
 else
+  [ "$require_projections" != 1 ] || \
+    die 'swiftc is required when ZS407_REQUIRE_PROJECTION_TOOLCHAINS=1'
   swift_status=not-installed
 fi
 
@@ -168,6 +175,8 @@ if command -v node >/dev/null 2>&1; then
   node "$ROOT/tests/host/test_contract.mjs" "$ROOT/tests/fixtures"
   javascript_status=passed
 else
+  [ "$require_projections" != 1 ] || \
+    die 'node is required when ZS407_REQUIRE_PROJECTION_TOOLCHAINS=1'
   javascript_status=not-installed
 fi
 
@@ -176,6 +185,8 @@ if command -v tsc >/dev/null 2>&1; then
     "$ROOT/modern/generated/zs407-contract.ts"
   typescript_status=passed
 else
+  [ "$require_projections" != 1 ] || \
+    die 'tsc is required when ZS407_REQUIRE_PROJECTION_TOOLCHAINS=1'
   typescript_status=generated-not-installed
 fi
 

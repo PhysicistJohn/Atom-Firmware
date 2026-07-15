@@ -95,16 +95,18 @@ Port changes
   64-bit arithmetic through the final division.
 - Preserve EP0 PMA ownership while configuration endpoints are rebuilt.
 
-Reproduce the RC5 build
+Reproduce the archival RC5 build
 -----------------------
 
-Use the repository-pinned Arm GNU 11.3.Rel1 toolchain. The release builder
-performs two clean builds of each target, compares BIN/ELF/HEX/MAP/LIST/DMP,
-audits the hard-fault veneer and software-double call count, and generates the
-exact simulator symbol profile:
+RC5 is preserved on its release branch; it is not a command supported by the
+current branch's candidate builder. In a separate clean checkout, use the
+branch-local script and its repository-pinned Arm GNU 11.3.Rel1 toolchain. The
+release builder performs two clean builds of each target, compares
+BIN/ELF/HEX/MAP/LIST/DMP, audits the hard-fault veneer and software-double call
+count, and generates the exact simulator symbol profile:
 
 ```bash
-git switch codex/chibios-latest-rc5
+git switch physicistjohn/release-v0.4-chibios21.11.5-rc5
 git submodule update --init --recursive
 tools/build-chibios-release-candidate.sh v0.4-chibios21.11.5-rc5
 ```

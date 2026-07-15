@@ -85,11 +85,17 @@ all important source paths, and a Windows compilation directory
    `SOURCE_DATE_EPOCH=1778074389` recreated `May  6 2026 - 13:33:09` and made
    the binary byte-for-byte identical.
 
-Run the full proof with:
+Run the full proof only from a disposable checkout whose `ChibiOS` worktree is
+at the historical pin. The current development branch can deliberately record
+a newer submodule, and the proof script rejects that mismatch:
 
 ```bash
+git submodule update --init --recursive
+git -C ChibiOS checkout ade76dea89cd093650552328e881252a06486094
 tools/reproduce-official-release.sh
 ```
+
+Do not repoint an active development checkout for this archival proof.
 
 The release manifest is
 [`release-manifests/v1.4-224-gc979386.env`](../release-manifests/v1.4-224-gc979386.env).

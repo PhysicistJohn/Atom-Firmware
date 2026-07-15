@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -61,11 +62,17 @@ class FirmwareUpdateBoundaryTests(unittest.TestCase):
             *sorted((ROOT / "experiments").rglob("*.sh")),
             *sorted(path for path in (ROOT / ".githooks").glob("*") if path.is_file()),
         ]
+        writer_patterns = (
+            r"(?<![A-Za-z0-9_-])dfu-util(?![A-Za-z0-9_-])",
+            r"(?<![A-Za-z0-9_-])STM32CubeProgrammer(?![A-Za-z0-9_-])",
+            r"(?<![A-Za-z0-9_-])st-flash(?![A-Za-z0-9_-])",
+            r"(?<![A-Za-z0-9_-])pyocd\s+flash(?![A-Za-z0-9_-])",
+        )
         for path in maintained_shell:
             source = path.read_text(encoding="utf-8")
             with self.subTest(path=path.relative_to(ROOT)):
-                for forbidden in ("dfu-util", "STM32CubeProgrammer", "st-flash", "pyocd flash"):
-                    self.assertNotIn(forbidden, source)
+                for forbidden in writer_patterns:
+                    self.assertIsNone(re.search(forbidden, source))
 
         production_python = [
             *sorted(path for path in (ROOT / "tools").glob("*.py") if not path.name.startswith("test-")),
@@ -134,11 +141,40 @@ class FirmwareUpdateBoundaryTests(unittest.TestCase):
 
     def test_ci_never_publishes_or_mutates_build_inputs(self) -> None:
         config = (ROOT / ".circleci" / "config.yml").read_text(encoding="utf-8")
-        for forbidden in ("GITHUB_TOKEN", "ghr ", "publish-github-release", "submodule update --remote"):
+        for forbidden in (
+            "GITHUB_TOKEN", "ghr ", "publish-github-release",
+            "submodule update --remote", "store_artifacts",
+        ):
             self.assertNotIn(forbidden, config)
-        self.assertIn("test-firmware-update-boundary.py", config)
-        self.assertIn("test-physical-dfu-flash-evidence.py", config)
-        self.assertIn("test-physical-qualification-bundle.py", config)
+        self.assertIn("cimg/python:3.12.10", config)
+        self.assertIn("xcode: 16.4.0", config)
+        self.assertIn("tools/check.sh --boundary", config)
+        self.assertIn("tools/check.sh --host --firmware", config)
+        self.assertIn("tools/package-flasher-build.sh", config)
+
+    def test_unified_check_covers_every_no_device_boundary(self) -> None:
+        check = (ROOT / "tools" / "check.sh").read_text(encoding="utf-8")
+        expected_tests = sorted(path.name for path in (ROOT / "tools").glob("test-*.py"))
+        self.assertGreaterEqual(len(expected_tests), 10)
+        for test_name in expected_tests:
+            self.assertIn(test_name, check)
+
+        firmware = (ROOT / "tools" / "check-firmware-build.sh").read_text(encoding="utf-8")
+        self.assertIn("build_and_verify F072", firmware)
+        self.assertGreaterEqual(firmware.count("build_and_verify F303"), 2)
+        self.assertIn("audit-output-lock.py", firmware)
+        self.assertIn("audit-protocol-v2-locks.py", firmware)
+
+    def test_prune_command_cannot_remove_preserved_evidence(self) -> None:
+        prune = (ROOT / "tools" / "prune-check-artifacts.sh").read_text(encoding="utf-8")
+        self.assertIn('"$ROOT/build"', prune)
+        self.assertIn('"$ROOT/.artifacts/host-tests"', prune)
+        self.assertIn("--confirm", prune)
+        for preserved in (
+            "flasher-builds", "phase-images", "lab-releases",
+            "chibios-releases", "toolchains", "qualification",
+        ):
+            self.assertNotIn(f'"$ROOT/.artifacts/{preserved}"', prune)
 
 
 if __name__ == "__main__":

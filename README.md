@@ -22,12 +22,19 @@ size:    185704 bytes
 SHA-256: 3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41
 ```
 
-Reproduce it locally:
+The proof is intentionally tied to the historical ChibiOS commit above. Run it
+from a disposable checkout whose `ChibiOS` worktree is at that commit; the
+script fails closed when the active development submodule uses a newer port:
 
 ```bash
 git submodule update --init --recursive
+git -C ChibiOS checkout ade76dea89cd093650552328e881252a06486094
 tools/reproduce-official-release.sh
 ```
+
+Do not move the ChibiOS checkout in an active development worktree merely to
+run the historical proof. See [the baseline record](docs/BASELINE.md) for the
+exact source, submodule, library and timestamp inputs.
 
 The first run downloads pinned Arm GNU 11.3.Rel1 toolchain artifacts. Exact
 reproduction uses the Windows package's target libraries because the official
@@ -39,6 +46,38 @@ For an ordinary development build:
 ```bash
 tools/build-zs407.sh
 ```
+
+Development checks
+------------------
+
+The supported local gate requires Python 3, Node 22.23.1 with npm 10.9.8, and
+the recorded ChibiOS submodule. On macOS, Xcode also supplies the independent
+Clang and Swift projection checks. Install the single lockfile-pinned host
+dependency and run every deterministic check with:
+
+```bash
+git submodule update --init --recursive
+npm ci
+tools/check.sh
+```
+
+The first run downloads Arm GNU 11.3.Rel1 and verifies its pinned SHA-256. The
+gate runs ownership/evidence regressions, C11 UBSan and ASan suites,
+deterministic protocol mutation fuzzing, threaded SPSC stress, generated Swift,
+JavaScript and TypeScript contract checks, two independent Cortex-M4 frontend
+compiles, and clean F072, F303 Phase 6, and F303 Protocol v2 firmware
+compile/link/lock audits. It never opens a device or installs firmware.
+
+Use `--boundary`, `--host`, or `--firmware` to select a subset. CircleCI pins
+the Python image, macOS/Xcode image, Node/npm, TypeScript, ChibiOS gitlink and
+Arm compiler, and additionally proves that two clean custom-package builds are
+byte-identical and acceptable to the standalone Flasher manifest writer.
+
+Generated check scratch can be removed explicitly with
+`tools/prune-check-artifacts.sh --confirm`. That command only removes `build/`
+and `.artifacts/host-tests/`. Never delete `.artifacts/` wholesale: it also
+contains firmware packages, releases, downloaded toolchains, and irreplaceable
+hardware and qualification evidence.
 
 Package a committed custom ZS407 build for the standalone TinySA Flasher:
 

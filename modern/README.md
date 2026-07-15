@@ -15,13 +15,15 @@ the PhysicistJohn Mac companion. It contains no ChibiOS or STM32 dependency.
 - `waveforms/` documents the deterministic Mac-to-firmware waveform DSL and
   binary contract.
 
-Run `tools/test-host-core.sh` on macOS to regenerate-check the contracts, build
-with Apple Clang and UndefinedBehaviorSanitizer, link an AddressSanitizer image,
-replay the golden frame, fuzz 10,000 encode/decode round trips, typecheck the
-Swift projection and cross-compile every core source as freestanding Cortex-M4
-code. Set `ZS407_RUN_ASAN=1` on a host with a known-good Apple ASan runtime;
-some newer dyld/runtime combinations deadlock before `main`, so release builds
-do not run that optional binary implicitly.
+Run `npm ci` and then `tools/check.sh --host` to regenerate-check the contracts,
+build with Clang and UndefinedBehaviorSanitizer, execute the AddressSanitizer
+suite, replay the golden frame, run deterministic protocol mutation fuzzing and
+threaded SPSC stress, verify the Swift, JavaScript and TypeScript projections,
+and cross-compile the portable core as freestanding Cortex-M4 code through both
+Arm GNU and LLVM. `tools/test-host-core.sh` remains the lower-level entry point;
+its ASan execution and unavailable projection toolchains are optional unless
+the caller sets the corresponding strict environment gates. CircleCI runs the
+strict path on a pinned macOS/Xcode and Node/npm toolchain.
 
 The `protocol-v2` post-phase profile adds typed payload codecs, incremental
 framing/CRC, 4,096-point trace chunking, compact trace/waveform storage, an
