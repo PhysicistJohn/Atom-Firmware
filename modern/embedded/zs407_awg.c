@@ -20,7 +20,7 @@ static uint16_t awg_samples[ZS407_AWG_SAMPLE_COUNT]
 static zs407_awg_status_t awg_status;
 static zs407_timer16_plan_t awg_timer;
 static volatile bool awg_hardware_qualified;
-static const stm32_dma_stream_t *const awg_dma = STM32_DMA2_STREAM3;
+static const stm32_dma_stream_t *awg_dma;
 
 zs407_core_status_t zs407_awg_prepare(zs407_wave_shape_t shape,
                                       uint32_t frequency_millihz,
@@ -76,7 +76,8 @@ zs407_core_status_t zs407_awg_start(void)
   if (!awg_status.prepared || awg_status.active) {
     return ZS407_CORE_INVALID_ARGUMENT;
   }
-  if (dmaStreamAllocate(awg_dma, 2U, NULL, NULL)) {
+  awg_dma = dmaStreamAlloc(STM32_DAC_DAC1_CH1_DMA_STREAM, 2U, NULL, NULL);
+  if (awg_dma == NULL) {
     return ZS407_CORE_UNSUPPORTED;
   }
 
@@ -122,9 +123,10 @@ void zs407_awg_stop(void)
   TIM6->CR1 = 0U;
   DAC->CR &= ~(DAC_CR_TEN1 | DAC_CR_DMAEN1 | DAC_CR_DMAUDRIE1);
   dmaStreamDisable(awg_dma);
-  dmaStreamRelease(awg_dma);
+  dmaStreamFree(awg_dma);
+  awg_dma = NULL;
   DAC->DHR12R1 = 0U;
-  rccDisableTIM6(false);
+  rccDisableTIM6();
   awg_status.active = false;
 }
 
