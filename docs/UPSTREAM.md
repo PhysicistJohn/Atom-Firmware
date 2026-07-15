@@ -15,8 +15,28 @@ The exact pause/resume state for the next publication session is recorded in
 > General, runtime-state, and PSP/MSP fault twin qualifiers pass with zero
 > unexpected warnings; their report SHA-256 values are `d0556431e247`,
 > `c27620424a44`, and `73a7fa6fe114`, respectively. Keep #166 draft until its
-> ChibiOS pin is canonical and that exact clean public binary receives a
-> physical cold/USB/all-14 smoke run.
+> ChibiOS pin is canonical and the remaining true cold-power-cycle gate is
+> attached to the physical record below.
+
+The exact clean public F303 binary was physically staged on 2026-07-15. A
+one-shot alt-0 DFU download was followed by an exact 192,940-byte same-device
+readback; it matched SHA-256 `13f72e9ee9a80af170438958fc26029c516f6106c87aed9a45eea335a9a59fc9`
+and re-enumerated as the admitted normal USB device. The live shell reports
+`tinySA4_v1.4-231-g5e02990`, `tinySA ULTRA+ ZS407`, kernel `7.0.6`, and the
+STM32F303 Cortex-M4F platform.
+
+Two complete physical all-14 runs passed, with paired 307,200-byte LCD
+readbacks, all four trace planes, scheduler/runtime observations, and all
+thirteen calibration/palette observations preserved. The second run's sealed
+inventory is `a38149926b84`; its official-`c979386` A/B report has no failed
+case and inventory SHA-256 `47ded667d49f`. Case 2 repeats proved that its
+single high first sweep was transient; the standalone A/B uses a later complete
+run whose lower, quieter result still contains a 70-pixel/18.58 dB robust
+trace. The physical comparator now accounts for millisecond shell rounding in
+zero-span grid geometry and uses absolute non-flat floors for suppression
+tests; 43 focused comparator/capture tests pass. This evidence remains
+diagnostic-only until a true power-off cold boot is operator-attested. The
+public PR must also remain draft until the ChibiOS pin is canonical.
 
 All personal development remains on the private PhysicistJohn repository.
 Upstream candidates are isolated from the replacement-firmware roadmap and

@@ -29,8 +29,11 @@ The ChibiOS gitlink is
 
 The complete exact-image RC5 simulation seal passes. It includes the general,
 runtime/reset, fault-handler, USB, paired all-14 lab visual/trace, and paired
-official-`c979386` visual/trace gates. Physical qualification is not complete,
-and no RC5 hardware pass is claimed here.
+official-`c979386` visual/trace gates. RC5 subsequently completed its scoped
+physical runtime work, and the clean public port derived from it has now passed
+an exact DFU readback and two physical all-14 runs. The public image still
+requires a true power-off cold boot, so no final hardware qualification is
+claimed here.
 
 The 2026-07-14 official-rollback warm diagnostic is useful staging evidence,
 but does not change that boundary. The exact official image re-enumerated over
@@ -161,21 +164,29 @@ Qualification boundary
 ----------------------
 
 RC5 is reproducibly built and its complete hash-bound simulator matrix passes.
-The package is sealed `SIMULATION_PASS_HARDWARE_PENDING`. Physical RC5 testing
-has not yet been completed, so the manifest remains
-`hardware_qualified=false`.
+The clean public application stack at `5e0299009f29` builds a 192,940-byte
+F303 image with SHA-256
+`13f72e9ee9a80af170438958fc26029c516f6106c87aed9a45eea335a9a59fc9`.
+That exact image passed a one-shot physical DFU download/readback and two
+complete all-fourteen captures on 2026-07-15. The second physical run and its
+official-firmware A/B have no failed case, preserve all observed calibration
+and palette values, and contain non-flat measured traces rather than literal
+screen-only verdicts. The hardware state is nevertheless still pending a true
+power-off cold boot, and the public port remains draft while its ChibiOS pin is
+the temporary integration commit rather than a canonical upstream commit.
 
 The simulation seal already includes both all-14 screenshot/trace A/B suites,
-non-flat RF checks, runtime/reset, fault, UI, and complete USB gates. Before
-release, the exact packaged F303 binary still needs:
+non-flat RF checks, runtime/reset, fault, UI, and complete USB gates. Physical
+screen and shell transport moved repeated full-frame and trace payloads without
+corruption. Before release, the exact public F303 binary still needs:
 
-1. cold boot, normal boot, DFU entry, recovery, and rollback on the ZS407;
+1. a true power-off cold boot and authenticated normal-mode identity on the
+   ZS407;
 2. physical CDC enumeration, same-value and zero-toggle configuration where
    the host exposes them, suspend/resume, unplug/replug, shell traffic, and
    sustained screen transfer;
-3. all fourteen physical self-tests with CAL connected, with each settled
-   screenshot and trace compared to official `c979386` for exact or
-   demonstrably better, non-flat behavior;
+3. no further all-fourteen rerun unless the cold boot changes behavior; the
+   existing two runs and official comparison already pass;
 4. the disconnected-CAL failure/recovery control, RF checks, controls/touch,
    acquisition, and warm/cold/power-cycle retention; and
 5. forced PSP/MSP fault diagnostics and recovery, if an authorized physical

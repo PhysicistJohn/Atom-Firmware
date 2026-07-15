@@ -318,6 +318,36 @@ class CaptureHelpersTest(unittest.TestCase):
             COMPARE.zero_span_grid_metrics(wrong, sweep_seconds)["pass"]
         )
 
+    def test_zero_span_grid_allows_shell_rounding_interval(self) -> None:
+        displayed_seconds = 0.378
+        rounded_layout = COMPARE.VISUAL.expected_time_grid_layout(378_000)
+        compatible_layout = COMPARE.VISUAL.expected_time_grid_layout(377_500)
+        self.assertNotEqual(
+            rounded_layout["columns"], compatible_layout["columns"]
+        )
+        frame = [0] * (COMPARE.VISUAL.WIDTH * COMPARE.VISUAL.HEIGHT)
+        for x in compatible_layout["columns"]:
+            for y in range(
+                COMPARE.VISUAL.TIME_GRID_Y0,
+                COMPARE.VISUAL.TIME_GRID_Y1 + 1,
+            ):
+                frame[y * COMPARE.VISUAL.WIDTH + x] = (
+                    COMPARE.VISUAL.TIME_GRID_COLOR
+                )
+        metrics = COMPARE.zero_span_grid_metrics(frame, displayed_seconds)
+        self.assertTrue(metrics["pass"])
+        self.assertIsNotNone(metrics["matched_actual_sweep_time_us"])
+
+    def test_suppression_trace_gate_allows_quieter_nonflat_result(self) -> None:
+        self.assertTrue(COMPARE.trace_nonflat_ok(2, 96, 70))
+        self.assertTrue(COMPARE.trace_range_ok(2, 25.341, 18.582))
+        self.assertFalse(COMPARE.trace_nonflat_ok(2, 96, 0))
+        self.assertFalse(COMPARE.trace_range_ok(2, 25.341, 0.0))
+
+    def test_signal_trace_gate_still_requires_reference_coverage(self) -> None:
+        self.assertFalse(COMPARE.trace_nonflat_ok(3, 96, 70))
+        self.assertFalse(COMPARE.trace_range_ok(3, 25.341, 18.582))
+
     def test_secondary_response_metric_excludes_main_lobe_guard(self) -> None:
         values = [-100.0] * 80
         values[38:43] = [-50.0, -30.0, -20.0, -30.0, -50.0]

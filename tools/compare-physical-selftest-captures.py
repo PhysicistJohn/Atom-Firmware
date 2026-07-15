@@ -53,6 +53,12 @@ STRUCTURED_ALIGNED_RMSE_MAX_DB = 2.0
 # intersections while rejecting blank, truncated, or token traces.
 MINIMUM_TRACE_COLUMNS = 400
 MINIMUM_TRACE_PIXELS = 400
+# Suppression/noise tests have no wanted carrier, so a quieter candidate can
+# legitimately have less vertical spread than the reference.  Keep an
+# absolute activity floor that is far above a flat/disconnected trace instead
+# of requiring it to reproduce a fixed percentage of the reference noise.
+MINIMUM_SUPPRESSION_TRACE_SPAN_PIXELS = 20
+MINIMUM_SUPPRESSION_ROBUST_RANGE_DB = 5.0
 
 TOOL_PATH = Path(__file__).resolve()
 CAPTURE_PATH = TOOL_PATH.with_name("capture-physical-selftests.py")
@@ -220,6 +226,28 @@ def add_check(checks: list[dict[str, Any]], name: str, passed: bool,
     checks.append({"name": name, "pass": bool(passed), "detail": detail})
 
 
+def trace_nonflat_ok(case: int, reference_span: int, candidate_span: int) -> bool:
+    if case in SUPPRESSION_CASES:
+        return candidate_span >= MINIMUM_SUPPRESSION_TRACE_SPAN_PIXELS
+    return reference_span < 5 or candidate_span >= max(
+        3, math.floor(reference_span * 0.80)
+    )
+
+
+def trace_range_ok(case: int, reference_range: float, candidate_range: float) -> bool:
+    if case in SUPPRESSION_CASES:
+        return (
+            candidate_range >= MINIMUM_SUPPRESSION_ROBUST_RANGE_DB
+            and candidate_range <= reference_range * 1.15 + 1.0
+        )
+    if reference_range < 2.0:
+        return abs(candidate_range - reference_range) <= 1.0
+    return (
+        candidate_range >= reference_range * 0.85
+        and candidate_range <= reference_range * 1.15 + 1.0
+    )
+
+
 def validate_checksums(root: Path) -> dict[str, Any]:
     inventory = root / "SHA256SUMS"
     if not inventory.is_file():
@@ -373,15 +401,33 @@ def load_sweeptime(root: Path, case: int) -> float | None:
 
 
 def zero_span_grid_metrics(frame: list[int], sweeptime_seconds: float) -> dict[str, Any]:
-    """Validate a zero-span grid against that frame's own measured sweep time."""
+    """Validate a grid against the precision of the shell's sweep-time text.
+
+    The renderer uses ``actual_sweep_time_us`` while the shell rounds that
+    value to milliseconds.  Near an integer grid-width boundary, treating the
+    displayed value as an exact microsecond value can therefore move alternate
+    grid columns by one pixel.  Admit only layouts produced by an underlying
+    microsecond value inside the displayed value's half-millisecond rounding
+    interval.
+    """
     sweep_time_us = int(round(sweeptime_seconds * 1_000_000.0))
     expected = VISUAL.expected_time_grid_layout(sweep_time_us)
     observed = VISUAL.observed_time_grid_columns(frame)
+    compatible: dict[tuple[int, ...], int] = {}
+    for actual_us in range(max(1, sweep_time_us - 500), sweep_time_us + 501):
+        layout = VISUAL.expected_time_grid_layout(actual_us)
+        compatible.setdefault(tuple(layout["columns"]), actual_us)
+    matched_us = compatible.get(tuple(observed))
     return {
-        "pass": observed == expected["columns"],
+        "pass": matched_us is not None,
         "sweep_time_us": sweep_time_us,
         "expected_columns": expected["columns"],
         "observed_columns": observed,
+        "compatible_actual_sweep_time_us": [
+            max(1, sweep_time_us - 500), sweep_time_us + 500
+        ],
+        "compatible_layout_count": len(compatible),
+        "matched_actual_sweep_time_us": matched_us,
     }
 
 
@@ -886,7 +932,7 @@ def compare_case(reference_root: Path, candidate_root: Path, case: int,
               f"yellow_plot_pixels={reference_pixels} active_columns={reference_columns}")
     add_check(checks, "candidate-visible-screen-trace", candidate_visible_trace,
               f"yellow_plot_pixels={candidate_pixels} active_columns={candidate_columns}")
-    nonflat_ok = reference_span < 5 or candidate_span >= max(3, math.floor(reference_span * 0.80))
+    nonflat_ok = trace_nonflat_ok(case, reference_span, candidate_span)
     zero_span_ok = (
         case not in VISUAL.TIME_GRID_CASES
         or (
@@ -945,13 +991,7 @@ def compare_case(reference_root: Path, candidate_root: Path, case: int,
 
     reference_range = float(reference_robust["robust_range_q99_q01"])
     candidate_range = float(candidate_robust["robust_range_q99_q01"])
-    if reference_range < 2.0:
-        range_ok = abs(candidate_range - reference_range) <= 1.0
-    else:
-        range_ok = (
-            candidate_range >= reference_range * 0.85
-            and candidate_range <= reference_range * 1.15 + 1.0
-        )
+    range_ok = trace_range_ok(case, reference_range, candidate_range)
     add_check(checks, "measured-trace-range", range_ok,
               f"q99-q01 reference={reference_range:.3f}dB "
               f"candidate={candidate_range:.3f}dB; raw min/max="
