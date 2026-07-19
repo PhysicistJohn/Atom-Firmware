@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const source = fileURLToPath(import.meta.url);
 const firmwareRoot = resolve(dirname(source), '..');
 const twinRoot = resolve(
-  process.env.TINYSA_TWIN_ROOT ?? resolve(firmwareRoot, '../TinySA_Twin'),
+  process.env.TINYSA_TWIN_ROOT ?? resolve(firmwareRoot, '../Atom-TinySA-Twin'),
 );
 const target = resolve(twinRoot, 'tools/atomizer-twin-bridge.mjs');
 
