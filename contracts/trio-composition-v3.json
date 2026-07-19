@@ -6,7 +6,7 @@
   "effectiveDate": "2026-07-14",
   "parties": {
     "atomizer": {
-      "repository": "TinySA",
+      "repository": "Atom-Atomizer",
       "owner": "operator-control-plane",
       "applicationContractVersion": 6,
       "deviceApiVersion": 3,
@@ -20,7 +20,7 @@
       }
     },
     "firmware": {
-      "repository": "TinySA_Firmware",
+      "repository": "Atom-Firmware",
       "owner": "executable-hardware-twin",
       "bridgeContractVersion": 1,
       "bridge": "renode-monitor-v1",
@@ -29,7 +29,7 @@
       "firmwareBinarySha256": "a1dbaa03978a25b2a8b2a0e85f60029a6cc736481732eff68e93362724683dd7"
     },
     "signalLab": {
-      "repository": "TinySA_SignalLab",
+      "repository": "Atom-SignalLab",
       "owner": "stimulus-authoring",
       "stimulusContractVersion": 1,
       "closedProfileCount": 79,
@@ -38,7 +38,7 @@
   },
   "externalUtilities": {
     "flasher": {
-      "repository": "TinySA_Flasher",
+      "repository": "Atom-Flasher",
       "owner": "firmware-update-control-plane",
       "runtimeParty": false,
       "applicationContract": "contracts/flasher-application-v1.json",
@@ -123,9 +123,9 @@
     "Only Atomizer owns runtime analyzer and generator intent, OpenAI credentials, agent policy, approvals, and instrument orchestration.",
     "Only Firmware owns executable-twin state and the future SignalLab stimulus sink.",
     "Only SignalLab owns waveform descriptors, deterministic channel configuration, and stimulus intent.",
-    "TinySA_Flasher is outside the runtime trio and exclusively owns release artifacts, download verification, physical preflight, DFU admission, firmware writes, durable update journals, and post-write verification.",
-    "Atomizer exposes no firmware artifact, update, DFU, journal, or flash API and does not import or launch TinySA_Flasher.",
-    "The runtime trio and TinySA_Flasher have no circular source, build, package, process, or state dependency.",
+    "Atom-Flasher is outside the runtime trio and exclusively owns release artifacts, download verification, physical preflight, DFU admission, firmware writes, durable update journals, and post-write verification.",
+    "Atomizer exposes no firmware artifact, update, DFU, journal, or flash API and does not import or launch Atom-Flasher.",
+    "The runtime trio and Atom-Flasher have no circular source, build, package, process, or state dependency.",
     "RF output enable and general firmware-screen touch remain action-time approval boundaries for Atom.",
     "Every Atom UI hook resolves to exactly one typed tool contract, risk class, evidence projection, executor, and guarantee.",
     "A sweep is admitted to application reducers only when its requested analyzer configuration equals the latest staged revision.",
@@ -140,7 +140,7 @@
     "Continuous acquisition terminates on explicit stop, disconnect, or first operation failure.",
     "Twin boot and every bridge request are bounded by declared timeouts.",
     "Realtime session configuration must be acknowledged and recursively match every sent setting before operation proceeds.",
-    "TinySA_Flasher availability or update state cannot block Atomizer, Firmware, or SignalLab startup or operation."
+    "Atom-Flasher availability or update state cannot block Atomizer, Firmware, or SignalLab startup or operation."
   ],
   "failureAlgebra": {
     "invalidInput": "reject-before-state-change",
@@ -157,7 +157,7 @@
   "compatibility": {
     "rule": "A producer guarantee must imply every consumer assumption on the same active runtime edge.",
     "runtimeVersioning": "Any weakened guarantee, stronger assumption, changed runtime owner, changed evidence label, or newly active runtime edge requires a new trio contract version and coordinated commits in all three runtime repositories.",
-    "externalUtilityVersioning": "TinySA_Flasher versions its own application and device contracts independently; changing its release or write policy does not change this runtime composition unless the ownership boundary changes.",
-    "verification": "Release gating requires byte-identical v3 copies in the three runtime repositories, repository-local runtime/build/boundary tests, and independent validation of the referenced TinySA_Flasher application contract."
+    "externalUtilityVersioning": "Atom-Flasher versions its own application and device contracts independently; changing its release or write policy does not change this runtime composition unless the ownership boundary changes.",
+    "verification": "Release gating requires byte-identical v3 copies in the three runtime repositories, repository-local runtime/build/boundary tests, and independent validation of the referenced Atom-Flasher application contract."
   }
 }

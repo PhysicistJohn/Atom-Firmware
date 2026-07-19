@@ -381,8 +381,8 @@ include $(RULESPATH)/rules.mk
 
 .PHONY: flash
 flash:
-	@echo "Direct firmware writes are disabled in TinySA_Firmware." >&2
-	@echo "Package the committed Phase 6 image, then import its manifest into ../TinySA_Flasher." >&2
+	@echo "Direct firmware writes are disabled in Atom-Firmware." >&2
+	@echo "Package the committed Phase 6 image, then import its manifest into ../Atom-Flasher." >&2
 	@false
 
 dfu:	build/$(PROJECT).hex

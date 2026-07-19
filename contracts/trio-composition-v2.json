@@ -6,7 +6,7 @@
   "effectiveDate": "2026-07-11",
   "parties": {
     "atomizer": {
-      "repository": "TinySA",
+      "repository": "Atom-Atomizer",
       "owner": "operator-control-plane",
       "applicationContractVersion": 5,
       "deviceApiVersion": 2,
@@ -20,7 +20,7 @@
       }
     },
     "firmware": {
-      "repository": "TinySA_Firmware",
+      "repository": "Atom-Firmware",
       "owner": "executable-hardware-twin",
       "bridgeContractVersion": 1,
       "bridge": "renode-monitor-v1",
@@ -29,7 +29,7 @@
       "firmwareBinarySha256": "a1dbaa03978a25b2a8b2a0e85f60029a6cc736481732eff68e93362724683dd7"
     },
     "signalLab": {
-      "repository": "TinySA_SignalLab",
+      "repository": "Atom-SignalLab",
       "owner": "stimulus-authoring",
       "stimulusContractVersion": 1,
       "closedProfileCount": 79,

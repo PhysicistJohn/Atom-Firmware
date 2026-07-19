@@ -124,9 +124,9 @@ SignalLab stimulus-intent sink remains `reserved-not-connected` here, and no
 source failure authorizes fallback to the twin.
 
 Firmware installation is not an Atomizer capability. Standalone sibling
-`../TinySA_Flasher` owns OEM and manifested custom-firmware artifact admission,
+`../Atom-Flasher` owns OEM and manifested custom-firmware artifact admission,
 CDC/DFU preflight, irreversible writes, durable journals, and post-write
-continuity verification. TinySA_Flasher's active interface catalog v3 retains
+continuity verification. Atom-Flasher's active interface catalog v3 retains
 active application contract v2 (`deviceContractVersion: 2`); interface catalog
 v2 and legacy application contract v1 are frozen. A custom build selected
 through its manifest remains distinct from OEM provenance and does not become
@@ -138,7 +138,7 @@ nor permission to flash.
 NeptuneSDR is a future Atomizer driver and contract-evolution target, not a
 capability supplied by this firmware repository or the current twin.
 
-Run the exact executable ZS407 digital twin from the adjacent `TinySA_Twin`
+Run the exact executable ZS407 digital twin from the adjacent `Atom-TinySA-Twin`
 checkout without hardware (these compatibility commands delegate there):
 
 ```bash
@@ -163,7 +163,7 @@ and recovery gate are complete.
 
 Neither command flashes a device. This firmware checkout intentionally exposes
 no automated physical flash command in its maintained workflow; admit the
-generated manifest through standalone `../TinySA_Flasher` instead. The original
+generated manifest through standalone `../Atom-Flasher` instead. The original
 upstream README below is historical upstream guidance, not this fork's current
 cross-repository safety contract.
 
@@ -240,7 +240,7 @@ Use github issue list only for firmware bugs and preferrably cross post to: http
 ### MacOSX
 
 Install the cross-compilation tools. Firmware installation is handled only by
-standalone TinySA_Flasher and is not a toolchain prerequisite here.
+standalone Atom-Flasher and is not a toolchain prerequisite here.
 
     $ brew tap px4/px4
     $ brew install gcc-arm-none-eabi-80
@@ -282,7 +282,7 @@ Using [this docker image](https://hub.docker.com/r/edy555/arm-embedded) and with
 
 The direct upstream write commands are intentionally disabled in this fork.
 Package a committed custom build with `tools/package-flasher-build.sh`, then
-select the emitted JSON manifest in standalone `../TinySA_Flasher`. The Flasher
+select the emitted JSON manifest in standalone `../Atom-Flasher`. The Flasher
 alone owns device preflight, DFU admission, the physical write, recovery
 journaling, and post-reboot identity verification.
 

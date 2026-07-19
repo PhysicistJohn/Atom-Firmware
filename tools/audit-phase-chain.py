@@ -30,7 +30,7 @@ TAGS = [
     "phase-5-waveform-generator",
     "phase-6-final-integration",
 ]
-ORIGIN = "https://github.com/PhysicistJohn/TinySA_Firmware.git"
+ORIGIN = "https://github.com/PhysicistJohn/Atom-Firmware.git"
 
 
 class AuditError(RuntimeError):
@@ -79,9 +79,9 @@ def github_private_check() -> None:
     require(run(["gh", "api", "user", "--jq", ".login"]) == "PhysicistJohn",
             "GitHub login is not PhysicistJohn")
     repository = json.loads(run([
-        "gh", "api", "repos/PhysicistJohn/TinySA_Firmware"
+        "gh", "api", "repos/PhysicistJohn/Atom-Firmware"
     ]))
-    require(repository.get("full_name") == "PhysicistJohn/TinySA_Firmware",
+    require(repository.get("full_name") == "PhysicistJohn/Atom-Firmware",
             "GitHub repository owner/name mismatch")
     require(repository.get("private") is True,
             "GitHub repository is not private")

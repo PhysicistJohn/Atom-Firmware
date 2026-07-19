@@ -4,7 +4,7 @@
   "title": "TinySA Atomizer executable-twin bridge",
   "constVersion": 1,
   "transport": "newline-delimited JSON over trusted child-process stdio",
-  "owner": "TinySA_Firmware",
+  "owner": "Atom-Firmware",
   "trioContract": "tinysa-trio-composition/1",
   "backend": "renode-executable-twin",
   "methods": [

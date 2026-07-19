@@ -3,8 +3,8 @@ set -euo pipefail
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 . "$ROOT/tools/lib.sh"
-repo=PhysicistJohn/TinySA_Firmware
-origin=https://github.com/PhysicistJohn/TinySA_Firmware.git
+repo=PhysicistJohn/Atom-Firmware
+origin=https://github.com/PhysicistJohn/Atom-Firmware.git
 
 usage() {
   printf 'Usage: %s [--dry-run] v0.2.0\n' "$0"

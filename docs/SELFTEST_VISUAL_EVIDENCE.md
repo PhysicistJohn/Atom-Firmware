@@ -37,7 +37,7 @@ hashes must come from the exact release package being qualified.
 ```sh
 python3 tools/finalize-selftest-visual-evidence.py \
   --mode official-c979 \
-  --twin-root ../TinySA_Twin \
+  --twin-root ../Atom-TinySA-Twin \
   --reference-capture PATH/official-c979/reference \
   --candidate-capture PATH/fresh-rc5/candidate \
   --reference-bin .artifacts/upstream/v1.4-224-gc979386/tinySA4_v1.4-224-gc979386.bin \
@@ -64,7 +64,7 @@ reviewed `mathematically-better-time-grid` result under `comparison/`.
 ## Lab baseline
 
 Use the same command with `--mode lab`, the pinned lab BIN/ELF, and
-`../TinySA_Twin/digital-twin/renode/symbols/v0.2.0-protocol-v2.symbols`. The
+`../Atom-TinySA-Twin/digital-twin/renode/symbols/v0.2.0-protocol-v2.symbols`. The
 output normally becomes `EVIDENCE/selftest-visual`. The historical comparator is still
 retained in the compatibility-named `comparison-original-rejected/` directory;
 for the direct lab baseline that older classifier may itself pass.

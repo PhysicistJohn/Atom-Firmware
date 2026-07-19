@@ -50,7 +50,7 @@ Every phase must satisfy all applicable gates before the next branch is made:
 - experimental RF/output behavior is off by default unless its phase explicitly
   owns a no-flash research image;
 - the phase tip and annotated image tag are pushed only to the private
-  `PhysicistJohn/TinySA_Firmware` origin.
+  `PhysicistJohn/Atom-Firmware` origin.
 
 Build success establishes compile/link and reproducibility confidence. It does
 not establish RF accuracy, safe generator spectra or flash qualification.

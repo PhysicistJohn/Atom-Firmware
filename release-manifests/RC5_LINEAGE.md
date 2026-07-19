@@ -17,7 +17,7 @@ thin and therefore requires that public base object.
 Verify the tracked bundle before importing it:
 
 ```sh
-cd /path/to/TinySA_Firmware
+cd /path/to/Atom-Firmware
 shasum -a 256 -c release-manifests/tinysa-chibios-21.11.5-rc5.bundle.sha256
 git -C ChibiOS fetch --tags https://github.com/ChibiOS/ChibiOS.git ver21.11.5
 git -C ChibiOS bundle verify "$PWD/release-manifests/tinysa-chibios-21.11.5-rc5.bundle"

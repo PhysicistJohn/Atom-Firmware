@@ -118,7 +118,7 @@ def parse_args() -> argparse.Namespace:
         "--twin-root",
         type=Path,
         required=True,
-        help="TinySA_Twin checkout containing the commit recorded by each capture",
+        help="Atom-TinySA-Twin checkout containing the commit recorded by each capture",
     )
     parser.add_argument("--reference-capture", type=Path, required=True)
     parser.add_argument("--candidate-capture", type=Path, required=True)

@@ -6,7 +6,7 @@ enhanced v0.3 FFT1024 image was restored and passed its final self-test.
 
 This is an archived record of a completed pre-extraction session, not a current
 installation runbook. Any repeat must first package each candidate with the
-strict custom-build manifest and use standalone TinySA_Flasher; raw images in
+strict custom-build manifest and use standalone Atom-Flasher; raw images in
 the old staging directories are not directly admissible.
 
 The completed evidence and hardware-specific findings are recorded in

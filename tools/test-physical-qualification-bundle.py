@@ -968,7 +968,7 @@ class BundleTests(unittest.TestCase):
         self.assertIn("not a self-contained evidence archive", report)
         installation = (output / "INSTALLATION.txt").read_text(encoding="utf-8")
         self.assertIn("not a current installation bundle", installation)
-        self.assertIn("TinySA_Flasher", installation)
+        self.assertIn("Atom-Flasher", installation)
         self.assertIn("tinysa-flasher-build-v1.json", installation)
         self.assertIn("not a raw BIN", installation)
         self.assertIn("grants no write authority", installation)
@@ -976,7 +976,7 @@ class BundleTests(unittest.TestCase):
         self.assertNotIn(" -D ", installation)
         self.assertNotIn(" -U ", installation)
         self.assertIn("Do not use either image on F072", installation)
-        self.assertEqual(manifest["flash_policy"]["owner"], "TinySA_Flasher")
+        self.assertEqual(manifest["flash_policy"]["owner"], "Atom-Flasher")
         self.assertEqual(
             manifest["flash_policy"]["flash_execution"],
             "standalone-tinysa-flasher-only",

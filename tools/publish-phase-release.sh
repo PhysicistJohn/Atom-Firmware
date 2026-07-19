@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-repo=PhysicistJohn/TinySA_Firmware
-origin=https://github.com/PhysicistJohn/TinySA_Firmware.git
+repo=PhysicistJohn/Atom-Firmware
+origin=https://github.com/PhysicistJohn/Atom-Firmware.git
 
 usage() {
   printf 'Usage: %s [--dry-run] PHASE\n' "$0"

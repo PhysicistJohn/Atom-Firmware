@@ -51,7 +51,7 @@ manifest, sections, stack report, benchmark and lock audits.
 
 Use branches such as `physicistjohn/release-v0.2-protocol-marshalling` and tags
 such as `lab-v0.2.0-protocol`. Push only to the private
-`PhysicistJohn/TinySA_Firmware` origin. The upstream remote remains push-disabled.
+`PhysicistJohn/Atom-Firmware` origin. The upstream remote remains push-disabled.
 
 A tag means the source and no-flash image are reproducible. It does not mean
 hardware qualification. Release notes and manifests must say

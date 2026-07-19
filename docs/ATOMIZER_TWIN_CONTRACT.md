@@ -1,12 +1,12 @@
 # Atomizer executable-twin bridge contract
 
-Version: `1`. Owner: `TinySA_Firmware`.
+Version: `1`. Owner: `Atom-Firmware`.
 
 Trio composition: [`contracts/trio-composition-v4.json`](../contracts/trio-composition-v4.json).
 
 Within composition v4, this repository remains the executable-twin
 compatibility owner. Its bridge launchers remain contract version 1 and
-delegate to the adjacent `TinySA_Twin` implementation; moving contractual
+delegate to the adjacent `Atom-TinySA-Twin` implementation; moving contractual
 ownership requires a coordinated new trio-contract version.
 
 The bridge is a trusted child process using newline-delimited JSON over stdio. It boots the pinned `lab-v0.2.0-protocol` image in Renode, proves the executable boot signature, and returns only firmware-executed analyzer data, retained LCD bytes, modeled touch evidence, or generator state.

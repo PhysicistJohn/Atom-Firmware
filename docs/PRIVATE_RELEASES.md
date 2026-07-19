@@ -1,7 +1,7 @@
 # Private phase-image release policy
 
 Each cumulative phase has an annotated tag and a private GitHub prerelease in
-`PhysicistJohn/TinySA_Firmware`. A release contains the committed phase's BIN,
+`PhysicistJohn/Atom-Firmware`. A release contains the committed phase's BIN,
 ELF, HEX, manifest, section report and stack report. Phases with output code
 also contain the binary output-lock audit; Phase 6 contains the complete phase
 matrix.
@@ -10,7 +10,7 @@ matrix.
 true:
 
 - authenticated GitHub user is exactly `PhysicistJohn`;
-- repository is exactly `PhysicistJohn/TinySA_Firmware` and reports private;
+- repository is exactly `PhysicistJohn/Atom-Firmware` and reports private;
 - origin fetch/push URL is the exact personal repository URL;
 - upstream push URL is `no_push`;
 - phase tag identifies the exact phase branch tip;

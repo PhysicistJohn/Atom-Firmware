@@ -54,7 +54,7 @@ For Ultra hardware, the official recovery entry is:
 4. expect a black display;
 5. connect USB and enumerate the STM32 DFU device.
 
-Current discovery and admission belong to standalone `../TinySA_Flasher`.
+Current discovery and admission belong to standalone `../Atom-Flasher`.
 Firmware contributors may record the physical recovery gesture and expected
 USB identity here, but must not add a raw DFU/programmer invocation to this
 repository. Let the Flasher perform exact device enumeration and return to the
@@ -106,7 +106,7 @@ larger matrix than display-only changes.
 
 This and the following executed sections are historical evidence. They name
 the tools used at the time; they do not define current update authority. All
-new writes go through standalone TinySA_Flasher and a currently admitted OEM
+new writes go through standalone Atom-Flasher and a currently admitted OEM
 or manifested custom target.
 
 The physical unit enumerated as `0483:5740`, identified as
