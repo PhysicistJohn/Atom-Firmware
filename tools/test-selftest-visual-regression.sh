@@ -15,7 +15,7 @@ usage() {
   printf '  --reference-bin PATH       override the pinned v0.2 reference binary\n' >&2
   printf '  --reference-elf PATH       override the pinned v0.2 reference ELF\n' >&2
   printf '  --reference-symbols PATH   Renode symbol-profile include for the reference\n' >&2
-  printf '  --twin-root PATH           clean TinySA_Twin checkout used for execution\n' >&2
+  printf '  --twin-root PATH           clean Atom-TinySA-Twin checkout used for execution\n' >&2
   printf '  --output PATH              artifact directory (default: .artifacts/digital-twin/selftest-visual)\n' >&2
   exit "$status"
 }

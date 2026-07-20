@@ -1,12 +1,27 @@
 <p align="center"><img src="docs/brand/logo.jpg" alt="AtomOS Firmware" width="520"></p>
 
-PhysicistJohn tinySA Ultra+ ZS407 firmware lab
+AtomOS Firmware
 ==========================================================
 
-This is the personal research fork for PhysicistJohn's **tinySA Ultra+ ZS407**.
-The first goal is to preserve, understand, and reproduce the official firmware.
-The second is to improve it without sacrificing RF behavior, calibration,
-recovery, or protocol compatibility.
+AtomOS Firmware is PhysicistJohn's research fork of the official
+[erikkaashoek/tinySA](https://github.com/erikkaashoek/tinySA) firmware for the
+**tinySA Ultra+ ZS407**. The first goal is to preserve, understand, and
+reproduce the official firmware. The second is to improve it without
+sacrificing RF behavior, calibration, recovery, or protocol compatibility.
+
+On top of the upstream source, this fork adds:
+
+- byte-for-byte reproduction of the official ZS407 release binary on macOS,
+  matching the original Windows ChibiStudio build environment;
+- an LLVM/Clang cross-build experiment for the Cortex-M4 target;
+- a Renode digital-twin workflow that executes real firmware without hardware,
+  through the sibling
+  [Atom-TinySA-Twin](https://github.com/PhysicistJohn/Atom-TinySA-Twin) repo;
+- a portable, host-testable instrument core with generated C, Swift,
+  TypeScript, and JavaScript contract projections (see
+  [modern/README.md](modern/README.md));
+- bug fixes and a ChibiOS 21.11.5 port queued for upstream (see
+  [docs/UPSTREAM.md](docs/UPSTREAM.md) and `upstream-patches/`).
 
 This is not an official tinySA repository, release channel, or support source.
 The official project remains <https://github.com/erikkaashoek/tinySA>.
@@ -81,7 +96,8 @@ and `.artifacts/host-tests/`. Never delete `.artifacts/` wholesale: it also
 contains firmware packages, releases, downloaded toolchains, and irreplaceable
 hardware and qualification evidence.
 
-Package a committed custom ZS407 build for the standalone TinySA Flasher:
+Package a committed custom ZS407 build for the standalone
+[Atom-Flasher](https://github.com/PhysicistJohn/Atom-Flasher):
 
 ```bash
 version="tinySA4_lab-v0.3.0-g$(git rev-parse --short=7 HEAD)"
@@ -94,7 +110,7 @@ requires identical BIN hashes, checks the embedded
 version and ZS407 identity, validates the STM32 vector table and 240 KiB write
 limit, then emits a content-addressed BIN plus
 `tinysa-flasher-build-v1.json` under `.artifacts/flasher-builds/`. In Flasher,
-select that JSON manifest—not the BIN directly. The manifest records exact
+select that JSON manifest, not the BIN directly. The manifest records exact
 source, ChibiOS, toolchain, image-digest, reproducibility, qualification, and
 operator-only flash-policy evidence. It cannot label a build hardware-qualified
 without an explicit immutable qualification-evidence file.
@@ -117,18 +133,20 @@ Atomizer and Flasher integration
 
 The current cross-repository runtime authority is
 [`contracts/trio-composition-v4.json`](contracts/trio-composition-v4.json).
-Atomizer reaches this repository's executable Renode bridge only through its
-`tinysa-zs407` driver, as the explicitly selected `tinysa-firmware-twin` source
-kind. The twin never claims USB identity or modeled USB transactions. SignalLab
-is Atomizer's factory-default high-level measurement driver when no preference
-exists; its active measurement edge bypasses this repository. The separate
-SignalLab stimulus-intent sink remains `reserved-not-connected` here, and no
-source failure authorizes fallback to the twin.
+Atomizer reaches this repository's executable Renode bridge
+only through its `tinysa-zs407` driver, as the explicitly selected
+`tinysa-firmware-twin` source kind. The twin never claims USB identity or
+modeled USB transactions. SignalLab is Atomizer's factory-default high-level
+measurement driver when no preference exists; its active measurement edge
+bypasses this repository. The separate SignalLab stimulus-intent sink remains
+`reserved-not-connected` here, and no source failure authorizes fallback to
+the twin.
 
-Firmware installation is not an Atomizer capability. Standalone sibling
-`../TinySA_Flasher` owns OEM and manifested custom-firmware artifact admission,
+Firmware installation is not an Atomizer capability. The standalone sibling
+[Atom-Flasher](https://github.com/PhysicistJohn/Atom-Flasher) (formerly
+`TinySA_Flasher`) owns OEM and manifested custom-firmware artifact admission,
 CDC/DFU preflight, irreversible writes, durable journals, and post-write
-continuity verification. TinySA_Flasher's active interface catalog v3 retains
+continuity verification. Atom-Flasher's active interface catalog v3 retains
 active application contract v2 (`deviceContractVersion: 2`); interface catalog
 v2 and legacy application contract v1 are frozen. A custom build selected
 through its manifest remains distinct from OEM provenance and does not become
@@ -137,11 +155,13 @@ Atomizer may warning-admit a compatible unknown installed revision as
 `custom-unqualified`, but that operational status is neither exact byte proof
 nor permission to flash.
 
-NeptuneSDR is a future Atomizer driver and contract-evolution target, not a
-capability supplied by this firmware repository or the current twin.
+NeptuneSDR ([Atom-NeptuneSDR-Twin](https://github.com/PhysicistJohn/Atom-NeptuneSDR-Twin))
+is a future Atomizer driver and contract-evolution target, not a capability
+supplied by this firmware repository or the current twin.
 
-Run the exact executable ZS407 digital twin from the adjacent `TinySA_Twin`
-checkout without hardware (these compatibility commands delegate there):
+Run the exact executable ZS407 digital twin from the adjacent
+[Atom-TinySA-Twin](https://github.com/PhysicistJohn/Atom-TinySA-Twin) checkout
+without hardware (these compatibility commands delegate there):
 
 ```bash
 tools/test-digital-twin.sh --smoke
@@ -151,7 +171,8 @@ tools/test-digital-twin.sh --full
 The twin verifies and executes the immutable private v0.2.0 BIN, renders its
 real 480×320 framebuffer, accepts jog/touch input, initializes SD and RF parts,
 and sweeps deterministic RF tones. It never flashes or transmits. Set
-`TINYSA_TWIN_ROOT` when the Twin is not the default sibling checkout.
+`TINYSA_TWIN_ROOT` when the twin is not the default `../Atom-TinySA-Twin`
+sibling checkout.
 
 For the first non-flashing LLVM/GNU hybrid experiment:
 
@@ -163,11 +184,11 @@ The hybrid image is a compiler feasibility result only and is explicitly
 **not hardware-qualified**. It must not be flashed before the physical baseline
 and recovery gate are complete.
 
-Neither command flashes a device. This firmware checkout intentionally exposes
-no automated physical flash command in its maintained workflow; admit the
-generated manifest through standalone `../TinySA_Flasher` instead. The original
-upstream README below is historical upstream guidance, not this fork's current
-cross-repository safety contract.
+None of these commands flashes a device. This firmware checkout intentionally
+exposes no automated physical flash command in its maintained workflow; admit
+the generated manifest through the standalone Atom-Flasher instead. The
+original upstream README below is historical upstream guidance, not this
+fork's current cross-repository safety contract.
 
 Read first
 ----------
@@ -186,6 +207,7 @@ Read first
 - [Private phase-image release policy](docs/PRIVATE_RELEASES.md)
 - [Portable firmware/Mac core and generated contracts](modern/README.md)
 - [Exact ZS407 executable digital twin](docs/DIGITAL_TWIN.md)
+- [Atomizer twin contract](docs/ATOMIZER_TWIN_CONTRACT.md)
 - [ChibiOS 21.11.5 port and qualification boundary](docs/CHIBIOS_21_11_5_PORT.md)
 - [Atomic 480×320 embedded UI](docs/EMBEDDED_UI.md)
 - [LLVM hybrid build experiment](experiments/llvm/README.md)
@@ -204,6 +226,37 @@ first firmware change, record the shipped firmware and hardware versions, run
 and save the stock self-test results, preserve configuration/calibration data,
 and prove DFU detection and recovery. The official project also recommends a
 self-test before every update.
+
+Part of the AtomOS suite
+------------------------
+
+This repository is one of eight in the AtomOS suite, all under
+[github.com/PhysicistJohn](https://github.com/PhysicistJohn):
+
+- [Atom-Atomizer](https://github.com/PhysicistJohn/Atom-Atomizer): AI-native
+  spectrum analyzer application
+- [Atom-Classifier](https://github.com/PhysicistJohn/Atom-Classifier): Bayesian
+  RF waveform classification
+- [Atom-Firmware](https://github.com/PhysicistJohn/Atom-Firmware): this
+  repository
+- [Atom-Flasher](https://github.com/PhysicistJohn/Atom-Flasher): fail-closed
+  firmware flasher
+- [Atom-NeptuneSDR-Twin](https://github.com/PhysicistJohn/Atom-NeptuneSDR-Twin):
+  Renode digital twin of an SDR
+- [Atom-SignalLab](https://github.com/PhysicistJohn/Atom-SignalLab): 3GPP and
+  reference signal generation
+- [Atom-TinySA-Twin](https://github.com/PhysicistJohn/Atom-TinySA-Twin): Renode
+  digital twin that boots real ZS407 firmware
+- [Atom-Website](https://github.com/PhysicistJohn/Atom-Website): product site
+
+License
+-------
+
+This fork inherits the upstream tinySA licensing. The upstream repository
+ships no top-level LICENSE file; its source files carry GNU General Public
+License version 3 (or later) headers, and this fork keeps those headers and
+terms unchanged. tinySA is a trademark of its respective owner; see the
+upstream note below.
 
 Original upstream README
 ------------------------
@@ -242,7 +295,7 @@ Use github issue list only for firmware bugs and preferrably cross post to: http
 ### MacOSX
 
 Install the cross-compilation tools. Firmware installation is handled only by
-standalone TinySA_Flasher and is not a toolchain prerequisite here.
+the standalone Atom-Flasher and is not a toolchain prerequisite here.
 
     $ brew tap px4/px4
     $ brew install gcc-arm-none-eabi-80
@@ -284,7 +337,8 @@ Using [this docker image](https://hub.docker.com/r/edy555/arm-embedded) and with
 
 The direct upstream write commands are intentionally disabled in this fork.
 Package a committed custom build with `tools/package-flasher-build.sh`, then
-select the emitted JSON manifest in standalone `../TinySA_Flasher`. The Flasher
+select the emitted JSON manifest in the standalone
+[Atom-Flasher](https://github.com/PhysicistJohn/Atom-Flasher). The Flasher
 alone owns device preflight, DFU admission, the physical write, recovery
 journaling, and post-reboot identity verification.
 

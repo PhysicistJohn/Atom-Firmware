@@ -13,7 +13,7 @@ resolve_external_twin_root() {
   external_root=$(resolve_twin_root "$1")
   owner_root=$(CDPATH= cd -- "$2" && pwd)
   [ "$external_root" != "$owner_root" ] || \
-    die 'TINYSA_TWIN_ROOT resolves a compatibility launcher back to TinySA_Firmware'
+    die 'TINYSA_TWIN_ROOT resolves a compatibility launcher back to Atom-Firmware'
   printf '%s\n' "$external_root"
 }
 
