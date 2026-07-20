@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/brand/logo.jpg" alt="AtomOS Firmware" width="520"></p>
+
 PhysicistJohn tinySA Ultra+ ZS407 firmware lab
 ==========================================================
 
