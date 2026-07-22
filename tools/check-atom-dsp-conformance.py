@@ -18,6 +18,9 @@ def main():
     runner_path = Path(sys.argv[2])
     if not vector_path.is_file():
         fail("missing vector file: %s" % vector_path)
+    if not runner_path.is_file():
+        fail("missing runner: %s" % runner_path)
+    runner_path = runner_path.resolve()
 
     document = json.loads(vector_path.read_text(encoding="utf-8"))
     if document.get("schemaVersion") != "dsp-conformance-v1":
