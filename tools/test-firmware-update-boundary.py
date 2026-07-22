@@ -27,7 +27,7 @@ class FirmwareUpdateBoundaryTests(unittest.TestCase):
             ["make", "flash"], cwd=ROOT, text=True, capture_output=True, check=False
         )
         self.assertNotEqual(completed.returncode, 0)
-        self.assertIn("TinySA_Flasher", completed.stderr)
+        self.assertIn("Atom-Flasher", completed.stderr)
 
         program = (ROOT / "prog.sh").read_text(encoding="utf-8")
         self.assertNotIn("dfu-util", program)
@@ -35,7 +35,7 @@ class FirmwareUpdateBoundaryTests(unittest.TestCase):
             [str(ROOT / "prog.sh")], cwd=ROOT, text=True, capture_output=True, check=False
         )
         self.assertEqual(completed.returncode, 2)
-        self.assertIn("TinySA_Flasher", completed.stderr)
+        self.assertIn("Atom-Flasher", completed.stderr)
 
         retired = ROOT / "tools" / "flash-physical-dfu-evidence.py"
         with tempfile.TemporaryDirectory() as temporary:
@@ -48,7 +48,7 @@ class FirmwareUpdateBoundaryTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(completed.returncode, 2)
-            self.assertIn("TinySA_Flasher", completed.stderr)
+            self.assertIn("Atom-Flasher", completed.stderr)
             self.assertFalse(output.exists())
 
         retired_source = retired.read_text(encoding="utf-8")
@@ -114,8 +114,8 @@ class FirmwareUpdateBoundaryTests(unittest.TestCase):
         )[0]
         for forbidden in ("dfu-util -", " -D ", " -U ", "FLASHING.txt"):
             self.assertNotIn(forbidden, installation_renderer)
-        self.assertIn("TinySA_Flasher", installation_renderer)
-        self.assertIn('"flash_execution": "standalone-tinysa-flasher-only"', packager)
+        self.assertIn("Atom-Flasher", installation_renderer)
+        self.assertIn('"flash_execution": "standalone-atom-flasher-only"', packager)
         self.assertIn('"candidate_currently_admissible": False', packager)
 
     def test_packaging_profile_is_fixed_and_environment_is_sanitized(self) -> None:

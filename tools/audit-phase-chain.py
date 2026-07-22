@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit phase ancestry, tags, manifests, artifacts and private origin."""
+"""Audit the historical phase archive against its retired private origin."""
 
 from __future__ import annotations
 

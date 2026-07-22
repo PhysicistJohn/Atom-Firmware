@@ -1,12 +1,19 @@
-# Private phase-image release policy
+# Historical private phase-image release policy
 
-Each cumulative phase has an annotated tag and a private GitHub prerelease in
-`PhysicistJohn/TinySA_Firmware`. A release contains the committed phase's BIN,
+This policy describes the immutable Phase 0–6 archive created before the
+repository became `PhysicistJohn/Atom-Firmware`. Its repository names,
+visibility checks, tags, and release scripts are preserved as provenance and
+are not the current publishing workflow. New custom builds use the v2 manifest
+and are handed to Atom-Flasher as documented in
+[`FIRMWARE_INSTALLATION_BOUNDARY.md`](FIRMWARE_INSTALLATION_BOUNDARY.md).
+
+Each archived cumulative phase has an annotated tag and a private GitHub
+prerelease in `PhysicistJohn/TinySA_Firmware`. A release contains the committed phase's BIN,
 ELF, HEX, manifest, section report and stack report. Phases with output code
 also contain the binary output-lock audit; Phase 6 contains the complete phase
 matrix.
 
-`tools/publish-phase-release.sh N` refuses to publish unless all of these are
+The frozen `tools/publish-phase-release.sh N` script refuses to publish unless all of these are
 true:
 
 - authenticated GitHub user is exactly `PhysicistJohn`;

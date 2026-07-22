@@ -32,11 +32,18 @@ class FlasherBuildManifestTests(unittest.TestCase):
     def test_writes_one_strict_content_addressed_package(self) -> None:
         completed = self.run_writer()
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        manifest_path = next(self.output.rglob("tinysa-flasher-build-v1.json"))
+        manifest_path = next(self.output.rglob("tinysa-flasher-build-v2.json"))
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        schema = json.loads((
+            ROOT / "contracts" / "tinysa-firmware-build-manifest-v2.schema.json"
+        ).read_text(encoding="utf-8"))
         digest = hashlib.sha256(self.binary.read_bytes()).hexdigest()
+        self.assertEqual(schema["$id"], manifest["$schema"])
+        self.assertEqual(schema["properties"]["$schema"]["const"], manifest["$schema"])
         self.assertEqual(manifest["artifact"]["sha256"], digest)
         self.assertEqual(manifest["firmware"]["sourceCommit"], COMMIT)
+        self.assertEqual(manifest["manifestVersion"], 2)
+        self.assertEqual(manifest["firmware"]["sourceRepository"], "PhysicistJohn/Atom-Firmware")
         self.assertEqual(manifest["artifact"]["initialStackPointer"], "0x2000a000")
         self.assertFalse(manifest["flashPolicy"]["automatedFlash"])
         self.assertEqual((manifest_path.parent / manifest["artifact"]["filename"]).read_bytes(), self.binary.read_bytes())
@@ -65,7 +72,7 @@ class FlasherBuildManifestTests(unittest.TestCase):
 
     def test_rejects_create_once_collision(self) -> None:
         self.assertEqual(self.run_writer().returncode, 0)
-        manifest_path = next(self.output.rglob("tinysa-flasher-build-v1.json"))
+        manifest_path = next(self.output.rglob("tinysa-flasher-build-v2.json"))
         manifest_path.write_text("conflict", encoding="utf-8")
         self.assertNotEqual(self.run_writer().returncode, 0)
         self.assertEqual(manifest_path.read_text(encoding="utf-8"), "conflict")

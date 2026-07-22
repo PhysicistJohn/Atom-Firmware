@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Validate and package one reproducible ZS407 BIN for TinySA Flasher.
+"""Validate and package one reproducible ZS407 BIN for AtomOS Flasher.
 
 This helper never builds or flashes. The shell wrapper proves two clean builds
-match, then invokes this tool to create a content-addressed BIN plus strict v1
+match, then invokes this tool to create a content-addressed BIN plus strict v2
 manifest using create-once writes.
 """
 
@@ -20,7 +20,7 @@ from pathlib import Path
 MAXIMUM_WRITE_BYTES = 245_760
 MINIMUM_FIRMWARE_BYTES = 8_192
 LOAD_ADDRESS = 0x0800_0000
-SCHEMA_ID = "https://physicistjohn.github.io/tinysa-flasher/contracts/schemas/tinysa-firmware-build-manifest-v1.schema.json"
+SCHEMA_ID = "https://physicistjohn.github.io/atom-flasher/contracts/schemas/tinysa-firmware-build-manifest-v2.schema.json"
 RESERVED_OEM_REVISIONS = {"c5dd31f", "c979386"}
 VERSION_PATTERN = re.compile(r"^tinySA4_[A-Za-z0-9.+_-]{1,96}-g([a-f0-9]{7,40})$")
 HEX_40_PATTERN = re.compile(r"^[a-f0-9]{40}$")
@@ -75,7 +75,7 @@ def main() -> int:
         qualification_digest = hashlib.sha256(qualification).hexdigest()
     manifest = {
         "$schema": SCHEMA_ID,
-        "manifestVersion": 1,
+        "manifestVersion": 2,
         "artifact": {
             "filename": f"{arguments.version}.bin",
             "format": "raw-stm32-binary",
@@ -92,7 +92,7 @@ def main() -> int:
             "mcu": "STM32F303",
             "version": arguments.version,
             "reportedRevision": revision,
-            "sourceRepository": "PhysicistJohn/TinySA_Firmware",
+            "sourceRepository": "PhysicistJohn/Atom-Firmware",
             "sourceCommit": source_commit,
             "sourceTree": "tracked-clean",
             "chibiosCommit": chibios_commit,
@@ -115,12 +115,12 @@ def main() -> int:
     output_directory = arguments.output_root / source_commit / digest
     output_directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     install_create_once(output_directory / manifest["artifact"]["filename"], binary)
-    install_create_once(output_directory / "tinysa-flasher-build-v1.json", manifest_bytes)
+    install_create_once(output_directory / "tinysa-flasher-build-v2.json", manifest_bytes)
     if arguments.hardware_qualified_evidence:
         evidence_name = f"qualification-{qualification_digest}.evidence"
         install_create_once(output_directory / evidence_name, qualification)
     sync_directory(output_directory)
-    print(f"manifest={output_directory / 'tinysa-flasher-build-v1.json'}")
+    print(f"manifest={output_directory / 'tinysa-flasher-build-v2.json'}")
     print(f"binary={output_directory / manifest['artifact']['filename']}")
     print(f"binary_size={len(binary)}")
     print(f"binary_sha256={digest}")

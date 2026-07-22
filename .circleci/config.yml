@@ -38,6 +38,7 @@ jobs:
             test "$(node --version)" = "v$(cat .node-version)"
             test "$(npm --version)" = "10.9.8"
             npm ci
+            npm run audit
             ZS407_REQUIRE_PROJECTION_TOOLCHAINS=1 tools/check.sh --host --firmware
             tools/package-flasher-build.sh "tinySA4_ci-g$(git rev-parse --short=7 HEAD)"
       - save_cache:

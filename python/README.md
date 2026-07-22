@@ -31,4 +31,5 @@ NanoVNA is able to be controlled via USB serial interface from PC. There are sam
 
 ## Using in Jupyter Notebook
 
-To use NanoVNA from Jupyter notebook, see [this page](/python/NanoVNA-example.ipynb).
+The upstream notebook referenced by older versions of this README is not part
+of this fork. Use `nanovna.py` as the supported sample entry point.

@@ -33,8 +33,8 @@ class RetiredPhysicalDfuWriterTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(completed.returncode, 2)
-            self.assertIn("TinySA_Flasher", completed.stderr)
-            self.assertIn("tinysa-flasher-build-v1.json", completed.stderr)
+            self.assertIn("Atom-Flasher", completed.stderr)
+            self.assertIn("tinysa-flasher-build-v2.json", completed.stderr)
             self.assertFalse(output.exists())
 
     def test_tombstone_has_no_device_or_child_process_capability(self) -> None:

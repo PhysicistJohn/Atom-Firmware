@@ -8,7 +8,7 @@ The only supported handoff is:
 
 1. Commit a clean F303/ZS407 source tree.
 2. Run `tools/package-flasher-build.sh VERSION`.
-3. Select the emitted `tinysa-flasher-build-v1.json` in standalone sibling
+3. Select the emitted `tinysa-flasher-build-v2.json` in standalone sibling
    `../Atom-Flasher`.
 
 The JSON manifest, adjacent content-addressed BIN, and any immutable
@@ -30,3 +30,7 @@ they are not current instructions or authority to repeat a write.
 This boundary also applies to future firmware targets. Supporting another
 device or MCU requires a new reviewed manifest/interface version and matching
 Atom-Flasher admission path; it must not reintroduce a Firmware-side writer.
+
+The v1 schema and its `TinySA_Firmware` source identifier remain available only
+to verify packages created before the repository rename. New packages use v2
+and identify their source as `PhysicistJohn/Atom-Firmware`.

@@ -1455,23 +1455,23 @@ Rollback SHA-256: {EXPECTED_ROLLBACK_SHA256}
 This bundle preserves authenticated historical build and qualification facts.
 It is not a current installation bundle and grants no write authority. Its raw
 candidate predates the strict tinysa-flasher-build-v1.json custom-build
-manifest, so standalone TinySA_Flasher must reject it as a new custom target.
+manifest, so standalone Atom-Flasher must reject it as a new custom target.
 The qualification status above must not be interpreted as current artifact
 admission or as a waiver of the pending physical fault-injection gate.
 
 All new firmware installation is owned exclusively by standalone
-../TinySA_Flasher. For a current custom build:
+../Atom-Flasher. For a current custom build:
 
 1. Build a clean committed F303/ZS407 Phase 6 image with
    tools/package-flasher-build.sh.
-2. In TinySA_Flasher, select the emitted tinysa-flasher-build-v1.json manifest,
+2. In Atom-Flasher, select the emitted tinysa-flasher-build-v2.json manifest,
    not a raw BIN.
-3. Let TinySA_Flasher perform artifact admission, exact device preflight,
+3. Let Atom-Flasher perform artifact admission, exact device preflight,
    native confirmation, the physical write, durable recovery journaling, and
    post-reboot continuity verification.
 
 Do not use the retired Firmware-side physical-writer path or a direct device
-utility. Use TinySA_Flasher's pinned OEM target when restoring the official
+utility. Use Atom-Flasher's pinned OEM target when restoring the official
 {EXPECTED_ROLLBACK_VERSION} release. Repeating the legacy RC5 candidate would
 require a reviewed manifest migration or a new reproducible manifested build;
 this evidence archive intentionally provides neither shortcut.
@@ -1677,11 +1677,11 @@ def create_bundle(
         ],
         "flash_policy": {
             "automated_flash": False,
-            "owner": "TinySA_Flasher",
+            "owner": "Atom-Flasher",
             "bundle_authorization": "archive-only-no-current-write-authority",
             "dfu_entry": "standalone-flasher-guided-operator-confirmed",
-            "flash_execution": "standalone-tinysa-flasher-only",
-            "custom_artifact_admission": "tinysa-flasher-build-v1-manifest-required",
+            "flash_execution": "standalone-atom-flasher-only",
+            "custom_artifact_admission": "tinysa-flasher-build-v2-manifest-required",
             "candidate_currently_admissible": False,
             "requires_known_good_rollback": True,
         },

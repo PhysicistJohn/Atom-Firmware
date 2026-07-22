@@ -1,8 +1,9 @@
 # Cumulative implementation and image plan
 
-Every modernization phase is developed on a local/private branch created from
-the completed tip of the preceding phase. No phase is rebased onto upstream and
-no image is flashed as part of this plan.
+This document records the completed historical Phase 0–6 workflow. Every phase
+was developed on a local/private branch created from the completed tip of the
+preceding phase. No phase was rebased onto upstream and no image was flashed as
+part of this plan.
 
 ## Branch chain
 
@@ -49,7 +50,7 @@ Every phase must satisfy all applicable gates before the next branch is made:
 - the image contains the expected ZS407 and phase build identity;
 - experimental RF/output behavior is off by default unless its phase explicitly
   owns a no-flash research image;
-- the phase tip and annotated image tag are pushed only to the private
+- the phase tip and annotated image tag were pushed only to the historical private
   `PhysicistJohn/TinySA_Firmware` origin.
 
 Build success establishes compile/link and reproducibility confidence. It does

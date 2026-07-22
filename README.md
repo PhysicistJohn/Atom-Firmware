@@ -26,6 +26,10 @@ On top of the upstream source, this fork adds:
 This is not an official tinySA repository, release channel, or support source.
 The official project remains <https://github.com/erikkaashoek/tinySA>.
 
+Device-facing `tinySA*` names and serialized `TinySA_*` v1 identifiers remain
+stable for compatibility and historical provenance. Current repository and v2
+Flasher contracts identify this project as `Atom-Firmware`.
+
 Baseline status
 ---------------
 
@@ -109,7 +113,7 @@ twice from a clean, sanitized environment and the committed tracked tree,
 requires identical BIN hashes, checks the embedded
 version and ZS407 identity, validates the STM32 vector table and 240 KiB write
 limit, then emits a content-addressed BIN plus
-`tinysa-flasher-build-v1.json` under `.artifacts/flasher-builds/`. In Flasher,
+`tinysa-flasher-build-v2.json` under `.artifacts/flasher-builds/`. In Flasher,
 select that JSON manifest, not the BIN directly. The manifest records exact
 source, ChibiOS, toolchain, image-digest, reproducibility, qualification, and
 operator-only flash-policy evidence. It cannot label a build hardware-qualified
@@ -168,7 +172,7 @@ tools/test-digital-twin.sh --smoke
 tools/test-digital-twin.sh --full
 ```
 
-The twin verifies and executes the immutable private v0.2.0 BIN, renders its
+The twin verifies and executes the immutable, publicly pinned v0.2.0 BIN, renders its
 real 480×320 framebuffer, accepts jog/touch input, initializes SD and RF parts,
 and sweeps deterministic RF tones. It never flashes or transmits. Set
 `TINYSA_TWIN_ROOT` when the twin is not the default `../Atom-TinySA-Twin`
@@ -204,7 +208,7 @@ Read first
 - [Waveform and signal-generator architecture](docs/WAVEFORM_GENERATOR.md)
 - [Coherent analyzer and true-RF-AWG hardware v2](docs/HARDWARE_V2.md)
 - [Cumulative phase and image plan](docs/PHASE_IMPLEMENTATION.md)
-- [Private phase-image release policy](docs/PRIVATE_RELEASES.md)
+- [Historical private phase-image release policy](docs/PRIVATE_RELEASES.md)
 - [Portable firmware/Mac core and generated contracts](modern/README.md)
 - [Exact ZS407 executable digital twin](docs/DIGITAL_TWIN.md)
 - [Atomizer twin contract](docs/ATOMIZER_TWIN_CONTRACT.md)
@@ -234,20 +238,20 @@ This repository is one of eight in the AtomOS suite, all under
 [github.com/PhysicistJohn](https://github.com/PhysicistJohn):
 
 - [Atom-Atomizer](https://github.com/PhysicistJohn/Atom-Atomizer): AI-native
-  spectrum analyzer application
-- [Atom-Classifier](https://github.com/PhysicistJohn/Atom-Classifier): Bayesian
-  RF waveform classification
-- [Atom-Firmware](https://github.com/PhysicistJohn/Atom-Firmware): this
-  repository
+  spectrum analyzer application.
+- [Atom-Classifier](https://github.com/PhysicistJohn/Atom-Classifier): deployed
+  local embedding classifier plus retained Bayesian RF research pipeline.
+- [Atom-Firmware](https://github.com/PhysicistJohn/Atom-Firmware): reproducibly
+  built tinySA firmware research and modernization.
 - [Atom-Flasher](https://github.com/PhysicistJohn/Atom-Flasher): fail-closed
-  firmware flasher
+  firmware flasher.
 - [Atom-NeptuneSDR-Twin](https://github.com/PhysicistJohn/Atom-NeptuneSDR-Twin):
-  Renode digital twin of an SDR
+  QEMU-backed firmware-executing digital twin of the NeptuneSDR/HAMGEEK P210.
 - [Atom-SignalLab](https://github.com/PhysicistJohn/Atom-SignalLab): 3GPP and
-  reference signal generation
+  reference signal generation.
 - [Atom-TinySA-Twin](https://github.com/PhysicistJohn/Atom-TinySA-Twin): Renode
-  digital twin that boots real ZS407 firmware
-- [Atom-Website](https://github.com/PhysicistJohn/Atom-Website): product site
+  digital twin booting real ZS407 firmware.
+- [Atom-Website](https://github.com/PhysicistJohn/Atom-Website): product site.
 
 License
 -------
@@ -260,6 +264,10 @@ upstream note below.
 
 Original upstream README
 ------------------------
+
+<details>
+<summary>Historical upstream README (preserved verbatim)</summary>
+
 
 tinySA - tiny Spectrum Analyzer
 ==========================================================
@@ -376,3 +384,5 @@ tinySA is a trademark owned by its respective owner. Unauthorized use the the na
 * [@hugen79](https://github.com/hugen79)
 * [@cho45](https://github.com/cho45)
 * [@DiSlord](https://github.com/DiSlord/)
+
+</details>

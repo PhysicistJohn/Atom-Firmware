@@ -7,7 +7,7 @@ origin=https://github.com/PhysicistJohn/TinySA_Firmware.git
 
 usage() {
   printf 'Usage: %s [--dry-run] PHASE\n' "$0"
-  printf 'Publish an existing phase image as a private GitHub prerelease.\n'
+  printf 'Historical only: publish an archived phase image to the retired private repository.\n'
 }
 
 dry_run=false

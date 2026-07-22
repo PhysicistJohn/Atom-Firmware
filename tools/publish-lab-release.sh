@@ -8,7 +8,7 @@ origin=https://github.com/PhysicistJohn/TinySA_Firmware.git
 
 usage() {
   printf 'Usage: %s [--dry-run] v0.2.0\n' "$0"
-  printf 'Publish the committed no-flash laboratory image as a private prerelease.\n'
+  printf 'Historical only: publish the archived laboratory image to the retired private repository.\n'
 }
 
 dry_run=false

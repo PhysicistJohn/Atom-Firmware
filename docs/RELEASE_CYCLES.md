@@ -1,8 +1,9 @@
 # Post-phase release cycles
 
-The Phase 0–6 chain is immutable. Post-phase work starts at the Phase 6 tag and
-uses sequential private laboratory releases. Each release branch starts from
-the previous release tag, not from a moving default branch.
+The Phase 0–6 chain and the private laboratory releases described below are an
+immutable historical archive. They predate the `Atom-Firmware` repository name
+and v2 Flasher manifest; their old repository names remain exact provenance,
+not current publishing instructions.
 
 ## Current hardware freeze
 
@@ -44,14 +45,16 @@ Keep commits reviewable and bisectable in this order:
 6. captured hardware evidence and only then the activation commit.
 
 Generated files travel in the same commit as their schema/generator. Build
-artifacts do not. The private prerelease attaches reproducible BIN/HEX/ELF,
+artifacts do not. The historical private prerelease attaches reproducible BIN/HEX/ELF,
 manifest, sections, stack report, benchmark and lock audits.
 
 ## Branch and tag policy
 
-Use branches such as `physicistjohn/release-v0.2-protocol-marshalling` and tags
-such as `lab-v0.2.0-protocol`. Push only to the private
-`PhysicistJohn/TinySA_Firmware` origin. The upstream remote remains push-disabled.
+The archived workflow used branches such as
+`physicistjohn/release-v0.2-protocol-marshalling`, tags such as
+`lab-v0.2.0-protocol`, and the private `PhysicistJohn/TinySA_Firmware` origin.
+Do not repoint its release scripts at the current repository; the upstream
+remote remains push-disabled.
 
 A tag means the source and no-flash image are reproducible. It does not mean
 hardware qualification. Release notes and manifests must say

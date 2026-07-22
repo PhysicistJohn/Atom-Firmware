@@ -6,7 +6,7 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
 usage() {
   printf 'Usage: %s VERSION [--simulation-passed] [--hardware-qualified EVIDENCE]\n' "$0"
-  printf 'Build the fixed F303/ZS407 Phase 6 profile twice and emit a no-auto-flash TinySA Flasher manifest.\n'
+  printf 'Build the fixed F303/ZS407 Phase 6 profile twice and emit a no-auto-flash AtomOS Flasher v2 manifest.\n'
 }
 
 [ "$#" -ge 1 ] || { usage >&2; exit 2; }

@@ -143,7 +143,7 @@ profile_hash=$(sha256_file "$profile")
   printf 'hardware_qualified=false\n'
   printf 'simulation_qualification=pending\n'
   printf 'automated_flash=false\n'
-  printf 'installation_owner=TinySA_Flasher\n'
+  printf 'installation_owner=Atom-Flasher\n'
   printf 'installable_by_current_flasher=false\n'
 } > "$artifact_dir/manifest.txt"
 
@@ -154,13 +154,13 @@ Binary: $stem.bin
 SHA-256: $binary_hash
 
 This is reproducible build evidence, not an installation package. It is not
-hardware-qualified until qualification.txt says PASS. TinySA_Firmware owns no
+hardware-qualified until qualification.txt says PASS. Atom-Firmware owns no
 device writer and intentionally emits no raw programming command.
 
 This legacy candidate predates tinysa-flasher-build-v1.json and therefore is
 not admissible as a current custom target. For a new custom build, use
 tools/package-flasher-build.sh from a clean committed tree and select the
-emitted JSON manifest in standalone ../TinySA_Flasher. The Flasher alone owns
+emitted JSON manifest in standalone ../Atom-Flasher. The Flasher alone owns
 artifact admission, device preflight, physical writes, recovery journaling,
 and post-write verification.
 
