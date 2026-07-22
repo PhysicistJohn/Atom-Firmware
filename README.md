@@ -71,10 +71,12 @@ tools/build-zs407.sh
 Development checks
 ------------------
 
-The supported local gate requires Python 3, Node 22.23.1 with npm 10.9.8, and
-the recorded ChibiOS submodule. On macOS, Xcode also supplies the independent
-Clang and Swift projection checks. Install the single lockfile-pinned host
-dependency and run every deterministic check with:
+The supported local gate requires Python 3, Node 22.23.1 with npm 10.9.8, the
+recorded ChibiOS submodule, and a sibling `../Atom-DSP` checkout containing the
+language-neutral conformance vectors. Set `ATOM_DSP_ROOT` if that checkout is
+elsewhere. On macOS, Xcode also supplies the independent Clang and Swift
+projection checks. Install the single lockfile-pinned host dependency and run
+every deterministic check with:
 
 ```bash
 git submodule update --init --recursive
@@ -83,7 +85,8 @@ tools/check.sh
 ```
 
 The first run downloads Arm GNU 11.3.Rel1 and verifies its pinned SHA-256. The
-gate runs ownership/evidence regressions, C11 UBSan and ASan suites,
+gate runs ownership/evidence regressions, exact production-Q15-FFT comparison
+against Atom-DSP's shared vector, C11 UBSan and ASan suites,
 deterministic protocol mutation fuzzing, threaded SPSC stress, generated Swift,
 JavaScript and TypeScript contract checks, two independent Cortex-M4 frontend
 compiles, and clean F072, F303 Phase 6, and F303 Protocol v2 firmware
@@ -234,13 +237,15 @@ self-test before every update.
 Part of the AtomOS suite
 ------------------------
 
-This repository is one of eight in the AtomOS suite, all under
+This repository is one of nine in the AtomOS suite, all under
 [github.com/PhysicistJohn](https://github.com/PhysicistJohn):
 
 - [Atom-Atomizer](https://github.com/PhysicistJohn/Atom-Atomizer): AI-native
   spectrum analyzer application.
 - [Atom-Classifier](https://github.com/PhysicistJohn/Atom-Classifier): deployed
   local embedding classifier plus retained Bayesian RF research pipeline.
+- [Atom-DSP](https://github.com/PhysicistJohn/Atom-DSP): dependency-free
+  numerical kernels and cross-language conformance vectors.
 - [Atom-Firmware](https://github.com/PhysicistJohn/Atom-Firmware): reproducibly
   built tinySA firmware research and modernization.
 - [Atom-Flasher](https://github.com/PhysicistJohn/Atom-Flasher): fail-closed

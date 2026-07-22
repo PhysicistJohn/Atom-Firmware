@@ -1,0 +1,43 @@
+name: CI
+
+"on":
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dsp-conformance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: Atom-Firmware
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          path: Atom-Firmware
+          persist-credentials: false
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: PhysicistJohn/Atom-DSP
+          ref: v0.1.0
+          path: Atom-DSP
+          persist-credentials: false
+      - name: Compile the production Q15 FFT conformance runner
+        run: >-
+          cc -std=c11 -Wall -Wextra -Werror -Wpedantic -Wshadow -Wconversion
+          -fsanitize=undefined -fno-omit-frame-pointer -O2 -I.
+          modern/core/zs407_fft.c tests/host/atom_dsp_q15_runner.c
+          -o atom_dsp_q15_runner
+      - name: Compare against the shared vector
+        run: >-
+          python3 tools/check-atom-dsp-conformance.py
+          ../Atom-DSP/vectors/dsp-conformance-v1.json
+          ./atom_dsp_q15_runner

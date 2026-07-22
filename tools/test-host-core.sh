@@ -10,6 +10,10 @@ command -v "$host_cc" >/dev/null 2>&1 || die "host compiler not found: $host_cc"
 python=${PYTHON:-python3}
 command -v "$python" >/dev/null 2>&1 || die "Python interpreter not found: $python"
 require_projections=${ZS407_REQUIRE_PROJECTION_TOOLCHAINS:-0}
+atom_dsp_root=${ATOM_DSP_ROOT:-"$ROOT/../Atom-DSP"}
+atom_dsp_vectors="$atom_dsp_root/vectors/dsp-conformance-v1.json"
+[ -f "$atom_dsp_vectors" ] || \
+  die 'Atom-DSP vectors are required; set ATOM_DSP_ROOT or use a sibling checkout'
 
 "$ROOT/tools/generate-contracts.py" --check
 "$ROOT/tools/generate-waveform-tables.py" --check
@@ -40,6 +44,16 @@ sanitizer_flags='-fsanitize=undefined -fno-omit-frame-pointer'
   -lm -o "$build_dir/test_core"
 
 "$build_dir/test_core" "$ROOT/tests/fixtures/protocol_v1_capabilities.hex"
+
+# Compare the production fixed-point FFT with the language-neutral suite vector.
+# Only data crosses this boundary; firmware never links the TypeScript library.
+# shellcheck disable=SC2086
+"$host_cc" $common_flags $sanitizer_flags -O2 -I"$ROOT" \
+  "$ROOT/modern/core/zs407_fft.c" \
+  "$ROOT/tests/host/atom_dsp_q15_runner.c" \
+  -o "$build_dir/atom_dsp_q15_runner"
+"$python" "$ROOT/tools/check-atom-dsp-conformance.py" \
+  "$atom_dsp_vectors" "$build_dir/atom_dsp_q15_runner"
 
 # Repeat the numerical suite with the Cortex-M single-precision policy.
 # shellcheck disable=SC2086

@@ -15,6 +15,9 @@ jobs:
     steps:
       - checkout
       - run:
+          name: "Check out the pinned Atom-DSP conformance vectors"
+          command: git clone --branch v0.1.0 --depth 1 https://github.com/PhysicistJohn/Atom-DSP.git ../Atom-DSP
+      - run:
           name: "Initialize the recorded ChibiOS source"
           command: |
             git submodule sync --recursive
