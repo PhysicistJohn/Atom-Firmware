@@ -71,6 +71,17 @@ tools/build-zs407.sh
 Development checks
 ------------------
 
+Start here on a fresh clone. The boundary subset is the smoke test with the
+lowest prerequisites: Python 3 only. No submodule, no Node or npm install, no
+Arm toolchain download, and no sibling checkout.
+
+```bash
+tools/check.sh --boundary
+```
+
+It takes roughly one to three minutes depending on the machine, touches no
+device, and needs no network access.
+
 The supported local gate requires Python 3, Node 22.23.1 with npm 10.9.8, the
 recorded ChibiOS submodule, and a sibling `../Atom-DSP` checkout containing the
 language-neutral conformance vectors. Set `ATOM_DSP_ROOT` if that checkout is

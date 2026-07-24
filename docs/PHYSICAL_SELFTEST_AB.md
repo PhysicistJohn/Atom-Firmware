@@ -31,7 +31,7 @@ the workflow independent of Xcode's bundled Python, use the standalone local
 Python 3.12 interpreter with the cached pyserial site-packages:
 
 ```sh
-export TINYSA_HW_PYTHON=/Users/johnelliott/.local/bin/python3.12
+export TINYSA_HW_PYTHON="$(command -v python3.12)"
 export PYTHONPATH="$PWD/.artifacts/toolchains/tinysa-hardware-venv/lib/python3.12/site-packages"
 "$TINYSA_HW_PYTHON" -c 'import serial; assert serial.VERSION == "3.5"'
 ```
