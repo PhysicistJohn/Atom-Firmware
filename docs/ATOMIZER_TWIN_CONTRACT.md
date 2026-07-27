@@ -2,9 +2,9 @@
 
 Version: `1`. Owner: `TinySA_Firmware`.
 
-Trio composition: [`contracts/trio-composition-v4.json`](../contracts/trio-composition-v4.json).
+Trio composition: [`contracts/trio-composition-v5.json`](../contracts/trio-composition-v5.json).
 
-Within composition v4, this repository remains the executable-twin
+Within composition v5, this repository remains the executable-twin
 compatibility owner. Its bridge launchers remain contract version 1 and
 delegate to the adjacent `TinySA_Twin` implementation; moving contractual
 ownership requires a coordinated new trio-contract version.
@@ -30,11 +30,11 @@ The bridge is a trusted child process using newline-delimited JSON over stdio. I
 
 Renode does not model USB transactions. Therefore the bridge identifies itself as `renode-monitor-v1`, never `usb-cdc-acm`. Only Atomizer's `tinysa-zs407` driver may adapt this domain contract to the internal TinySA service and command scheduler. Its internal transport retains `execution=firmware-digital-twin`; the generic instrument provenance reports `execution=firmware-executed-twin`, omits `usbIdentityVerified`, preserves `usbTransactionsModeled=false`, and retains the bridge evidence label.
 
-SignalLab is now an active high-level measurement producer directly to Atomizer through the separate `signal-lab` driver. That edge does not pass through this repository and does not mutate executable firmware. SignalLab also owns a separately versioned future stimulus intent. A stimulus sink must be added here and composed explicitly; the bridge does not scrape or silently import SignalLab state.
+SignalLab is an active high-level measurement source imported in-process by Atomizer through the separate `signal-lab` driver and measurement contract version 2. That edge has no child process or NDJSON transport, does not pass through this repository, and does not mutate executable firmware. Its complex I/Q is digital sample evidence, not antenna behavior or RF emission. SignalLab also owns a separately versioned future stimulus intent. A stimulus sink must be added here and composed explicitly; the bridge does not scrape or silently import SignalLab state.
 
 ## Assume/guarantee composition
 
-Firmware assumes Atomizer launches one trusted child, sends NDJSON requests with unique bounded IDs and `contractVersion=1`, serializes state-changing operations, and accepts success only after the exact ready declaration.
+For the independent Firmware-twin edge, Firmware assumes Atomizer launches one trusted child, sends NDJSON requests with unique bounded IDs and `contractVersion=1`, serializes state-changing operations, and accepts success only after the exact ready declaration. These are twin-bridge requirements, not SignalLab measurement-transport requirements.
 
 Firmware guarantees one ready/fatal declaration, one response per admitted request, pinned release/source/binary/boot evidence, executable-origin sweep/LCD/touch/generator results, and explicit error envelopes. These guarantees discharge Atomizer’s twin assumptions only when the byte-identical trio manifest also matches.
 
