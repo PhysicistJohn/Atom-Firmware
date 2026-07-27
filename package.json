@@ -12,7 +12,8 @@
   "scripts": {
     "check": "tools/check.sh",
     "audit": "npm audit --audit-level=high",
-    "test:contract": "node tests/host/test_contract.mjs tests/fixtures",
+    "test:contract": "node tests/host/test_contract.mjs tests/fixtures && node tests/host/test_trio_composition.mjs",
+    "test:trio-contract": "node tests/host/test_trio_composition.mjs",
     "typecheck": "tsc --noEmit --strict --target ES2020 --module ES2020 modern/generated/zs407-contract.ts"
   },
   "devDependencies": {

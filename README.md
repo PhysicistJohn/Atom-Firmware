@@ -150,15 +150,17 @@ Atomizer and Flasher integration
 --------------------------------
 
 The current cross-repository runtime authority is
-[`contracts/trio-composition-v4.json`](contracts/trio-composition-v4.json).
+[`contracts/trio-composition-v5.json`](contracts/trio-composition-v5.json).
 Atomizer reaches this repository's executable Renode bridge
 only through its `tinysa-zs407` driver, as the explicitly selected
 `tinysa-firmware-twin` source kind. The twin never claims USB identity or
 modeled USB transactions. SignalLab is Atomizer's factory-default high-level
-measurement driver when no preference exists; its active measurement edge
-bypasses this repository. The separate SignalLab stimulus-intent sink remains
-`reserved-not-connected` here, and no source failure authorizes fallback to
-the twin.
+measurement source when no preference exists. Its active version-2 measurement
+service is a direct in-process TypeScript import in Atomizer, with no child
+process or NDJSON transport, and bypasses this repository. Its complex I/Q is
+a digital sample interface rather than antenna or RF-emission evidence. The
+separate SignalLab stimulus-intent sink remains `reserved-not-connected` here,
+and no source failure authorizes fallback to the twin.
 
 Firmware installation is not an Atomizer capability. The standalone sibling
 [Atom-Flasher](https://github.com/PhysicistJohn/Atom-Flasher) (formerly
