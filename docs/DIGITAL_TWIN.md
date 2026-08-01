@@ -48,7 +48,7 @@ independently after the repository split.
 
 ## Compatibility boundary
 
-The active trio-composition contract is version 5 and is byte-identical in
+The active trio-composition contract is version 7 and is byte-identical in
 Atom-Atomizer, Atom-Firmware, and Atom-SignalLab. Its serialized repository and
 owner fields are versioned compatibility data; changing them requires a
 coordinated new contract version. Atomizer resolves bridge launchers and

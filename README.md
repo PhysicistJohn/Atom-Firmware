@@ -150,7 +150,7 @@ Atomizer and Flasher integration
 --------------------------------
 
 The current cross-repository runtime authority is
-[`contracts/trio-composition-v5.json`](contracts/trio-composition-v5.json).
+[`contracts/trio-composition-v7.json`](contracts/trio-composition-v7.json).
 Atomizer reaches this repository's executable Renode bridge
 only through its `tinysa-zs407` driver, as the explicitly selected
 `tinysa-firmware-twin` source kind. The twin never claims USB identity or

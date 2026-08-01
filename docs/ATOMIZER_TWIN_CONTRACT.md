@@ -2,9 +2,9 @@
 
 Version: `1`. Owner: `TinySA_Firmware`.
 
-Trio composition: [`contracts/trio-composition-v5.json`](../contracts/trio-composition-v5.json).
+Trio composition: [`contracts/trio-composition-v7.json`](../contracts/trio-composition-v7.json).
 
-Within composition v5, this repository remains the executable-twin
+Within composition v7, this repository remains the executable-twin
 compatibility owner. Its bridge launchers remain contract version 1 and
 delegate to the adjacent `TinySA_Twin` implementation; moving contractual
 ownership requires a coordinated new trio-contract version.
@@ -44,7 +44,7 @@ The active SignalLab→Atomizer measurement edge does not activate the reserved 
 
 The twin is one explicit source kind owned by Atomizer's `tinysa-zs407` driver; the physical ZS407 is another. With no owner-only Atomizer preference, the factory default is the independent `signal-lab` driver. Atomizer may connect the twin only after an explicit selection or a persisted `tinysa-zs407`/`tinysa-firmware-twin` preference. Physical absence, SignalLab failure, preferred-source failure, or ambiguity never authorizes automatic twin admission. The twin likewise never falls through to SignalLab, physical USB, or a protocol test double after a ready/hash/boot/request failure.
 
-NeptuneSDR is a future Atomizer driver/contract evolution, not a current Firmware capability. This bridge exposes firmware-executed TinySA operations and does not claim complex I/Q or SDR controls.
+NeptuneSDR P210 is an Atomizer-side receive-only driver, not a Firmware capability. This bridge exposes firmware-executed TinySA operations and does not claim complex I/Q or SDR controls.
 
 ## Safety, liveness, and failure algebra
 

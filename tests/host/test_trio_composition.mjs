@@ -20,21 +20,35 @@ assert.equal(
   "historical trio composition v4 bytes changed",
 );
 
-const activeV5Bytes = contractBytes(5);
+const historicalV5Bytes = contractBytes(5);
 assert.equal(
-  sha256(activeV5Bytes),
+  sha256(historicalV5Bytes),
   "fcf423a217d75dc76a8b3fba89d4e0045d6e852dc507fea8d8d81a6a8e7d4744",
-  "active trio composition v5 bytes changed",
+  "historical trio composition v5 bytes changed",
 );
-const active = JSON.parse(activeV5Bytes.toString("utf8"));
+const historicalV6Bytes = contractBytes(6);
+assert.equal(
+  sha256(historicalV6Bytes),
+  "37421c8bb2a7d3c93804f00da0e4cbb2bd32dab0a4a3b1e915ac27f6e621d596",
+  "historical trio composition v6 bytes changed",
+);
+const activeV7Bytes = contractBytes(7);
+const active = JSON.parse(activeV7Bytes.toString("utf8"));
 assert.equal(active.contractId, "tinysa-trio-composition");
-assert.equal(active.contractVersion, 5);
-assert.equal(active.$id, "https://tinysa.local/contracts/trio-composition-v5.json");
+assert.equal(active.contractVersion, 7);
+assert.equal(active.$id, "https://tinysa.local/contracts/trio-composition-v7.json");
 assert.equal(active.parties.signalLab.standaloneApiVersion, 2);
-assert.equal(active.parties.signalLab.measurementBridgeContractVersion, 2);
-assert.equal(active.parties.signalLab.closedProfileCount, 42);
+assert.equal(active.parties.signalLab.measurementBridgeContractVersion, 3);
+assert.equal(active.parties.signalLab.closedProfileCount, 44);
 assert.equal(active.parties.signalLab.fixedDigitalProfileCount, 31);
 assert.equal(active.parties.signalLab.rateFlexibleProfileCount, 11);
+assert.equal(active.parties.signalLab.unboundedCompositionProfileCount, 2);
+assert.ok(
+  active.parties.atomizer.registeredDrivers.some(
+    ({ driverId }) => driverId === "neptune-p210",
+  ),
+  "active composition must retain the separately owned Neptune driver",
+);
 
 const measurementEdge = active.edges.find(
   ({ producer, consumer }) =>
@@ -47,7 +61,7 @@ assert.equal(measurementEdge.serialization, "none");
 assert.equal(measurementEdge.processBoundary, "none");
 assert.equal(
   measurementEdge.contract,
-  "contracts/signal-lab-measurement-bridge-v2.json",
+  "contracts/signal-lab-measurement-bridge-v3.json",
 );
 assert.ok(
   measurementEdge.guarantees.some((guarantee) =>
@@ -66,17 +80,30 @@ assert.equal(
   "the independent Firmware-twin transport changed",
 );
 
+const neptuneEdge = active.edges.find(
+  ({ producer, consumer }) =>
+    producer === "neptune-p210" && consumer === "atomizer",
+);
+assert.equal(neptuneEdge?.status, "active");
+assert.equal(neptuneEdge?.transport, "libiio-network-through-neptune-p210-driver");
+assert.ok(
+  neptuneEdge?.guarantees.some((guarantee) =>
+    guarantee.includes("capture starts are paced"),
+  ),
+  "active Neptune edge must retain hardware capture protection",
+);
+
 const reservedStimulusEdge = active.edges.find(
   ({ producer, consumer }) =>
     producer === "signalLab" && consumer === "firmware",
 );
 assert.equal(reservedStimulusEdge?.status, "reserved-not-connected");
-assert.match(active.compatibility.verification, /byte-identical v5 copies/);
+assert.match(active.compatibility.verification, /byte-identical v7 copies/);
 assert.match(
   active.compatibility.verification,
-  /unchanged historical v1 and v4 contract hashes/,
+  /unchanged historical v1, v4, v5, and v6 contract hashes/,
 );
 
 console.log(
-  `Trio composition v5 semantics: passed (${sha256(activeV5Bytes)})`,
+  `Trio composition v7 semantics: passed (${sha256(activeV7Bytes)})`,
 );
