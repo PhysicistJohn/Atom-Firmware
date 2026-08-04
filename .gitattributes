@@ -1,1 +1,7 @@
 upstream-patches/**/*.patch -whitespace
+
+# The trio composition manifests are byte-identical evidence shared with
+# Atom-Atomizer and Atom-SignalLab and asserted byte-for-byte by the
+# composition tests on every CI OS. Keep canonical LF serialization on
+# every checkout, including Windows runners.
+/contracts/*.json text eol=lf
